@@ -4,6 +4,8 @@ import { Transport } from './transport.js';
 import { checkPolicies } from './policy.js';
 import { InvarianceError } from './errors.js';
 import type { ActionMap, InputOf, OutputOf } from './templates.js';
+import { InvarianceTracer } from './observability/tracer.js';
+import type { TraceAction, TraceEvent, DecisionPointPayload, GoalDriftPayload, SubAgentSpawnPayload, ToolInvocationPayload, VerificationProof, BehavioralPrimitive } from './observability/types.js';
 
 declare const __SDK_VERSION__: string;
 
@@ -59,6 +61,9 @@ export class Invariance {
   private readonly config: Required<Pick<InvarianceConfig, 'apiKey' | 'apiUrl' | 'policies' | 'flushIntervalMs' | 'maxBatchSize' | 'onError' | 'privateKey'>>;
   private readonly transport: Transport;
 
+  /** The observability tracer instance. Access directly for advanced usage. */
+  readonly tracer: InvarianceTracer;
+
   private constructor(config: InvarianceConfig) {
     this.config = {
       apiKey: config.apiKey,
@@ -77,6 +82,14 @@ export class Invariance {
       this.config.maxBatchSize,
       this.config.onError,
     );
+
+    this.tracer = new InvarianceTracer(this.transport, {
+      mode: config.mode ?? 'PROD',
+      sampleRate: config.sampleRate,
+      anomalyThreshold: config.anomalyThreshold,
+      devOutput: config.devOutput,
+      onAnomaly: config.onAnomaly,
+    });
   }
 
   /**
@@ -216,6 +229,80 @@ export class Invariance {
 
     const receipt = await this.record({ ...action, output });
     return { result, receipt };
+  }
+
+  /**
+   * Trace an agent action with automatic timing, hashing, and sampling.
+   *
+   * @example
+   * ```ts
+   * const { result } = await inv.trace({
+   *   agentId: 'research-agent',
+   *   action: { type: 'ToolInvocation', tool: 'web_search', input: query },
+   *   fn: () => searchTool(query),
+   * })
+   * ```
+   */
+  async trace<T>(params: {
+    agentId: string;
+    action: TraceAction;
+    sessionId?: string;
+    spanId?: string;
+    parentNodeId?: string;
+    metadata?: { depth?: number; tokenCost?: number; toolCalls?: string[] };
+    fn: () => T | Promise<T>;
+  }): Promise<{ result: T; event: TraceEvent }> {
+    const sessionId = params.sessionId ?? 'default';
+    return this.tracer.trace({
+      agentId: params.agentId,
+      sessionId,
+      action: params.action,
+      spanId: params.spanId,
+      parentNodeId: params.parentNodeId,
+      metadata: params.metadata,
+      fn: params.fn,
+    });
+  }
+
+  /**
+   * Emit a behavioral primitive event for the semantic graph.
+   * Fire-and-forget, never blocks agent execution.
+   */
+  emit(type: 'DecisionPoint', data: DecisionPointPayload): void;
+  emit(type: 'GoalDrift', data: GoalDriftPayload): void;
+  emit(type: 'SubAgentSpawn', data: SubAgentSpawnPayload): void;
+  emit(type: 'ToolInvocation', data: ToolInvocationPayload): void;
+  emit(type: BehavioralPrimitive, data: unknown): void {
+    switch (type) {
+      case 'DecisionPoint':
+        this.tracer.emit(type, data as DecisionPointPayload);
+        return;
+      case 'GoalDrift':
+        this.tracer.emit(type, data as GoalDriftPayload);
+        return;
+      case 'SubAgentSpawn':
+        this.tracer.emit(type, data as SubAgentSpawnPayload);
+        return;
+      case 'ToolInvocation':
+        this.tracer.emit(type, data as ToolInvocationPayload);
+        return;
+    }
+  }
+
+  /**
+   * Verify an execution via the hosted verification API.
+   * Returns cryptographic proof of chain integrity.
+   */
+  async verify(executionId: string): Promise<VerificationProof> {
+    return this.tracer.verify(executionId);
+  }
+
+  /**
+   * Query the semantic behavior graph.
+   * Agents can use this to check their own execution history programmatically.
+   */
+  async queryGraph(query: string): Promise<unknown> {
+    return this.transport.queryGraph(query);
   }
 
   /**

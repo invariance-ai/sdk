@@ -19,6 +19,23 @@ export { fetchWithAuth } from './http.js';
 export { InvarianceError } from './errors.js';
 export type { InvarianceErrorCode } from './errors.js';
 
+// Observability
+export { InvarianceTracer } from './observability/index.js';
+export type {
+  TracerConfig,
+  TracerMode,
+  TraceEvent,
+  TraceMetadata,
+  BehavioralPrimitive,
+  DevOutput,
+  DecisionPointPayload,
+  GoalDriftPayload,
+  SubAgentSpawnPayload,
+  ToolInvocationPayload,
+  VerificationProof,
+  TraceAction,
+} from './observability/index.js';
+
 // Types
 export type {
   InvarianceConfig,

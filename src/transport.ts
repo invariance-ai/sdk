@@ -2,6 +2,78 @@ import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler } from './types.j
 import { InvarianceError } from './errors.js';
 import { fetchWithAuth } from './http.js';
 
+const ACTION_TYPE_MAP: Record<string, string> = {
+  DecisionPoint: 'decision_point',
+  ToolInvocation: 'tool_invocation',
+  SubAgentSpawn: 'sub_agent_spawn',
+  GoalDrift: 'goal_drift',
+  decision_point: 'decision_point',
+  tool_invocation: 'tool_invocation',
+  sub_agent_spawn: 'sub_agent_spawn',
+  goal_drift: 'goal_drift',
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toCanonicalActionType(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return ACTION_TYPE_MAP[value] ?? null;
+}
+
+function addAlias(target: Record<string, unknown>, from: string, to: string): void {
+  if (Object.prototype.hasOwnProperty.call(target, from) && !Object.prototype.hasOwnProperty.call(target, to)) {
+    target[to] = target[from];
+  }
+}
+
+function normalizeTraceEventPayload(event: unknown): unknown {
+  if (!isRecord(event)) return event;
+
+  const normalized: Record<string, unknown> = { ...event };
+  addAlias(normalized, 'nodeId', 'node_id');
+  addAlias(normalized, 'sessionId', 'session_id');
+  addAlias(normalized, 'parentNodeId', 'parent_id');
+  addAlias(normalized, 'spanId', 'span_id');
+  addAlias(normalized, 'agentId', 'agent_id');
+  addAlias(normalized, 'durationMs', 'duration_ms');
+  addAlias(normalized, 'previousHash', 'previous_hash');
+  addAlias(normalized, 'anomalyScore', 'anomaly_score');
+
+  const canonical = toCanonicalActionType(normalized.action_type ?? normalized.actionType);
+  if (canonical) {
+    normalized.action_type = canonical;
+  }
+
+  return normalized;
+}
+
+function normalizeBehavioralPayload(payload: unknown): unknown {
+  if (!isRecord(payload)) return payload;
+
+  const normalized: Record<string, unknown> = { ...payload };
+  const canonical = toCanonicalActionType(normalized.type);
+  if (canonical) {
+    normalized.action_type = canonical;
+  }
+
+  if (isRecord(normalized.data)) {
+    const data = { ...normalized.data };
+    addAlias(data, 'nodeId', 'node_id');
+    addAlias(data, 'parentNodeId', 'parent_node_id');
+    addAlias(data, 'childAgentId', 'child_agent_id');
+    addAlias(data, 'originalGoal', 'original_goal');
+    addAlias(data, 'currentGoal', 'current_goal');
+    addAlias(data, 'inputHash', 'input_hash');
+    addAlias(data, 'outputHash', 'output_hash');
+    addAlias(data, 'latencyMs', 'latency_ms');
+    normalized.data = data;
+  }
+
+  return normalized;
+}
+
 /**
  * HTTP transport for the Invariance API.
  * Batches receipts and flushes them periodically or when the batch is full.
@@ -130,6 +202,63 @@ export class Transport {
     if (!res.ok) {
       throw new InvarianceError('API_ERROR', `PATCH /v1/sessions/${encodedSessionId} returned ${res.status}`);
     }
+  }
+
+  /** Submit a trace event to the observability API. */
+  async submitTraceEvent(event: unknown): Promise<void> {
+    const payload = normalizeTraceEventPayload(event);
+    try {
+      const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        this.onError(new InvarianceError('API_ERROR', `POST /v1/trace/events returned ${res.status}`));
+      }
+    } catch (error) {
+      this.onError(error);
+    }
+  }
+
+  /** Submit a behavioral primitive event. */
+  async submitBehavioralEvent(payload: unknown): Promise<void> {
+    const normalizedPayload = normalizeBehavioralPayload(payload);
+    try {
+      const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/behaviors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(normalizedPayload),
+      });
+      if (!res.ok) {
+        this.onError(new InvarianceError('API_ERROR', `POST /v1/trace/behaviors returned ${res.status}`));
+      }
+    } catch (error) {
+      this.onError(error);
+    }
+  }
+
+  /** Verify an execution via the hosted verification API. */
+  async verifyExecution(executionId: string): Promise<unknown> {
+    const encodedId = encodeURIComponent(executionId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/trace/verify/${encodedId}`);
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET /v1/trace/verify/${encodedId} returned ${res.status}`);
+    }
+    return res.json();
+  }
+
+  /** Query the semantic behavior graph. */
+  async queryGraph(query: string): Promise<unknown> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/graph/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `POST /v1/trace/graph/query returned ${res.status}`);
+    }
+    return res.json();
   }
 
   /** Stop the flush timer and send remaining receipts. */
