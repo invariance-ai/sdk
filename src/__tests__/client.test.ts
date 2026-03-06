@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Invariance } from '../client.js';
 import { InvarianceError } from '../errors.js';
+import { action, defineActions } from '../templates.js';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha512';
 
@@ -44,5 +45,43 @@ describe('Invariance', () => {
 
     const denied = inv.check({ agent: 'bot', action: 'swap', input: { amountUsd: 200 } });
     expect(denied.allowed).toBe(false);
+  });
+
+  it('agent() enforces local allow/deny action policy', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const trader = inv.agent({
+      id: 'trader',
+      privateKey: privKeyHex,
+      allowActions: ['finance.balance.read'],
+      denyActions: ['finance.transfer.execute'],
+    });
+
+    const session = trader.session({ name: 'run' });
+    await expect(session.record('finance.balance.read', { accountId: 'acc-1' })).resolves.toBeDefined();
+    await expect(session.record('finance.transfer.execute', { from: 'a', to: 'b', amount: 1 } as any)).rejects.toThrow(InvarianceError);
+    await expect(session.record('finance.unlisted', {} as any)).rejects.toThrow('not allowed');
+  });
+
+  it('agent() supports typed action templates', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const actions = defineActions({
+      'finance.balance.read': action<{ accountId: string }, { balance: number; currency: string }>({
+        label: 'Read Balance',
+        category: 'read',
+        highlights: ['accountId', 'balance', 'currency'],
+      }),
+    });
+
+    const agent = inv.agent({
+      id: 'finance-agent',
+      privateKey: privKeyHex,
+      actions,
+      allowActions: ['finance.balance.read'],
+    });
+
+    const session = agent.session({ name: 'typed' });
+    const receipt = await session.record('finance.balance.read', { accountId: 'acc-1' }, { balance: 100, currency: 'USD' });
+    expect(receipt.action).toBe('finance.balance.read');
+    expect(receipt.agent).toBe('finance-agent');
   });
 });
