@@ -1,6 +1,6 @@
 import { ulid } from 'ulid';
-import type { Action, Receipt, SessionInfo } from './types.js';
-import { createReceipt } from './receipt.js';
+import type { Action, Receipt, SessionInfo, VerifyResult } from './types.js';
+import { createReceipt, verifyChain } from './receipt.js';
 
 /** Callback to enqueue a receipt for flushing */
 export type EnqueueFn = (receipt: Receipt) => void;
@@ -19,9 +19,11 @@ export class Session {
   readonly id: string;
   readonly agent: string;
   readonly name: string;
+  readonly ready: Promise<void>;
   private status: 'open' | 'closed' | 'tampered' = 'open';
   private previousHash = '0';
   private receiptCount = 0;
+  private receipts: Receipt[] = [];
   private readonly privateKey: string;
   private readonly enqueue: EnqueueFn;
   private readonly onCloseSession?: OnCloseSessionFn;
@@ -41,8 +43,9 @@ export class Session {
     this.enqueue = enqueue;
     this.onCloseSession = onCloseSession;
 
-    // Fire-and-forget session creation
-    onCreateSession?.({ id: this.id, name: this.name }).catch(() => {});
+    this.ready = onCreateSession
+      ? onCreateSession({ id: this.id, name: this.name }).catch(() => {})
+      : Promise.resolve();
   }
 
   /**
@@ -81,6 +84,7 @@ export class Session {
     this.previousHash = receipt.hash;
     this.receiptCount++;
     this.enqueue(receipt);
+    this.receipts.push(receipt);
 
     return receipt;
   }
@@ -95,6 +99,14 @@ export class Session {
     this.onCloseSession?.(this.id, status, this.previousHash).catch(() => {});
 
     return this.info();
+  }
+
+  getReceipts(): readonly Receipt[] {
+    return this.receipts.slice();
+  }
+
+  async verify(publicKeyHex?: string): Promise<VerifyResult> {
+    return verifyChain(this.receipts, { publicKeyHex });
   }
 
   /** Get session info snapshot. */

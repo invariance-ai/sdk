@@ -3,11 +3,7 @@ export { Invariance } from './client.js';
 export { Session } from './session.js';
 
 // Receipt utilities
-export { createReceipt, verifyChain, sortedStringify, sha256, ed25519Sign } from './receipt.js';
-
-// Action typing templates
-export { action, defineActions } from './templates.js';
-export type { ActionDefinition, ActionMap, InputOf, OutputOf } from './templates.js';
+export { createReceipt, verifyChain, verifyChainOrThrow, sortedStringify, sha256, ed25519Sign } from './receipt.js';
 
 // Action typing templates
 export { action, defineActions } from './templates.js';
@@ -31,4 +27,5 @@ export type {
   ReceiptQuery,
   ErrorHandler,
   ActionTemplate,
+  VerifyResult,
 } from './types.js';

@@ -1,4 +1,4 @@
-import type { Receipt } from './types.js';
+import type { Receipt, VerifyResult } from './types.js';
 import { InvarianceError } from './errors.js';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha512';
@@ -125,16 +125,40 @@ export async function createReceipt(
 
 /**
  * Verify hash-chain linkage and Ed25519 signatures of an ordered array of receipts.
- * Recomputes each hash, checks previousHash linkage, and optionally verifies signatures.
- *
- * @param receipts - Ordered array of receipts to verify
- * @param publicKeyHex - Optional Ed25519 public key (hex) to verify signatures against.
- *                       If omitted, only hash-chain integrity is verified.
- * @throws InvarianceError with code CHAIN_BROKEN if verification fails
+ * Collects all errors instead of throwing on first failure.
  */
-export async function verifyChain(receipts: Receipt[], publicKeyHex?: string): Promise<boolean> {
+export async function verifyChain(
+  receipts: Receipt[],
+  opts?: { publicKeyHex?: string },
+): Promise<VerifyResult> {
+  const errors: Array<{ index: number; reason: string }> = [];
+  const publicKeyHex = opts?.publicKeyHex;
+  const seenReceiptIds = new Set<string>();
+
   for (let i = 0; i < receipts.length; i++) {
     const receipt = receipts[i]!;
+
+    // Check IDs are unique.
+    if (seenReceiptIds.has(receipt.id)) {
+      errors.push({ index: i, reason: `Receipt ${i} duplicates ID "${receipt.id}"` });
+    } else {
+      seenReceiptIds.add(receipt.id);
+    }
+
+    // Check all receipts share same sessionId
+    if (i > 0 && receipt.sessionId !== receipts[0]!.sessionId) {
+      errors.push({ index: i, reason: `Receipt ${i} session ID mismatch: expected "${receipts[0]!.sessionId}", got "${receipt.sessionId}"` });
+    }
+
+    // Check timestamps are non-decreasing
+    if (i > 0 && receipt.timestamp < receipts[i - 1]!.timestamp) {
+      errors.push({ index: i, reason: `Receipt ${i} timestamp is before receipt ${i - 1} timestamp` });
+    }
+
+    // Check first receipt has previousHash === '0'
+    if (i === 0 && receipt.previousHash !== '0') {
+      errors.push({ index: i, reason: 'First receipt must use previousHash "0"' });
+    }
 
     // Recompute hash
     const hashInput = sortedStringify({
@@ -151,36 +175,46 @@ export async function verifyChain(receipts: Receipt[], publicKeyHex?: string): P
     const expectedHash = await sha256(hashInput);
 
     if (receipt.hash !== expectedHash) {
-      throw new InvarianceError('CHAIN_BROKEN', `Receipt ${i} hash mismatch`);
+      errors.push({ index: i, reason: `Receipt ${i} hash mismatch` });
     }
 
-    // Check linkage
-    if (i === 0 && receipt.previousHash !== '0') {
-      throw new InvarianceError('CHAIN_BROKEN', 'First receipt must use previousHash "0"');
-    }
+    // Check chain linkage
     if (i > 0) {
       const previous = receipts[i - 1]!;
       if (receipt.previousHash !== previous.hash) {
-        throw new InvarianceError('CHAIN_BROKEN', `Receipt ${i} previousHash does not match receipt ${i - 1} hash`);
+        errors.push({ index: i, reason: `Receipt ${i} previousHash does not match receipt ${i - 1} hash` });
       }
     }
 
-    // Verify Ed25519 signature if public key provided
-    if (publicKeyHex && receipt.signature) {
+    // Verify Ed25519 signature if public key provided.
+    if (publicKeyHex && !receipt.signature) {
+      errors.push({ index: i, reason: `Receipt ${i} is missing signature` });
+    } else if (publicKeyHex && receipt.signature) {
       try {
         const sigBytes = hexToBytes(receipt.signature);
         const msgBytes = new TextEncoder().encode(receipt.hash);
         const pubKeyBytes = hexToBytes(publicKeyHex);
         const valid = ed25519.verify(sigBytes, msgBytes, pubKeyBytes);
         if (!valid) {
-          throw new InvarianceError('CHAIN_BROKEN', `Receipt ${i} has invalid signature`);
+          errors.push({ index: i, reason: `Receipt ${i} has invalid signature` });
         }
       } catch (err) {
-        if (err instanceof InvarianceError) throw err;
-        throw new InvarianceError('CHAIN_BROKEN', `Receipt ${i} signature verification failed`);
+        if (!(err instanceof InvarianceError)) {
+          errors.push({ index: i, reason: `Receipt ${i} signature verification failed` });
+        } else {
+          errors.push({ index: i, reason: (err as InvarianceError).message });
+        }
       }
     }
   }
 
+  return { valid: errors.length === 0, receiptCount: receipts.length, errors };
+}
+
+export async function verifyChainOrThrow(receipts: Receipt[], publicKeyHex?: string): Promise<boolean> {
+  const result = await verifyChain(receipts, { publicKeyHex });
+  if (!result.valid) {
+    throw new InvarianceError('CHAIN_BROKEN', result.errors[0]!.reason);
+  }
   return true;
 }
