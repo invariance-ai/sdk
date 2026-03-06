@@ -9,6 +9,10 @@ export { createReceipt, verifyChain, sortedStringify, sha256, ed25519Sign } from
 export { action, defineActions } from './templates.js';
 export type { ActionDefinition, ActionMap, InputOf, OutputOf } from './templates.js';
 
+// Action typing templates
+export { action, defineActions } from './templates.js';
+export type { ActionDefinition, ActionMap, InputOf, OutputOf } from './templates.js';
+
 // Policy engine
 export { checkPolicies } from './policy.js';
 
