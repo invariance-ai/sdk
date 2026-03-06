@@ -5,6 +5,12 @@ import { createReceipt } from './receipt.js';
 /** Callback to enqueue a receipt for flushing */
 export type EnqueueFn = (receipt: Receipt) => void;
 
+/** Callback to create a session on the API */
+export type OnCreateSessionFn = (session: { id: string; name: string }) => Promise<void>;
+
+/** Callback to close a session on the API */
+export type OnCloseSessionFn = (sessionId: string, status: string, closeHash: string) => Promise<void>;
+
 /**
  * A Session groups a sequence of hash-chained receipts for a single agent run.
  * Each receipt's hash links to the previous, forming a tamper-evident chain.
@@ -13,18 +19,30 @@ export class Session {
   readonly id: string;
   readonly agent: string;
   readonly name: string;
-  private status: 'active' | 'completed' | 'failed' = 'active';
+  private status: 'open' | 'closed' | 'tampered' = 'open';
   private previousHash = '0';
   private receiptCount = 0;
-  private readonly signingKey: string;
+  private readonly privateKey: string;
   private readonly enqueue: EnqueueFn;
+  private readonly onCloseSession?: OnCloseSessionFn;
 
-  constructor(agent: string, name: string, signingKey: string, enqueue: EnqueueFn) {
+  constructor(
+    agent: string,
+    name: string,
+    privateKey: string,
+    enqueue: EnqueueFn,
+    onCreateSession?: OnCreateSessionFn,
+    onCloseSession?: OnCloseSessionFn,
+  ) {
     this.id = ulid();
     this.agent = agent;
     this.name = name;
-    this.signingKey = signingKey;
+    this.privateKey = privateKey;
     this.enqueue = enqueue;
+    this.onCloseSession = onCloseSession;
+
+    // Fire-and-forget session creation
+    onCreateSession?.({ id: this.id, name: this.name }).catch(() => {});
   }
 
   /**
@@ -32,8 +50,11 @@ export class Session {
    * Creates a hash-chained receipt and enqueues it for flushing.
    */
   async record(action: Action): Promise<Receipt> {
-    if (this.status !== 'active') {
+    if (this.status !== 'open') {
       throw new Error(`Session ${this.id} is ${this.status}, cannot record`);
+    }
+    if (action.agent !== this.agent) {
+      throw new Error(`Action agent "${action.agent}" does not match session agent "${this.agent}"`);
     }
 
     const receipt = await createReceipt(
@@ -48,7 +69,7 @@ export class Session {
         timestamp: Date.now(),
       },
       this.previousHash,
-      this.signingKey,
+      this.privateKey,
     );
 
     this.previousHash = receipt.hash;
@@ -61,8 +82,12 @@ export class Session {
   /**
    * End this session with a final status.
    */
-  end(status: 'completed' | 'failed' = 'completed'): SessionInfo {
+  end(status: 'closed' | 'tampered' = 'closed'): SessionInfo {
     this.status = status;
+
+    // Fire-and-forget session close
+    this.onCloseSession?.(this.id, status, this.previousHash).catch(() => {});
+
     return this.info();
   }
 

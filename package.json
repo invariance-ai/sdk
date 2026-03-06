@@ -1,6 +1,6 @@
 {
   "name": "@invariance/sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Verification infrastructure for AI agents — record, chain, and enforce action receipts",
   "type": "module",
   "sideEffects": false,
@@ -26,6 +26,8 @@
   "author": "Invariance",
   "license": "MIT",
   "dependencies": {
+    "@noble/ed25519": "^2.2.3",
+    "@noble/hashes": "^1.7.3",
     "ulid": "^3.0.2"
   },
   "devDependencies": {
