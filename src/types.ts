@@ -24,7 +24,7 @@ export interface InvarianceConfig {
   /** Override default anomaly threshold (PROD only, default: 0.7) */
   anomalyThreshold?: number;
   /** Callback when an anomalous trace event is detected */
-  onAnomaly?: (node: unknown) => void;
+  onAnomaly?: (node: import('./observability/types.js').TraceEvent) => void;
   /** DEV mode output: 'ui' | 'console' | 'both' (default: 'console') */
   devOutput?: 'ui' | 'console' | 'both';
 }

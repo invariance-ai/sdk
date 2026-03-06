@@ -11,12 +11,15 @@ import type {
   SubAgentSpawnPayload,
   ToolInvocationPayload,
   TraceAction,
+  VerificationProof,
 } from './types.js';
 import type { Transport } from '../transport.js';
 import { sortedStringify, sha256 } from '../receipt.js';
 
 const DEFAULT_SAMPLE_RATE = 0.01;
 const DEFAULT_ANOMALY_THRESHOLD = 0.7;
+const DEFAULT_HOT_PATH_TTL_MS = 300_000;
+const DEFAULT_HOT_PATH_MAX_SIZE = 10_000;
 
 export class InvarianceTracer {
   private readonly mode: TracerMode;
@@ -25,6 +28,8 @@ export class InvarianceTracer {
   private readonly onAnomaly?: (node: TraceEvent) => void;
   private readonly transport: Transport;
   private readonly devOutput: 'ui' | 'console' | 'both';
+  private readonly rand: () => number;
+  private readonly now: () => number;
 
   private hotPaths = new Map<string, number>(); // spanId -> last_seen
   private lastHash = new Map<string, string>(); // sessionId -> last hash
@@ -37,6 +42,8 @@ export class InvarianceTracer {
     this.onAnomaly = config.onAnomaly;
     this.transport = transport;
     this.devOutput = config.devOutput ?? 'console';
+    this.rand = config.random ?? Math.random;
+    this.now = config.now ?? Date.now;
   }
 
   async trace<T>(params: {
@@ -48,7 +55,7 @@ export class InvarianceTracer {
     metadata?: Partial<TraceMetadata>;
     fn: () => T | Promise<T>;
   }): Promise<{ result: T; event: TraceEvent }> {
-    const startTime = Date.now();
+    const startTime = this.now();
     const nodeId = ulid();
     const spanId = params.spanId ?? params.sessionId;
     let output: unknown;
@@ -62,8 +69,9 @@ export class InvarianceTracer {
       error = err instanceof Error ? err.message : String(err);
       // Build event for the error case, then re-throw
       const event = await this.buildAndSubmitEvent(nodeId, params, spanId, startTime, output, error);
-      Object.assign(err instanceof Error ? err : new Error(error), { traceEvent: event });
-      throw err;
+      const enriched = err instanceof Error ? err : new Error(error);
+      Object.assign(enriched, { traceEvent: event });
+      throw enriched;
     }
 
     const event = await this.buildAndSubmitEvent(nodeId, params, spanId, startTime, output, error);
@@ -78,7 +86,7 @@ export class InvarianceTracer {
     output: unknown,
     error: string | undefined,
   ): Promise<TraceEvent> {
-    const durationMs = Date.now() - startTime;
+    const durationMs = this.now() - startTime;
     const anomalyScore = error ? 0.8 : 0;
     const previousHash = this.lastHash.get(params.sessionId) ?? '0';
 
@@ -120,8 +128,8 @@ export class InvarianceTracer {
 
     this.lastHash.set(params.sessionId, hash);
 
-    if (this.mode === 'DEV' || this.shouldCapture(spanId, anomalyScore)) {
-      await this.submitEvent(event);
+    if (this.mode === 'DEV' || this.shouldCapture(spanId, anomalyScore, error !== undefined)) {
+      this.submitEvent(event);
     }
 
     if (anomalyScore >= this.anomalyThreshold) {
@@ -145,8 +153,17 @@ export class InvarianceTracer {
     this.transport.submitBehavioralEvent(payload).catch(() => {});
   }
 
-  async verify(executionId: string): Promise<unknown> {
-    return this.transport.verifyExecution(executionId);
+  async verify(executionId: string): Promise<VerificationProof> {
+    const raw = await this.transport.verifyExecution(executionId) as VerificationProof & { anchoredAt?: string | Date };
+
+    if (raw.anchoredAt && typeof raw.anchoredAt === 'string') {
+      return {
+        ...raw,
+        anchoredAt: new Date(raw.anchoredAt),
+      };
+    }
+
+    return raw;
   }
 
   getDevTree(sessionId: string): TraceEvent[] {
@@ -171,16 +188,23 @@ export class InvarianceTracer {
     console.log(`└── Total: ${totalMs}ms | ${toolCalls} tool calls | ${anomalies} anomalies\n`);
   }
 
-  private shouldCapture(spanId: string, anomalyScore: number): boolean {
-    if (anomalyScore >= this.anomalyThreshold) {
-      this.hotPaths.set(spanId, Date.now());
+  private shouldCapture(spanId: string, anomalyScore: number, hasError: boolean): boolean {
+    if (hasError) {
+      this.markHotPath(spanId);
       return true;
     }
-    if (this.hotPaths.has(spanId)) return true;
-    return Math.random() < this.sampleRate;
+    if (anomalyScore >= this.anomalyThreshold) {
+      this.markHotPath(spanId);
+      return true;
+    }
+    if (this.isHotPath(spanId)) {
+      this.markHotPath(spanId);
+      return true;
+    }
+    return this.rand() < this.sampleRate;
   }
 
-  private async submitEvent(event: TraceEvent): Promise<void> {
+  private submitEvent(event: TraceEvent): void {
     this.transport.submitTraceEvent(event).catch(() => {});
   }
 
@@ -188,5 +212,43 @@ export class InvarianceTracer {
     const existing = this.sessionTrees.get(event.sessionId) ?? [];
     existing.push(event);
     this.sessionTrees.set(event.sessionId, existing);
+  }
+
+  private markHotPath(spanId: string): void {
+    if (this.hotPaths.size >= DEFAULT_HOT_PATH_MAX_SIZE) {
+      this.pruneHotPaths();
+    }
+    this.hotPaths.set(spanId, this.now());
+  }
+
+  private isHotPath(spanId: string): boolean {
+    const lastSeen = this.hotPaths.get(spanId);
+    if (lastSeen === undefined) return false;
+
+    if (this.now() - lastSeen > DEFAULT_HOT_PATH_TTL_MS) {
+      this.hotPaths.delete(spanId);
+      return false;
+    }
+
+    return true;
+  }
+
+  private pruneHotPaths(): void {
+    const now = this.now();
+    for (const [spanId, lastSeen] of this.hotPaths) {
+      if (now - lastSeen > DEFAULT_HOT_PATH_TTL_MS) {
+        this.hotPaths.delete(spanId);
+      }
+    }
+
+    if (this.hotPaths.size < DEFAULT_HOT_PATH_MAX_SIZE) {
+      return;
+    }
+
+    const overflow = this.hotPaths.size - DEFAULT_HOT_PATH_MAX_SIZE + 1;
+    const oldestFirst = [...this.hotPaths.entries()].sort((a, b) => a[1] - b[1]);
+    for (let i = 0; i < overflow; i++) {
+      this.hotPaths.delete(oldestFirst[i]![0]);
+    }
   }
 }

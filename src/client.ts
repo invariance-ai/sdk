@@ -88,7 +88,7 @@ export class Invariance {
       sampleRate: config.sampleRate,
       anomalyThreshold: config.anomalyThreshold,
       devOutput: config.devOutput,
-      onAnomaly: config.onAnomaly as ((node: TraceEvent) => void) | undefined,
+      onAnomaly: config.onAnomaly,
     });
   }
 
@@ -272,9 +272,21 @@ export class Invariance {
   emit(type: 'GoalDrift', data: GoalDriftPayload): void;
   emit(type: 'SubAgentSpawn', data: SubAgentSpawnPayload): void;
   emit(type: 'ToolInvocation', data: ToolInvocationPayload): void;
-  emit(type: BehavioralPrimitive, data: never): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.tracer.emit as any)(type, data);
+  emit(type: BehavioralPrimitive, data: unknown): void {
+    switch (type) {
+      case 'DecisionPoint':
+        this.tracer.emit(type, data as DecisionPointPayload);
+        return;
+      case 'GoalDrift':
+        this.tracer.emit(type, data as GoalDriftPayload);
+        return;
+      case 'SubAgentSpawn':
+        this.tracer.emit(type, data as SubAgentSpawnPayload);
+        return;
+      case 'ToolInvocation':
+        this.tracer.emit(type, data as ToolInvocationPayload);
+        return;
+    }
   }
 
   /**
@@ -282,7 +294,7 @@ export class Invariance {
    * Returns cryptographic proof of chain integrity.
    */
   async verify(executionId: string): Promise<VerificationProof> {
-    return this.transport.verifyExecution(executionId) as Promise<VerificationProof>;
+    return this.tracer.verify(executionId);
   }
 
   /**

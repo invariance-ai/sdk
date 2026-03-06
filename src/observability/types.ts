@@ -18,6 +18,8 @@ export interface TracerConfig {
   anomalyThreshold?: number;
   devOutput?: DevOutput;
   onAnomaly?: (node: TraceEvent) => void;
+  random?: () => number;
+  now?: () => number;
 }
 
 export interface TraceEvent {
