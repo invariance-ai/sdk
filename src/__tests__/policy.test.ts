@@ -55,6 +55,8 @@ describe('checkPolicies', () => {
   });
 
   it('deletes rate limit keys after window expires', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-06T00:00:00Z'));
     const rules: PolicyRule[] = [{ action: 'expire-test', rateLimit: { max: 5, windowMs: 100 } }];
     const a = action({ action: 'expire-test' });
 
@@ -62,7 +64,6 @@ describe('checkPolicies', () => {
     checkPolicies(rules, a);
 
     // Advance time past the window
-    vi.useFakeTimers();
     vi.advanceTimersByTime(200);
 
     // Next check should clean up expired entries and still allow

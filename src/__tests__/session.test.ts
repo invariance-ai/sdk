@@ -11,6 +11,7 @@ const privKeyHex = Buffer.from(privKey).toString('hex');
 function makeSession(opts?: {
   onCreateSession?: Parameters<typeof Session['prototype']['constructor']>[4];
   onCloseSession?: Parameters<typeof Session['prototype']['constructor']>[5];
+  onError?: Parameters<typeof Session['prototype']['constructor']>[6];
 }) {
   const enqueue = vi.fn();
   const session = new Session(
@@ -20,6 +21,7 @@ function makeSession(opts?: {
     enqueue,
     opts?.onCreateSession,
     opts?.onCloseSession,
+    opts?.onError,
   );
   return { session, enqueue };
 }
@@ -103,5 +105,32 @@ describe('Session', () => {
     const { session } = makeSession({ onCreateSession: onCreate });
     await session.ready;
     expect(resolved).toBe(true);
+  });
+
+  it('forwards create-session failures to onError and still resolves ready', async () => {
+    const onError = vi.fn();
+    const onCreate = vi.fn().mockRejectedValue(new Error('create failed'));
+    const { session } = makeSession({ onCreateSession: onCreate, onError });
+    await expect(session.ready).resolves.toBeUndefined();
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards close-session failures to onError', async () => {
+    const onError = vi.fn();
+    const onClose = vi.fn().mockRejectedValue(new Error('close failed'));
+    const { session } = makeSession({ onCloseSession: onClose, onError });
+    session.end();
+    await vi.waitFor(() => {
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('does not throw if onError itself throws', async () => {
+    const onCreate = vi.fn().mockRejectedValue(new Error('create failed'));
+    const onError = vi.fn(() => {
+      throw new Error('observer failure');
+    });
+    const { session } = makeSession({ onCreateSession: onCreate, onError });
+    await expect(session.ready).resolves.toBeUndefined();
   });
 });

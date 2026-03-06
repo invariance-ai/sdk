@@ -8,11 +8,12 @@ export function fetchWithAuth(
   init?: RequestInit,
 ): Promise<Response> {
   const normalizedBase = baseUrl.replace(/\/+$/, '');
-  return fetch(`${normalizedBase}${path}`, {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const headers = new Headers(init?.headers);
+  headers.set('Authorization', `Bearer ${apiKey}`);
+
+  return fetch(`${normalizedBase}${normalizedPath}`, {
     ...init,
-    headers: {
-      ...init?.headers,
-      'Authorization': `Bearer ${apiKey}`,
-    },
+    headers,
   });
 }

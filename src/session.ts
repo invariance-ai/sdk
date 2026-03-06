@@ -28,6 +28,14 @@ export class Session {
   private readonly onCloseSession?: OnCloseSessionFn;
   private readonly onError: ErrorHandler;
 
+  private reportError(error: unknown): void {
+    try {
+      this.onError(error);
+    } catch {
+      // Never allow the error callback to crash lifecycle/background paths.
+    }
+  }
+
   constructor(
     agent: string,
     name: string,
@@ -46,7 +54,9 @@ export class Session {
     this.onError = onError;
 
     this.ready = onCreateSession
-      ? onCreateSession({ id: this.id, name: this.name }).catch(this.onError)
+      ? onCreateSession({ id: this.id, name: this.name }).catch((err) => {
+          this.reportError(err);
+        })
       : Promise.resolve();
   }
 
@@ -97,7 +107,9 @@ export class Session {
     this.status = status;
 
     // Fire-and-forget session close
-    this.onCloseSession?.(this.id, status, this.previousHash).catch(this.onError);
+    this.onCloseSession?.(this.id, status, this.previousHash).catch((err) => {
+      this.reportError(err);
+    });
 
     return this.info();
   }
