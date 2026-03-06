@@ -3,7 +3,7 @@ export { Invariance } from './client.js';
 export { Session } from './session.js';
 
 // Receipt utilities
-export { createReceipt, verifyChain, sortedStringify, sha256, hmacSign, ed25519Sign } from './receipt.js';
+export { createReceipt, verifyChain, sortedStringify, sha256, ed25519Sign } from './receipt.js';
 
 // Action typing templates
 export { action, defineActions } from './templates.js';

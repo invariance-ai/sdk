@@ -57,20 +57,26 @@ export class Session {
       throw new Error(`Action agent "${action.agent}" does not match session agent "${this.agent}"`);
     }
 
-    const receipt = await createReceipt(
-      {
-        id: ulid(),
-        sessionId: this.id,
-        agent: action.agent,
-        action: action.action,
-        input: action.input,
-        output: action.output,
-        error: action.error,
-        timestamp: Date.now(),
-      },
-      this.previousHash,
-      this.privateKey,
-    );
+    let receipt;
+    try {
+      receipt = await createReceipt(
+        {
+          id: ulid(),
+          sessionId: this.id,
+          agent: action.agent,
+          action: action.action,
+          input: action.input,
+          output: action.output,
+          error: action.error,
+          timestamp: Date.now(),
+        },
+        this.previousHash,
+        this.privateKey,
+      );
+    } catch (err) {
+      this.status = 'tampered';
+      throw err;
+    }
 
     this.previousHash = receipt.hash;
     this.receiptCount++;

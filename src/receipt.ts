@@ -43,29 +43,13 @@ export async function sha256(data: string): Promise<string> {
     .join('');
 }
 
-/**
- * HMAC-SHA256 signature using Web Crypto API.
- * @returns hex-encoded HMAC string
- */
-export async function hmacSign(data: string, key: string): Promise<string> {
-  const enc = new TextEncoder();
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(key),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const buffer = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(data));
-  return Array.from(new Uint8Array(buffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
 function hexToBytes(hex: string): Uint8Array {
+  if (hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) {
+    throw new InvarianceError('API_ERROR', 'Invalid hex string');
+  }
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
   }
   return bytes;
 }
@@ -140,12 +124,15 @@ export async function createReceipt(
 }
 
 /**
- * Verify hash-chain linkage of an ordered array of receipts.
- * Recomputes each hash and checks previousHash linkage.
+ * Verify hash-chain linkage and Ed25519 signatures of an ordered array of receipts.
+ * Recomputes each hash, checks previousHash linkage, and optionally verifies signatures.
  *
+ * @param receipts - Ordered array of receipts to verify
+ * @param publicKeyHex - Optional Ed25519 public key (hex) to verify signatures against.
+ *                       If omitted, only hash-chain integrity is verified.
  * @throws InvarianceError with code CHAIN_BROKEN if verification fails
  */
-export async function verifyChain(receipts: Receipt[]): Promise<boolean> {
+export async function verifyChain(receipts: Receipt[], publicKeyHex?: string): Promise<boolean> {
   for (let i = 0; i < receipts.length; i++) {
     const receipt = receipts[i]!;
 
@@ -175,6 +162,22 @@ export async function verifyChain(receipts: Receipt[]): Promise<boolean> {
       const previous = receipts[i - 1]!;
       if (receipt.previousHash !== previous.hash) {
         throw new InvarianceError('CHAIN_BROKEN', `Receipt ${i} previousHash does not match receipt ${i - 1} hash`);
+      }
+    }
+
+    // Verify Ed25519 signature if public key provided
+    if (publicKeyHex && receipt.signature) {
+      try {
+        const sigBytes = hexToBytes(receipt.signature);
+        const msgBytes = new TextEncoder().encode(receipt.hash);
+        const pubKeyBytes = hexToBytes(publicKeyHex);
+        const valid = ed25519.verify(sigBytes, msgBytes, pubKeyBytes);
+        if (!valid) {
+          throw new InvarianceError('CHAIN_BROKEN', `Receipt ${i} has invalid signature`);
+        }
+      } catch (err) {
+        if (err instanceof InvarianceError) throw err;
+        throw new InvarianceError('CHAIN_BROKEN', `Receipt ${i} signature verification failed`);
       }
     }
   }
