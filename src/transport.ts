@@ -85,7 +85,8 @@ export class Transport {
       throw new InvarianceError('API_ERROR', `GET /v1/receipts returned ${res.status}`);
     }
 
-    const data = await res.json() as { receipts: Receipt[] };
+    const data = await res.json() as Receipt[] | { receipts: Receipt[] };
+    if (Array.isArray(data)) return data;
     return data.receipts;
   }
 

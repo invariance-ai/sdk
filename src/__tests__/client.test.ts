@@ -21,6 +21,10 @@ describe('Invariance', () => {
     expect(() => Invariance.init({ apiKey: 'inv_test', privateKey: '' })).toThrow('privateKey is required');
   });
 
+  it('init() throws if privateKey is not valid hex', () => {
+    expect(() => Invariance.init({ apiKey: 'inv_test', privateKey: 'xyz' })).toThrow('privateKey must be a 32-byte hex string');
+  });
+
   it('session() creates a Session instance', () => {
     const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
     const session = inv.session({ agent: 'bot', name: 'run' });

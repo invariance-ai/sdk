@@ -53,6 +53,9 @@ export class Session {
     if (this.status !== 'open') {
       throw new Error(`Session ${this.id} is ${this.status}, cannot record`);
     }
+    if (action.agent !== this.agent) {
+      throw new Error(`Action agent "${action.agent}" does not match session agent "${this.agent}"`);
+    }
 
     const receipt = await createReceipt(
       {

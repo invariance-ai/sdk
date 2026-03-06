@@ -62,6 +62,9 @@ export class Invariance {
     if (!config.privateKey) {
       throw new InvarianceError('API_ERROR', 'privateKey is required');
     }
+    if (!/^[0-9a-f]{64}$/i.test(config.privateKey)) {
+      throw new InvarianceError('API_ERROR', 'privateKey must be a 32-byte hex string');
+    }
     return new Invariance(config);
   }
 

@@ -52,6 +52,11 @@ describe('Session', () => {
     await expect(session.record({ agent: 'a', action: 'b', input: {} })).rejects.toThrow('closed');
   });
 
+  it('record() rejects actions for a different agent', async () => {
+    const { session } = makeSession();
+    await expect(session.record({ agent: 'other-agent', action: 'b', input: {} })).rejects.toThrow('does not match session agent');
+  });
+
   it('end() changes status and returns info', () => {
     const { session } = makeSession();
     const info = session.end();

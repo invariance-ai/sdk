@@ -102,7 +102,7 @@ export interface ReceiptData {
  *
  * The hash covers (id, sessionId, agent, action, input, output, error, timestamp, previousHash)
  * using deterministic JSON serialization + SHA-256.
- * The signature is HMAC-SHA256(hash, signingKey).
+ * The signature is Ed25519(hash, privateKey).
  */
 export async function createReceipt(
   data: ReceiptData,
@@ -167,7 +167,10 @@ export async function verifyChain(receipts: Receipt[]): Promise<boolean> {
       throw new InvarianceError('CHAIN_BROKEN', `Receipt ${i} hash mismatch`);
     }
 
-    // Check linkage (skip first receipt)
+    // Check linkage
+    if (i === 0 && receipt.previousHash !== '0') {
+      throw new InvarianceError('CHAIN_BROKEN', 'First receipt must use previousHash "0"');
+    }
     if (i > 0) {
       const previous = receipts[i - 1]!;
       if (receipt.previousHash !== previous.hash) {

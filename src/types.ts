@@ -59,7 +59,7 @@ export interface Receipt {
   hash: string;
   /** Hash of the previous receipt in the chain ("0" for first) */
   previousHash: string;
-  /** HMAC-SHA256 signature */
+  /** Ed25519 signature over `hash` */
   signature: string;
 }
 

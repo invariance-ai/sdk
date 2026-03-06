@@ -132,4 +132,17 @@ describe('verifyChain', () => {
 
     await expect(verifyChain([r1, r2, r3])).rejects.toThrow('hash mismatch');
   });
+
+  it('throws CHAIN_BROKEN when first receipt previousHash is not 0', async () => {
+    const r1 = await createReceipt({
+      id: '1',
+      sessionId: 's1',
+      agent: 'bot',
+      action: 'step',
+      input: { n: 1 },
+      timestamp: Date.now(),
+    }, 'not-zero', privKeyHex);
+
+    await expect(verifyChain([r1])).rejects.toThrow('previousHash "0"');
+  });
 });
