@@ -23,6 +23,7 @@ export function action<
   return { template };
 }
 
+/** @deprecated Pass action definitions directly — this wrapper is unnecessary. */
 export function defineActions<TActions extends ActionMap>(actions: TActions): TActions {
   return actions;
 }
