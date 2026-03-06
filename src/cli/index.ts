@@ -20,20 +20,33 @@ function getClient() {
   return new ApiClient(apiUrl, apiKey);
 }
 
+function withErrorHandling<T extends unknown[]>(
+  action: (...args: T) => Promise<void>,
+): (...args: T) => Promise<void> {
+  return async (...args: T) => {
+    try {
+      await action(...args);
+    } catch (err) {
+      console.error('Error:', err instanceof Error ? err.message : err);
+      process.exitCode = 1;
+    }
+  };
+}
+
 program
   .command('sessions')
   .description('List all sessions')
   .option('-s, --status <status>', 'Filter by status (open, closed, tampered)')
-  .action(async (opts) => {
+  .action(withErrorHandling(async (opts) => {
     const client = getClient();
     const sessions = await client.listSessions(opts.status);
     renderSessionList(sessions);
-  });
+  }));
 
 program
   .command('session <id>')
   .description('Show session detail with receipt timeline')
-  .action(async (id) => {
+  .action(withErrorHandling(async (id) => {
     const client = getClient();
     const [session, receipts] = await Promise.all([
       client.getSession(id),
@@ -45,31 +58,27 @@ program
       for (const t of items) templates[t.action] = t;
     } catch {}
     renderSessionDetail(session, receipts, templates);
-  });
+  }));
 
 program
   .command('verify <sessionId>')
   .description('Verify chain integrity for a session')
-  .action(async (sessionId) => {
+  .action(withErrorHandling(async (sessionId) => {
     const client = getClient();
     const result = await client.verifySession(sessionId);
     const receipts = await client.getReceipts(sessionId);
     await renderVerification(result, receipts);
-  });
+    if (!result.valid) process.exitCode = 1;
+  }));
 
 program
   .command('status')
   .description('Show connection status')
-  .action(async () => {
+  .action(withErrorHandling(async () => {
     const client = getClient();
-    try {
-      const agents = await client.listAgents();
-      console.log(`Connected to ${process.env.INVARIANCE_API_URL || 'https://api.invariance.dev'}`);
-      console.log(`Agents: ${agents.length}`);
-    } catch (err) {
-      console.error('Failed to connect:', err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
-  });
+    const agents = await client.listAgents();
+    console.log(`Connected to ${process.env.INVARIANCE_API_URL || 'https://api.invariance.dev'}`);
+    console.log(`Agents: ${agents.length}`);
+  }));
 
-program.parse();
+void program.parseAsync(process.argv);

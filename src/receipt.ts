@@ -133,9 +133,17 @@ export async function verifyChain(
 ): Promise<VerifyResult> {
   const errors: Array<{ index: number; reason: string }> = [];
   const publicKeyHex = opts?.publicKeyHex;
+  const seenReceiptIds = new Set<string>();
 
   for (let i = 0; i < receipts.length; i++) {
     const receipt = receipts[i]!;
+
+    // Check IDs are unique.
+    if (seenReceiptIds.has(receipt.id)) {
+      errors.push({ index: i, reason: `Receipt ${i} duplicates ID "${receipt.id}"` });
+    } else {
+      seenReceiptIds.add(receipt.id);
+    }
 
     // Check all receipts share same sessionId
     if (i > 0 && receipt.sessionId !== receipts[0]!.sessionId) {
@@ -178,8 +186,10 @@ export async function verifyChain(
       }
     }
 
-    // Verify Ed25519 signature if public key provided
-    if (publicKeyHex && receipt.signature) {
+    // Verify Ed25519 signature if public key provided.
+    if (publicKeyHex && !receipt.signature) {
+      errors.push({ index: i, reason: `Receipt ${i} is missing signature` });
+    } else if (publicKeyHex && receipt.signature) {
       try {
         const sigBytes = hexToBytes(receipt.signature);
         const msgBytes = new TextEncoder().encode(receipt.hash);

@@ -186,6 +186,26 @@ describe('verifyChain', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('flags missing signature when public key is provided', async () => {
+    const privKey = ed25519.utils.randomPrivateKey();
+    const localPrivKeyHex = Buffer.from(privKey).toString('hex');
+    const pubKeyHex = Buffer.from(ed25519.getPublicKey(privKey)).toString('hex');
+    const r1 = await createReceipt({ id: '1', sessionId: 's1', agent: 'bot', action: 'step', input: {}, timestamp: 1000 }, '0', localPrivKeyHex);
+    delete (r1 as Partial<typeof r1>).signature;
+
+    const result = await verifyChain([r1], { publicKeyHex: pubKeyHex });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.reason.includes('missing signature'))).toBe(true);
+  });
+
+  it('flags duplicate receipt IDs', async () => {
+    const r1 = await createReceipt({ id: 'dup', sessionId: 's1', agent: 'bot', action: 'step-1', input: {}, timestamp: 1000 }, '0', privKeyHex);
+    const r2 = await createReceipt({ id: 'dup', sessionId: 's1', agent: 'bot', action: 'step-2', input: {}, timestamp: 2000 }, r1.hash, privKeyHex);
+    const result = await verifyChain([r1, r2]);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.reason.includes('duplicates ID'))).toBe(true);
+  });
 });
 
 describe('verifyChainOrThrow', () => {

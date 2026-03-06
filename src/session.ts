@@ -102,7 +102,7 @@ export class Session {
   }
 
   getReceipts(): readonly Receipt[] {
-    return this.receipts;
+    return this.receipts.slice();
   }
 
   async verify(publicKeyHex?: string): Promise<VerifyResult> {
