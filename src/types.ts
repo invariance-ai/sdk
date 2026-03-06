@@ -19,6 +19,24 @@ export interface InvarianceConfig {
   privateKey: string;
 }
 
+/** Template metadata used for richer action visualization. */
+export interface ActionTemplate {
+  /** Human-friendly action label shown in dashboards */
+  label: string;
+  /** Optional category (e.g. read, write, decision) */
+  category?: string;
+  /** Optional icon token for UI rendering */
+  icon?: string;
+  /** Ordered keys to highlight from input/output */
+  highlights?: string[];
+  /** Optional short description */
+  description?: string;
+  /** Optional JSON-schema-like input descriptor */
+  inputSchema?: Record<string, unknown>;
+  /** Optional JSON-schema-like output descriptor */
+  outputSchema?: Record<string, unknown>;
+}
+
 /** An action performed by an agent */
 export interface Action {
   /** Agent identifier */

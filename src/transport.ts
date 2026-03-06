@@ -14,6 +14,7 @@ export class Transport {
 
   private batch: Receipt[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
+  private flushing = false;
 
   constructor(
     apiUrl: string,
@@ -45,7 +46,8 @@ export class Transport {
 
   /** Force-flush all batched receipts to the API. */
   async flush(): Promise<void> {
-    if (this.batch.length === 0) return;
+    if (this.batch.length === 0 || this.flushing) return;
+    this.flushing = true;
 
     const toSend = this.batch;
     this.batch = [];
@@ -61,12 +63,19 @@ export class Transport {
       });
 
       if (!res.ok) {
+        if (res.status >= 400 && res.status < 500) {
+          // Client errors — don't retry, report and discard
+          this.onError(new InvarianceError('API_ERROR', `POST /v1/receipts returned ${res.status}`));
+          return;
+        }
         throw new InvarianceError('FLUSH_FAILED', `POST /v1/receipts returned ${res.status}`);
       }
     } catch (error) {
-      // Put receipts back for retry
+      // Put receipts back for retry on network/5xx errors
       this.batch = toSend.concat(this.batch);
       this.onError(error);
+    } finally {
+      this.flushing = false;
     }
   }
 
