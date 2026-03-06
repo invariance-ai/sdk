@@ -117,6 +117,7 @@ export class Invariance {
       (receipt) => this.transport.enqueue(receipt),
       (session) => this.transport.createSession(session),
       (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+      this.config.onError,
     );
   }
 
@@ -146,6 +147,7 @@ export class Invariance {
         (receipt) => this.transport.enqueue(receipt),
         (session) => this.transport.createSession(session),
         (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+        this.config.onError,
       );
 
       return {

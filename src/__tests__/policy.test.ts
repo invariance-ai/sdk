@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { checkPolicies } from '../policy.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { checkPolicies, clearRateLimits } from '../policy.js';
 import type { Action, PolicyRule } from '../types.js';
 
 const action = (overrides: Partial<Action> = {}): Action => ({
@@ -10,6 +10,10 @@ const action = (overrides: Partial<Action> = {}): Action => ({
 });
 
 describe('checkPolicies', () => {
+  beforeEach(() => {
+    clearRateLimits();
+  });
+
   it('enforces maxAmountUsd', () => {
     const rules: PolicyRule[] = [{ action: 'swap', maxAmountUsd: 100 }];
     expect(checkPolicies(rules, action({ input: { amountUsd: 50 } })).allowed).toBe(true);
@@ -48,5 +52,36 @@ describe('checkPolicies', () => {
   it('wildcard * matches all actions', () => {
     const rules: PolicyRule[] = [{ action: '*', maxAmountUsd: 10 }];
     expect(checkPolicies(rules, action({ action: 'anything', input: { amountUsd: 20 } })).allowed).toBe(false);
+  });
+
+  it('deletes rate limit keys after window expires', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-06T00:00:00Z'));
+    const rules: PolicyRule[] = [{ action: 'expire-test', rateLimit: { max: 5, windowMs: 100 } }];
+    const a = action({ action: 'expire-test' });
+
+    // Record one action
+    checkPolicies(rules, a);
+
+    // Advance time past the window
+    vi.advanceTimersByTime(200);
+
+    // Next check should clean up expired entries and still allow
+    const result = checkPolicies(rules, a);
+    expect(result.allowed).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it('clearRateLimits resets all state', () => {
+    const rules: PolicyRule[] = [{ action: 'clear-test', rateLimit: { max: 1, windowMs: 60000 } }];
+    const a = action({ action: 'clear-test' });
+
+    expect(checkPolicies(rules, a).allowed).toBe(true);
+    expect(checkPolicies(rules, a).allowed).toBe(false);
+
+    clearRateLimits();
+
+    expect(checkPolicies(rules, a).allowed).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { ulid } from 'ulid';
-import type { Action, Receipt, SessionInfo, VerifyResult } from './types.js';
+import type { Action, ErrorHandler, Receipt, SessionInfo, VerifyResult } from './types.js';
 import { createReceipt, verifyChain } from './receipt.js';
 
 /** Callback to enqueue a receipt for flushing */
@@ -22,11 +22,19 @@ export class Session {
   readonly ready: Promise<void>;
   private status: 'open' | 'closed' | 'tampered' = 'open';
   private previousHash = '0';
-  private receiptCount = 0;
   private receipts: Receipt[] = [];
   private readonly privateKey: string;
   private readonly enqueue: EnqueueFn;
   private readonly onCloseSession?: OnCloseSessionFn;
+  private readonly onError: ErrorHandler;
+
+  private reportError(error: unknown): void {
+    try {
+      this.onError(error);
+    } catch {
+      // Never allow the error callback to crash lifecycle/background paths.
+    }
+  }
 
   constructor(
     agent: string,
@@ -35,6 +43,7 @@ export class Session {
     enqueue: EnqueueFn,
     onCreateSession?: OnCreateSessionFn,
     onCloseSession?: OnCloseSessionFn,
+    onError: ErrorHandler = () => {},
   ) {
     this.id = ulid();
     this.agent = agent;
@@ -42,9 +51,12 @@ export class Session {
     this.privateKey = privateKey;
     this.enqueue = enqueue;
     this.onCloseSession = onCloseSession;
+    this.onError = onError;
 
     this.ready = onCreateSession
-      ? onCreateSession({ id: this.id, name: this.name }).catch(() => {})
+      ? onCreateSession({ id: this.id, name: this.name }).catch((err) => {
+          this.reportError(err);
+        })
       : Promise.resolve();
   }
 
@@ -82,7 +94,6 @@ export class Session {
     }
 
     this.previousHash = receipt.hash;
-    this.receiptCount++;
     this.enqueue(receipt);
     this.receipts.push(receipt);
 
@@ -96,7 +107,9 @@ export class Session {
     this.status = status;
 
     // Fire-and-forget session close
-    this.onCloseSession?.(this.id, status, this.previousHash).catch(() => {});
+    this.onCloseSession?.(this.id, status, this.previousHash).catch((err) => {
+      this.reportError(err);
+    });
 
     return this.info();
   }
@@ -116,7 +129,7 @@ export class Session {
       agent: this.agent,
       name: this.name,
       status: this.status,
-      receiptCount: this.receiptCount,
+      receiptCount: this.receipts.length,
     };
   }
 }

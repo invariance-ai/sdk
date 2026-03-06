@@ -1,18 +1,14 @@
-export class ApiClient {
-  private readonly normalizedApiUrl: string;
+import { fetchWithAuth } from '../http.js';
 
+export class ApiClient {
   constructor(
-    apiUrl: string,
+    private readonly apiUrl: string,
     private readonly apiKey: string,
-  ) {
-    this.normalizedApiUrl = apiUrl.replace(/\/+$/, '');
-  }
+  ) {}
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async request<T = any>(path: string): Promise<T> {
-    const res = await fetch(`${this.normalizedApiUrl}${path}`, {
-      headers: { 'Authorization': `Bearer ${this.apiKey}` },
-    });
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       let detail = body.trim();

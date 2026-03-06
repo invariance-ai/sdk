@@ -1,5 +1,6 @@
 import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler } from './types.js';
 import { InvarianceError } from './errors.js';
+import { fetchWithAuth } from './http.js';
 
 /**
  * HTTP transport for the Invariance API.
@@ -53,12 +54,9 @@ export class Transport {
     this.batch = [];
 
     try {
-      const res = await fetch(`${this.apiUrl}/v1/receipts`, {
+      const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/receipts', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ receipts: toSend }),
       });
 
@@ -86,9 +84,9 @@ export class Transport {
       if (value !== undefined) params.set(key, String(value));
     }
 
-    const res = await fetch(`${this.apiUrl}/v1/receipts?${params.toString()}`, {
-      headers: { 'Authorization': `Bearer ${this.apiKey}` },
-    });
+    const query = params.toString();
+    const path = query ? `/v1/receipts?${query}` : '/v1/receipts';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
 
     if (!res.ok) {
       throw new InvarianceError('API_ERROR', `GET /v1/receipts returned ${res.status}`);
@@ -101,24 +99,20 @@ export class Transport {
 
   /** Get session info from the API. */
   async getSession(sessionId: string): Promise<SessionInfo> {
-    const res = await fetch(`${this.apiUrl}/v1/sessions/${sessionId}`, {
-      headers: { 'Authorization': `Bearer ${this.apiKey}` },
-    });
+    const encodedSessionId = encodeURIComponent(sessionId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/sessions/${encodedSessionId}`);
 
     if (!res.ok) {
-      throw new InvarianceError('API_ERROR', `GET /v1/sessions/${sessionId} returned ${res.status}`);
+      throw new InvarianceError('API_ERROR', `GET /v1/sessions/${encodedSessionId} returned ${res.status}`);
     }
 
     return await res.json() as SessionInfo;
   }
 
   async createSession(session: { id: string; name: string }): Promise<void> {
-    const res = await fetch(`${this.apiUrl}/v1/sessions`, {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/sessions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(session),
     });
     if (!res.ok) {
@@ -127,16 +121,14 @@ export class Transport {
   }
 
   async closeSession(sessionId: string, status: string, closeHash: string): Promise<void> {
-    const res = await fetch(`${this.apiUrl}/v1/sessions/${sessionId}`, {
+    const encodedSessionId = encodeURIComponent(sessionId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/sessions/${encodedSessionId}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, close_hash: closeHash }),
     });
     if (!res.ok) {
-      throw new InvarianceError('API_ERROR', `PATCH /v1/sessions/${sessionId} returned ${res.status}`);
+      throw new InvarianceError('API_ERROR', `PATCH /v1/sessions/${encodedSessionId} returned ${res.status}`);
     }
   }
 

@@ -48,6 +48,10 @@ function evaluateRule(rule: PolicyRule, action: Action): PolicyCheck {
     const windowStart = now - rule.rateLimit.windowMs;
     const timestamps = (rateLimitState.get(key) ?? []).filter((t) => t > windowStart);
 
+    if (timestamps.length === 0) {
+      rateLimitState.delete(key);
+    }
+
     if (timestamps.length >= rule.rateLimit.max) {
       return { allowed: false, reason: `Rate limit exceeded: ${rule.rateLimit.max} per ${rule.rateLimit.windowMs}ms` };
     }
@@ -62,6 +66,11 @@ function evaluateRule(rule: PolicyRule, action: Action): PolicyCheck {
   }
 
   return { allowed: true };
+}
+
+/** Clear all in-memory rate limit state. Useful for testing or agent restarts. */
+export function clearRateLimits(): void {
+  rateLimitState.clear();
 }
 
 /**
