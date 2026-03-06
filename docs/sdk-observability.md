@@ -6,7 +6,44 @@ The SDK exposes the observability module from `invariance-core` as the public su
 
 ---
 
-## 1. Initialization
+## Implementation Status
+
+### Implemented (`src/observability/`)
+
+| File | What it does | Status |
+|---|---|---|
+| `types.ts` | TracerConfig, TraceEvent, TraceMetadata, BehavioralPrimitive (DecisionPoint, ToolInvocation, SubAgentSpawn, GoalDrift), payload types for each primitive, VerificationProof, TraceAction | Done |
+| `tracer.ts` | `InvarianceTracer` — DEV/PROD mode, two-tier sampling, span-based hot paths, hash chaining via `sortedStringify()+sha256()`, DEV tree tracking + console print, emit() for behavioral primitives | Done |
+| `adapters/langchain.ts` | `InvarianceLangChainTracer` — handleLLMStart, handleToolStart, handleChainError | Done |
+| `adapters/crewai.ts` | `InvarianceCrewAIMiddleware` — onTaskStart, onTaskComplete, onTaskError | Done |
+| `adapters/autogen.ts` | `InvarianceAutoGenMiddleware` — onMessage, onToolCall, onGroupChatStart | Done |
+| `index.ts` | Barrel export for all observability types and classes | Done |
+
+### Changes to Existing SDK Files
+
+| File | Changes | Status |
+|---|---|---|
+| `client.ts` | Added `tracer` property, `trace()`, `emit()`, `verify()`, `queryGraph()` methods to `Invariance` class | Done |
+| `types.ts` | Added `mode`, `sampleRate`, `anomalyThreshold`, `onAnomaly`, `devOutput` to `InvarianceConfig` | Done |
+| `transport.ts` | Added `submitTraceEvent()`, `submitBehavioralEvent()`, `verifyExecution()`, `queryGraph()` methods | Done |
+| `package.json` | Added sub-path exports for `./adapters/langchain`, `./adapters/crewai`, `./adapters/autogen` | Done |
+| `tsup.config.ts` | Added adapter entry points to build config | Done |
+| `index.ts` | Re-exports all observability types | Done |
+
+### Tests
+
+All 51 existing tests pass. No new SDK-specific observability tests yet (the core module in `invariance-core` has 12 tests covering the underlying logic).
+
+### Not Yet Implemented
+
+- **DEV mode local UI server** — `devOutput: 'ui'` is accepted in config but only `'console'` output is implemented via `printDevTree()`
+- **Backend API routes** — transport methods call `/v1/trace/*` endpoints that don't exist in `invariance-core` yet
+- **Real verification proof** — `verify()` calls the backend but the backend route + Merkle proof logic isn't built
+- **Graph query language** — `queryGraph()` accepts a string (Cypher-style) but no query parser exists on the backend
+
+---
+
+## 1. Initialization (implemented)
 
 ```typescript
 import { Invariance } from '@invariance/sdk'
@@ -14,20 +51,20 @@ import { Invariance } from '@invariance/sdk'
 const invariance = Invariance.init({
   apiKey: 'inv_...',
   privateKey: '...',
-  mode: 'DEV',                    // 'DEV' | 'PROD'
-  sampleRate: 0.01,                // override (PROD only)
-  anomalyThreshold: 0.7,           // override (PROD only)
-  devOutput: 'console',            // 'ui' | 'console' | 'both'
+  mode: 'DEV',                    // 'DEV' | 'PROD' (default: 'PROD')
+  sampleRate: 0.01,                // override (PROD only, default: 0.01)
+  anomalyThreshold: 0.7,           // override (PROD only, default: 0.7)
+  devOutput: 'console',            // 'ui' | 'console' | 'both' (default: 'console')
   onAnomaly: (node) => alert(node) // optional callback
 })
 ```
 
-- **DEV**: full fidelity, no Ed25519 overhead, in-memory, console tree output.
-- **PROD**: two-tier sampling, full signing, Redis/Supabase/S3 fanout.
+- **DEV**: full fidelity, no sampling, console tree output, all events submitted.
+- **PROD**: two-tier sampling (1% base + anomaly always-capture), signed, hot span tracking.
 
 ---
 
-## 2. Manual Instrumentation (`trace`)
+## 2. Manual Instrumentation — `trace()` (implemented)
 
 Wrap any function call with automatic timing, hashing, and sampling:
 
@@ -43,13 +80,15 @@ const { result, event } = await invariance.trace({
 })
 ```
 
-The tracer handles signing, sampling decisions, storage write, and semantic graph emission automatically. The developer just wraps the function call.
+Returns `{ result: T, event: TraceEvent }`. On error, the error is re-thrown with a `traceEvent` property attached.
+
+Optional params: `sessionId` (default: `'default'`), `spanId`, `parentNodeId`, `metadata: { depth, tokenCost, toolCalls }`.
 
 ---
 
-## 3. Behavioral Primitive Emission (`emit`)
+## 3. Behavioral Primitive Emission — `emit()` (implemented)
 
-Fire-and-forget events that populate the semantic behavior graph:
+Fire-and-forget events that populate the backend semantic behavior graph:
 
 ```typescript
 invariance.emit('DecisionPoint', {
@@ -81,13 +120,13 @@ invariance.emit('ToolInvocation', {
 })
 ```
 
-All emissions are async, fire-and-forget. They never block agent execution.
+All emissions are async, fire-and-forget via `transport.submitBehavioralEvent()`. They never block agent execution.
 
 ---
 
-## 4. Framework Adapters
+## 4. Framework Adapters (implemented)
 
-Separate imports so unused framework deps aren't bundled:
+Separate sub-path imports so unused framework deps aren't bundled:
 
 ```typescript
 // LangChain
@@ -103,45 +142,46 @@ import { InvarianceAutoGenMiddleware } from '@invariance/sdk/adapters/autogen'
 const middleware = new InvarianceAutoGenMiddleware(invariance.tracer, 'session-123')
 ```
 
-Each adapter hooks into the framework's native callback/middleware system and calls the core tracer internally.
+Each adapter hooks into the framework's native callback/middleware system and calls `tracer.emit()` internally.
 
 ---
 
-## 5. DEV Mode Console Output
+## 5. DEV Mode Console Output (implemented)
 
-In DEV mode, the tracer prints a structured tree to console:
-
-```
-[Invariance DEV] Execution trace: exec_abc123
-├── [0ms] Agent: research-agent (goal: "find recent AI papers")
-│   ├── [12ms] ToolInvocation: web_search ✓
-│   ├── [45ms] ToolInvocation: web_fetch ✓
-│   ├── [ANOMALY 0.82] DecisionPoint: chose external search over cache
-│   └── [89ms] GoalDrift detected (similarity: 0.71)
-└── Total: 146ms | 3 tool calls | 1 anomaly
-```
-
-Access programmatically:
+In DEV mode, the tracer tracks a per-session event tree. Print it:
 
 ```typescript
-const events = invariance.tracer.getDevTree('session-123')
 invariance.tracer.printDevTree('session-123')
 ```
 
+Output:
+
+```
+[Invariance DEV] Execution trace: session-123
+├── [12ms] ToolInvocation: research-agent ✓
+├── [45ms] ToolInvocation: research-agent ✓
+├── [ANOMALY 0.82] DecisionPoint: research-agent ✓
+└── Total: 57ms | 2 tool calls | 1 anomalies
+```
+
+Programmatic access:
+
+```typescript
+const events: TraceEvent[] = invariance.tracer.getDevTree('session-123')
+```
+
 ---
 
-## 6. Verification API
-
-Cryptographic proof of chain integrity via the hosted verification API:
+## 6. Verification API (transport wired, backend not yet built)
 
 ```typescript
 const proof = await invariance.verify(executionId)
 
-// Returns:
+// VerificationProof type:
 {
   valid: boolean,
   executionId: string,
-  chain: [...],
+  chain: { nodeId, hash, actionType, anomalyScore }[],
   signedBy: string,
   anchored: boolean,
   anchoredAt?: Date,
@@ -149,13 +189,11 @@ const proof = await invariance.verify(executionId)
 }
 ```
 
-This is the artifact enterprises hand to regulators.
+Calls `GET /v1/trace/verify/:executionId`. The backend route doesn't exist yet.
 
 ---
 
-## 7. Semantic Graph Query
-
-Agents can query their own execution history programmatically:
+## 7. Semantic Graph Query (transport wired, backend not yet built)
 
 ```typescript
 const patterns = await invariance.queryGraph(`
@@ -165,17 +203,19 @@ const patterns = await invariance.queryGraph(`
 `)
 ```
 
+Calls `POST /v1/trace/graph/query`. The backend route and query parser don't exist yet.
+
 ---
 
 ## What Does NOT Change
 
 - Core signing primitives (Ed25519)
-- Hash chain logic
+- Hash chain logic (`createReceipt`, `verifyChain`)
 - `sortedStringify()` and `sha256()` utilities
-- Existing log submission flow
-- Any existing public API surface (`record`, `session`, `agent`, `wrap`, `check`, `query`)
+- Existing log submission flow (`session.record()`, transport batching)
+- Existing public API surface (`record`, `session`, `agent`, `wrap`, `check`, `query`)
 
-All SDK changes are additive. No breaking changes.
+All SDK changes are additive. No breaking changes to existing integrations.
 
 ---
 
@@ -189,3 +229,5 @@ All SDK changes are additive. No breaking changes.
 | Framework adapter source | Verification API (hosted) |
 | Manual instrumentation API | Enterprise GRC integrations |
 | DEV mode run tree | SLA-backed audit attestation |
+
+The SDK being open source is deliberate strategy — it's the data collection mechanism and distribution wedge. The hosted backend is where value is captured.
