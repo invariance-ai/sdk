@@ -13,6 +13,21 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./adapters/langchain": {
+      "types": "./dist/observability/adapters/langchain.d.ts",
+      "import": "./dist/observability/adapters/langchain.js",
+      "require": "./dist/observability/adapters/langchain.cjs"
+    },
+    "./adapters/crewai": {
+      "types": "./dist/observability/adapters/crewai.d.ts",
+      "import": "./dist/observability/adapters/crewai.js",
+      "require": "./dist/observability/adapters/crewai.cjs"
+    },
+    "./adapters/autogen": {
+      "types": "./dist/observability/adapters/autogen.d.ts",
+      "import": "./dist/observability/adapters/autogen.js",
+      "require": "./dist/observability/adapters/autogen.cjs"
     }
   },
   "scripts": {

@@ -17,6 +17,16 @@ export interface InvarianceConfig {
   onError?: ErrorHandler;
   /** Ed25519 private key (hex) for signing receipts */
   privateKey: string;
+  /** Observability mode: DEV (full fidelity, no crypto) or PROD (sampled, signed) */
+  mode?: 'DEV' | 'PROD';
+  /** Override default sample rate (PROD only, default: 0.01) */
+  sampleRate?: number;
+  /** Override default anomaly threshold (PROD only, default: 0.7) */
+  anomalyThreshold?: number;
+  /** Callback when an anomalous trace event is detected */
+  onAnomaly?: (node: unknown) => void;
+  /** DEV mode output: 'ui' | 'console' | 'both' (default: 'console') */
+  devOutput?: 'ui' | 'console' | 'both';
 }
 
 /** Template metadata used for richer action visualization. */

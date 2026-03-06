@@ -132,6 +132,61 @@ export class Transport {
     }
   }
 
+  /** Submit a trace event to the observability API. */
+  async submitTraceEvent(event: unknown): Promise<void> {
+    try {
+      const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(event),
+      });
+      if (!res.ok) {
+        this.onError(new InvarianceError('API_ERROR', `POST /v1/trace/events returned ${res.status}`));
+      }
+    } catch (error) {
+      this.onError(error);
+    }
+  }
+
+  /** Submit a behavioral primitive event. */
+  async submitBehavioralEvent(payload: unknown): Promise<void> {
+    try {
+      const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/behaviors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        this.onError(new InvarianceError('API_ERROR', `POST /v1/trace/behaviors returned ${res.status}`));
+      }
+    } catch (error) {
+      this.onError(error);
+    }
+  }
+
+  /** Verify an execution via the hosted verification API. */
+  async verifyExecution(executionId: string): Promise<unknown> {
+    const encodedId = encodeURIComponent(executionId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/trace/verify/${encodedId}`);
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET /v1/trace/verify/${encodedId} returned ${res.status}`);
+    }
+    return res.json();
+  }
+
+  /** Query the semantic behavior graph. */
+  async queryGraph(query: string): Promise<unknown> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/graph/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `POST /v1/trace/graph/query returned ${res.status}`);
+    }
+    return res.json();
+  }
+
   /** Stop the flush timer and send remaining receipts. */
   async shutdown(): Promise<void> {
     if (this.timer) {
