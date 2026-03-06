@@ -1,5 +1,9 @@
 import type { Receipt } from './types.js';
 import { InvarianceError } from './errors.js';
+import * as ed25519 from '@noble/ed25519';
+import { sha512 } from '@noble/hashes/sha512';
+
+ed25519.etc.sha512Sync = sha512;
 
 /**
  * Deterministic JSON serialization with sorted keys.
@@ -58,6 +62,29 @@ export async function hmacSign(data: string, key: string): Promise<string> {
     .join('');
 }
 
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Ed25519 signature.
+ * @returns hex-encoded signature string
+ */
+export async function ed25519Sign(data: string, privateKeyHex: string): Promise<string> {
+  const msgBytes = new TextEncoder().encode(data);
+  const privKeyBytes = hexToBytes(privateKeyHex);
+  const signature = ed25519.sign(msgBytes, privKeyBytes);
+  return bytesToHex(signature);
+}
+
 /** Data needed to create a receipt (before hashing) */
 export interface ReceiptData {
   id: string;
@@ -95,7 +122,7 @@ export async function createReceipt(
   });
 
   const hash = await sha256(hashInput);
-  const signature = await hmacSign(hash, signingKey);
+  const signature = await ed25519Sign(hash, signingKey);
 
   return {
     id: data.id,

@@ -102,6 +102,34 @@ export class Transport {
     return await res.json() as SessionInfo;
   }
 
+  async createSession(session: { id: string; name: string }): Promise<void> {
+    const res = await fetch(`${this.apiUrl}/v1/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(session),
+    });
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `POST /v1/sessions returned ${res.status}`);
+    }
+  }
+
+  async closeSession(sessionId: string, status: string, closeHash: string): Promise<void> {
+    const res = await fetch(`${this.apiUrl}/v1/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({ status, close_hash: closeHash }),
+    });
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `PATCH /v1/sessions/${sessionId} returned ${res.status}`);
+    }
+  }
+
   /** Stop the flush timer and send remaining receipts. */
   async shutdown(): Promise<void> {
     if (this.timer) {

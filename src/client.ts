@@ -26,7 +26,7 @@ export class Invariance {
   /** SDK version injected at build time */
   static readonly version: string = typeof __SDK_VERSION__ !== 'undefined' ? __SDK_VERSION__ : '0.0.0';
 
-  private readonly config: Required<Pick<InvarianceConfig, 'apiKey' | 'apiUrl' | 'policies' | 'flushIntervalMs' | 'maxBatchSize' | 'onError'>>;
+  private readonly config: Required<Pick<InvarianceConfig, 'apiKey' | 'apiUrl' | 'policies' | 'flushIntervalMs' | 'maxBatchSize' | 'onError' | 'privateKey'>>;
   private readonly transport: Transport;
 
   private constructor(config: InvarianceConfig) {
@@ -37,6 +37,7 @@ export class Invariance {
       flushIntervalMs: config.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
       maxBatchSize: config.maxBatchSize ?? DEFAULT_MAX_BATCH_SIZE,
       onError: config.onError ?? console.error,
+      privateKey: config.privateKey,
     };
 
     this.transport = new Transport(
@@ -58,6 +59,9 @@ export class Invariance {
     if (!config.apiKey) {
       throw new InvarianceError('API_ERROR', 'apiKey is required');
     }
+    if (!config.privateKey) {
+      throw new InvarianceError('API_ERROR', 'privateKey is required');
+    }
     return new Invariance(config);
   }
 
@@ -78,8 +82,10 @@ export class Invariance {
     return new Session(
       opts.agent,
       opts.name,
-      this.config.apiKey,
+      this.config.privateKey,
       (receipt) => this.transport.enqueue(receipt),
+      (session) => this.transport.createSession(session),
+      (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
     );
   }
 

@@ -15,6 +15,8 @@ export interface InvarianceConfig {
   maxBatchSize?: number;
   /** Callback for non-fatal errors */
   onError?: ErrorHandler;
+  /** Ed25519 private key (hex) for signing receipts */
+  privateKey: string;
 }
 
 /** An action performed by an agent */
@@ -70,7 +72,7 @@ export interface SessionInfo {
   /** Human-readable session name */
   name: string;
   /** Session status */
-  status: 'active' | 'completed' | 'failed';
+  status: 'open' | 'closed' | 'tampered';
   /** Number of receipts in this session */
   receiptCount: number;
 }
