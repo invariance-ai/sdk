@@ -76,4 +76,32 @@ describe('Session', () => {
     const { session } = makeSession({ onCreateSession: onCreate });
     expect(onCreate).toHaveBeenCalledWith({ id: session.id, name: 'test-session' });
   });
+
+  it('getReceipts() returns recorded receipts', async () => {
+    const { session } = makeSession();
+    const action = { agent: 'test-agent', action: 'step', input: { x: 1 } };
+    await session.record(action);
+    await session.record(action);
+    const receipts = session.getReceipts();
+    expect(receipts).toHaveLength(2);
+    expect(receipts[0]!.previousHash).toBe('0');
+    expect(receipts[1]!.previousHash).toBe(receipts[0]!.hash);
+  });
+
+  it('verify() returns valid result', async () => {
+    const { session } = makeSession();
+    await session.record({ agent: 'test-agent', action: 'step', input: { x: 1 } });
+    await session.record({ agent: 'test-agent', action: 'step', input: { x: 2 } });
+    const result = await session.verify();
+    expect(result.valid).toBe(true);
+    expect(result.receiptCount).toBe(2);
+  });
+
+  it('ready resolves after create callback', async () => {
+    let resolved = false;
+    const onCreate = vi.fn().mockImplementation(async () => { resolved = true; });
+    const { session } = makeSession({ onCreateSession: onCreate });
+    await session.ready;
+    expect(resolved).toBe(true);
+  });
 });

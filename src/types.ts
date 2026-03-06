@@ -127,3 +127,9 @@ export interface ReceiptQuery {
   limit?: number;
   offset?: number;
 }
+
+export interface VerifyResult {
+  valid: boolean;
+  receiptCount: number;
+  errors: Array<{ index: number; reason: string }>;
+}

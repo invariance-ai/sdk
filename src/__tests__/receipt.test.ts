@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortedStringify, sha256, ed25519Sign, createReceipt, verifyChain } from '../receipt.js';
+import { sortedStringify, sha256, ed25519Sign, createReceipt, verifyChain, verifyChainOrThrow } from '../receipt.js';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha512';
 
@@ -111,10 +111,11 @@ describe('verifyChain', () => {
     const r2 = await createReceipt(makeData('2'), r1.hash, privKeyHex);
     const r3 = await createReceipt(makeData('3'), r2.hash, privKeyHex);
 
-    await expect(verifyChain([r1, r2, r3])).resolves.toBe(true);
+    const result = await verifyChain([r1, r2, r3]);
+    expect(result.valid).toBe(true);
   });
 
-  it('throws CHAIN_BROKEN on tampered hash', async () => {
+  it('returns invalid on tampered hash', async () => {
     const makeData = (id: string) => ({
       id,
       sessionId: 's1',
@@ -130,10 +131,12 @@ describe('verifyChain', () => {
 
     r2.hash = 'tampered';
 
-    await expect(verifyChain([r1, r2, r3])).rejects.toThrow('hash mismatch');
+    const result = await verifyChain([r1, r2, r3]);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.reason.includes('hash mismatch'))).toBe(true);
   });
 
-  it('throws CHAIN_BROKEN when first receipt previousHash is not 0', async () => {
+  it('returns invalid when first receipt previousHash is not 0', async () => {
     const r1 = await createReceipt({
       id: '1',
       sessionId: 's1',
@@ -143,6 +146,59 @@ describe('verifyChain', () => {
       timestamp: Date.now(),
     }, 'not-zero', privKeyHex);
 
-    await expect(verifyChain([r1])).rejects.toThrow('previousHash "0"');
+    const result = await verifyChain([r1]);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.reason.includes('previousHash "0"'))).toBe(true);
+  });
+
+  it('returns result object with valid: true for valid chain', async () => {
+    const makeData = (id: string, ts: number) => ({
+      id, sessionId: 's1', agent: 'bot', action: 'step', input: { n: id }, timestamp: ts,
+    });
+    const r1 = await createReceipt(makeData('1', 1000), '0', privKeyHex);
+    const r2 = await createReceipt(makeData('2', 2000), r1.hash, privKeyHex);
+    const result = await verifyChain([r1, r2]);
+    expect(result.valid).toBe(true);
+    expect(result.receiptCount).toBe(2);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('catches session ID mismatch', async () => {
+    const r1 = await createReceipt({ id: '1', sessionId: 's1', agent: 'bot', action: 'step', input: {}, timestamp: 1000 }, '0', privKeyHex);
+    const r2 = await createReceipt({ id: '2', sessionId: 's2', agent: 'bot', action: 'step', input: {}, timestamp: 2000 }, r1.hash, privKeyHex);
+    const result = await verifyChain([r1, r2]);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.reason.includes('session'))).toBe(true);
+  });
+
+  it('catches non-decreasing timestamp violation', async () => {
+    const r1 = await createReceipt({ id: '1', sessionId: 's1', agent: 'bot', action: 'step', input: {}, timestamp: 2000 }, '0', privKeyHex);
+    const r2 = await createReceipt({ id: '2', sessionId: 's1', agent: 'bot', action: 'step', input: {}, timestamp: 1000 }, r1.hash, privKeyHex);
+    const result = await verifyChain([r1, r2]);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.reason.includes('timestamp'))).toBe(true);
+  });
+
+  it('collects multiple errors', async () => {
+    const r1 = await createReceipt({ id: '1', sessionId: 's1', agent: 'bot', action: 'step', input: {}, timestamp: 2000 }, '0', privKeyHex);
+    const r2 = await createReceipt({ id: '2', sessionId: 's2', agent: 'bot', action: 'step', input: {}, timestamp: 1000 }, r1.hash, privKeyHex);
+    const result = await verifyChain([r1, r2]);
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('verifyChainOrThrow', () => {
+  const privKey = ed25519.utils.randomPrivateKey();
+  const privKeyHex = Buffer.from(privKey).toString('hex');
+
+  it('throws on first error', async () => {
+    const r1 = await createReceipt({ id: '1', sessionId: 's1', agent: 'bot', action: 'step', input: {}, timestamp: 1000 }, 'not-zero', privKeyHex);
+    await expect(verifyChainOrThrow([r1])).rejects.toThrow('previousHash "0"');
+  });
+
+  it('returns true for valid chain', async () => {
+    const r1 = await createReceipt({ id: '1', sessionId: 's1', agent: 'bot', action: 'step', input: {}, timestamp: 1000 }, '0', privKeyHex);
+    await expect(verifyChainOrThrow([r1])).resolves.toBe(true);
   });
 });
