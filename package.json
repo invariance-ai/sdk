@@ -1,0 +1,50 @@
+{
+  "name": "@invariance/sdk",
+  "version": "0.2.0",
+  "description": "Verification infrastructure for AI agents — record, chain, and enforce action receipts",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build && pnpm typecheck"
+  },
+  "keywords": ["invariance", "verification", "ai-agent", "receipts", "hash-chain"],
+  "author": "Invariance",
+  "license": "MIT",
+  "dependencies": {
+    "ulid": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hardik-Singh/Invariance.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://invariance.dev"
+}
