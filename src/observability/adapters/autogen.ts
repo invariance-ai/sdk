@@ -1,3 +1,4 @@
+import { ulid } from 'ulid';
 import type { InvarianceTracer } from '../tracer.js';
 
 /**
@@ -20,7 +21,7 @@ export class InvarianceAutoGenMiddleware {
 
   onMessage(sender: string, _receiver: string, _content: string): void {
     this.tracer.emit('DecisionPoint', {
-      nodeId: '',
+      nodeId: ulid(),
       candidates: [],
       chosen: sender,
       depth: 0,
@@ -29,7 +30,7 @@ export class InvarianceAutoGenMiddleware {
 
   onToolCall(_agentId: string, toolName: string, _args: unknown): void {
     this.tracer.emit('ToolInvocation', {
-      nodeId: '',
+      nodeId: ulid(),
       tool: toolName,
       inputHash: '',
       outputHash: '',
@@ -40,7 +41,7 @@ export class InvarianceAutoGenMiddleware {
   onGroupChatStart(agents: string[]): void {
     for (const agentId of agents) {
       this.tracer.emit('SubAgentSpawn', {
-        parentNodeId: '',
+        parentNodeId: ulid(),
         childAgentId: agentId,
         depth: 0,
       });

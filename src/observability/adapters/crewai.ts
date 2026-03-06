@@ -1,3 +1,4 @@
+import { ulid } from 'ulid';
 import type { InvarianceTracer } from '../tracer.js';
 
 /**
@@ -20,7 +21,7 @@ export class InvarianceCrewAIMiddleware {
 
   onTaskStart(_taskName: string, agentId: string): void {
     this.tracer.emit('SubAgentSpawn', {
-      parentNodeId: '',
+      parentNodeId: ulid(),
       childAgentId: agentId,
       depth: 0,
     });
@@ -28,7 +29,7 @@ export class InvarianceCrewAIMiddleware {
 
   onTaskComplete(taskName: string, _agentId: string, _output: unknown): void {
     this.tracer.emit('DecisionPoint', {
-      nodeId: '',
+      nodeId: ulid(),
       candidates: [taskName],
       chosen: taskName,
       depth: 0,
@@ -37,7 +38,7 @@ export class InvarianceCrewAIMiddleware {
 
   onTaskError(taskName: string, _agentId: string, error: Error): void {
     this.tracer.emit('DecisionPoint', {
-      nodeId: '',
+      nodeId: ulid(),
       candidates: [taskName],
       chosen: `error: ${error.message}`,
       depth: 0,

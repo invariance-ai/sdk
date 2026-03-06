@@ -6,44 +6,7 @@ The SDK exposes the observability module from `invariance-core` as the public su
 
 ---
 
-## Implementation Status
-
-### Implemented (`src/observability/`)
-
-| File | What it does | Status |
-|---|---|---|
-| `types.ts` | TracerConfig, TraceEvent, TraceMetadata, BehavioralPrimitive (DecisionPoint, ToolInvocation, SubAgentSpawn, GoalDrift), payload types for each primitive, VerificationProof, TraceAction | Done |
-| `tracer.ts` | `InvarianceTracer` — DEV/PROD mode, two-tier sampling, span-based hot paths, hash chaining via `sortedStringify()+sha256()`, DEV tree tracking + console print, emit() for behavioral primitives | Done |
-| `adapters/langchain.ts` | `InvarianceLangChainTracer` — handleLLMStart, handleToolStart, handleChainError | Done |
-| `adapters/crewai.ts` | `InvarianceCrewAIMiddleware` — onTaskStart, onTaskComplete, onTaskError | Done |
-| `adapters/autogen.ts` | `InvarianceAutoGenMiddleware` — onMessage, onToolCall, onGroupChatStart | Done |
-| `index.ts` | Barrel export for all observability types and classes | Done |
-
-### Changes to Existing SDK Files
-
-| File | Changes | Status |
-|---|---|---|
-| `client.ts` | Added `tracer` property, `trace()`, `emit()`, `verify()`, `queryGraph()` methods to `Invariance` class | Done |
-| `types.ts` | Added `mode`, `sampleRate`, `anomalyThreshold`, `onAnomaly`, `devOutput` to `InvarianceConfig` | Done |
-| `transport.ts` | Added `submitTraceEvent()`, `submitBehavioralEvent()`, `verifyExecution()`, `queryGraph()` methods | Done |
-| `package.json` | Added sub-path exports for `./adapters/langchain`, `./adapters/crewai`, `./adapters/autogen` | Done |
-| `tsup.config.ts` | Added adapter entry points to build config | Done |
-| `index.ts` | Re-exports all observability types | Done |
-
-### Tests
-
-All 51 existing tests pass. No new SDK-specific observability tests yet (the core module in `invariance-core` has 12 tests covering the underlying logic).
-
-### Not Yet Implemented
-
-- **DEV mode local UI server** — `devOutput: 'ui'` is accepted in config but only `'console'` output is implemented via `printDevTree()`
-- **Backend API routes** — transport methods call `/v1/trace/*` endpoints that don't exist in `invariance-core` yet
-- **Real verification proof** — `verify()` calls the backend but the backend route + Merkle proof logic isn't built
-- **Graph query language** — `queryGraph()` accepts a string (Cypher-style) but no query parser exists on the backend
-
----
-
-## 1. Initialization (implemented)
+## 1. Initialization
 
 ```typescript
 import { Invariance } from '@invariance/sdk'
@@ -64,7 +27,7 @@ const invariance = Invariance.init({
 
 ---
 
-## 2. Manual Instrumentation — `trace()` (implemented)
+## 2. Manual Instrumentation (`trace`)
 
 Wrap any function call with automatic timing, hashing, and sampling:
 
@@ -80,13 +43,13 @@ const { result, event } = await invariance.trace({
 })
 ```
 
-Returns `{ result: T, event: TraceEvent }`. On error, the error is re-thrown with a `traceEvent` property attached.
+The tracer handles signing, sampling decisions, storage write, and semantic graph emission automatically. Returns `{ result: T, event: TraceEvent }`. On error, the error is re-thrown with a `traceEvent` property attached.
 
 Optional params: `sessionId` (default: `'default'`), `spanId`, `parentNodeId`, `metadata: { depth, tokenCost, toolCalls }`.
 
 ---
 
-## 3. Behavioral Primitive Emission — `emit()` (implemented)
+## 3. Behavioral Primitive Emission (`emit`)
 
 Fire-and-forget events that populate the backend semantic behavior graph:
 
@@ -120,11 +83,11 @@ invariance.emit('ToolInvocation', {
 })
 ```
 
-All emissions are async, fire-and-forget via `transport.submitBehavioralEvent()`. They never block agent execution.
+All emissions are async, fire-and-forget. They never block agent execution. The transport normalizes camelCase to snake_case for the backend.
 
 ---
 
-## 4. Framework Adapters (implemented)
+## 4. Framework Adapters
 
 Separate sub-path imports so unused framework deps aren't bundled:
 
@@ -146,15 +109,15 @@ Each adapter hooks into the framework's native callback/middleware system and ca
 
 ---
 
-## 5. DEV Mode Console Output (implemented)
+## 5. DEV Mode Output
 
-In DEV mode, the tracer tracks a per-session event tree. Print it:
+In DEV mode, the tracer tracks a per-session event tree.
+
+**Console output** (default):
 
 ```typescript
 invariance.tracer.printDevTree('session-123')
 ```
-
-Output:
 
 ```
 [Invariance DEV] Execution trace: session-123
@@ -164,20 +127,24 @@ Output:
 └── Total: 57ms | 2 tool calls | 1 anomalies
 ```
 
-Programmatic access:
+**Programmatic access:**
 
 ```typescript
 const events: TraceEvent[] = invariance.tracer.getDevTree('session-123')
 ```
 
+**Local UI server** (`devOutput: 'ui'`): spin up a local server on a configurable port (default 4321), serve a simple run tree UI showing execution tree, input/output at each node, latency, errors. Auto-opens in browser on first run.
+
 ---
 
-## 6. Verification API (transport wired, backend not yet built)
+## 6. Verification API
+
+Cryptographic proof of chain integrity via the hosted verification API:
 
 ```typescript
 const proof = await invariance.verify(executionId)
 
-// VerificationProof type:
+// VerificationProof:
 {
   valid: boolean,
   executionId: string,
@@ -189,11 +156,13 @@ const proof = await invariance.verify(executionId)
 }
 ```
 
-Calls `GET /v1/trace/verify/:executionId`. The backend route doesn't exist yet.
+This is the artifact enterprises hand to regulators. The SDK method is the public entry point, the backend does the actual verification work including Merkle proof checks against the cold tier.
 
 ---
 
-## 7. Semantic Graph Query (transport wired, backend not yet built)
+## 7. Semantic Graph Query
+
+Agents can query their own execution history programmatically:
 
 ```typescript
 const patterns = await invariance.queryGraph(`
@@ -203,7 +172,7 @@ const patterns = await invariance.queryGraph(`
 `)
 ```
 
-Calls `POST /v1/trace/graph/query`. The backend route and query parser don't exist yet.
+This is the agent-queryable surface. Agents can use this to check their own execution history before making decisions.
 
 ---
 

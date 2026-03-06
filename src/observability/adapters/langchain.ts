@@ -1,3 +1,4 @@
+import { ulid } from 'ulid';
 import type { InvarianceTracer } from '../tracer.js';
 
 /**
@@ -21,7 +22,7 @@ export class InvarianceLangChainTracer {
 
   handleLLMStart(_llm: unknown, prompts: string[]): void {
     this.tracer.emit('DecisionPoint', {
-      nodeId: '',
+      nodeId: ulid(),
       candidates: prompts,
       chosen: prompts[0] ?? '',
       depth: 0,
@@ -30,7 +31,7 @@ export class InvarianceLangChainTracer {
 
   handleToolStart(tool: { name: string }, input: string): void {
     this.tracer.emit('ToolInvocation', {
-      nodeId: '',
+      nodeId: ulid(),
       tool: tool.name,
       inputHash: input,
       outputHash: '',
@@ -40,7 +41,7 @@ export class InvarianceLangChainTracer {
 
   handleChainError(error: Error): void {
     this.tracer.emit('DecisionPoint', {
-      nodeId: '',
+      nodeId: ulid(),
       candidates: [],
       chosen: `error: ${error.message}`,
       depth: 0,
