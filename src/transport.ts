@@ -84,6 +84,7 @@ export class Transport {
   private readonly flushIntervalMs: number;
   private readonly maxBatchSize: number;
   private readonly onError: ErrorHandler;
+  private readonly maxQueueSize: number;
 
   private batch: Receipt[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -95,12 +96,14 @@ export class Transport {
     flushIntervalMs: number,
     maxBatchSize: number,
     onError: ErrorHandler,
+    maxQueueSize?: number,
   ) {
     this.apiUrl = apiUrl;
     this.apiKey = apiKey;
     this.flushIntervalMs = flushIntervalMs;
     this.maxBatchSize = maxBatchSize;
     this.onError = onError;
+    this.maxQueueSize = maxQueueSize ?? 1000;
 
     this.timer = setInterval(() => void this.flush(), this.flushIntervalMs);
     // Allow Node.js to exit even if timer is running
@@ -109,9 +112,14 @@ export class Transport {
     }
   }
 
-  /** Add a receipt to the batch. Auto-flushes if batch is full. */
+  /** Add a receipt to the batch. Auto-flushes if batch is full. Drops oldest if queue overflows. */
   enqueue(receipt: Receipt): void {
     this.batch.push(receipt);
+    if (this.batch.length > this.maxQueueSize) {
+      const dropped = this.batch.length - this.maxQueueSize;
+      this.batch = this.batch.slice(dropped);
+      this.onError(new InvarianceError('FLUSH_FAILED', `Queue overflow: dropped ${dropped} oldest receipt(s)`));
+    }
     if (this.batch.length >= this.maxBatchSize) {
       void this.flush();
     }
@@ -259,6 +267,16 @@ export class Transport {
       throw new InvarianceError('API_ERROR', `POST /v1/trace/graph/query returned ${res.status}`);
     }
     return res.json();
+  }
+
+  /** Check if the backend is reachable. */
+  async healthCheck(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.apiUrl}/v1/health`);
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   /** Stop the flush timer and send remaining receipts. */

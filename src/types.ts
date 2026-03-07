@@ -15,6 +15,8 @@ export interface InvarianceConfig {
   maxBatchSize?: number;
   /** Callback for non-fatal errors */
   onError?: ErrorHandler;
+  /** Maximum number of receipts to queue before dropping oldest (default: 1000) */
+  maxQueueSize?: number;
   /** Ed25519 private key (hex) for signing receipts */
   privateKey: string;
   /** Observability mode: DEV (full fidelity, no crypto) or PROD (sampled, signed) */
@@ -49,8 +51,8 @@ export interface ActionTemplate {
 
 /** An action performed by an agent */
 export interface Action {
-  /** Agent identifier */
-  agent: string;
+  /** Agent identifier (defaults to session agent if omitted) */
+  agent?: string;
   /** Action name (e.g. "swap", "transfer", "chat.send") */
   action: string;
   /** Action inputs / parameters */
