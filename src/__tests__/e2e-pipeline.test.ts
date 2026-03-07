@@ -5,6 +5,7 @@ import { verifyChain } from '../receipt.js';
 import { InvarianceTracer } from '../observability/tracer.js';
 import { Transport } from '../transport.js';
 import { action, defineActions } from '../templates.js';
+import type { InvarianceConfig } from '../types.js';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha512';
 
@@ -18,7 +19,21 @@ const pubKeyHex = Buffer.from(pubKey).toString('hex');
 const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
 vi.stubGlobal('fetch', fetchMock);
 
-afterEach(() => {
+const activeClients: Invariance[] = [];
+
+function createInvariance(overrides?: Partial<InvarianceConfig>) {
+  const inv = Invariance.init({
+    apiKey: 'inv_test',
+    privateKey: privKeyHex,
+    ...overrides,
+  });
+  activeClients.push(inv);
+  return inv;
+}
+
+afterEach(async () => {
+  await Promise.all(activeClients.map((client) => client.shutdown()));
+  activeClients.length = 0;
   fetchMock.mockClear();
 });
 
@@ -26,7 +41,7 @@ afterEach(() => {
 
 describe('Session receipt chain pipeline', () => {
   it('init -> session -> record 5 actions -> end -> verify chain', async () => {
-    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const inv = createInvariance();
     const session = inv.session({ agent: 'bot', name: 'chain-run' });
 
     for (let i = 0; i < 5; i++) {
@@ -50,13 +65,20 @@ describe('Session receipt chain pipeline', () => {
     expect(result.receiptCount).toBe(5);
 
     session.end();
+    await inv.shutdown();
 
-    // fetch mock called for createSession, enqueue (flush), closeSession
-    expect(fetchMock).toHaveBeenCalled();
+    const receiptSubmitCall = fetchMock.mock.calls.find(
+      ([url]) => String(url).includes('/v1/receipts'),
+    );
+    expect(receiptSubmitCall).toBeDefined();
+
+    const [, options] = receiptSubmitCall!;
+    const payload = JSON.parse(String((options as RequestInit).body)) as { receipts: unknown[] };
+    expect(payload.receipts).toHaveLength(5);
   });
 
   it('tamper detection', async () => {
-    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const inv = createInvariance();
     const session = inv.session({ agent: 'bot', name: 'tamper-run' });
 
     for (let i = 0; i < 3; i++) {
@@ -72,7 +94,7 @@ describe('Session receipt chain pipeline', () => {
   });
 
   it('signature verification roundtrip', async () => {
-    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const inv = createInvariance();
     const session = inv.session({ agent: 'bot', name: 'sig-run' });
 
     await session.record({ agent: 'bot', action: 'step', input: { x: 1 } });
@@ -261,7 +283,7 @@ describe('Tracer span tree pipeline', () => {
 
 describe('Agent-scoped session with policies', () => {
   it('inv.agent() returns { id, session() } where session() returns AgentSession', () => {
-    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const inv = createInvariance();
     const agent = inv.agent({
       id: 'my-agent',
       privateKey: privKeyHex,
@@ -284,7 +306,7 @@ describe('Agent-scoped session with policies', () => {
   });
 
   it('allow/deny enforcement across record calls', async () => {
-    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const inv = createInvariance();
 
     const actions = defineActions({
       allowed: action<{ x: number }>({ label: 'Allowed' }),
@@ -324,7 +346,7 @@ describe('Agent-scoped session with policies', () => {
 
 describe('wrap() pipeline', () => {
   it('wrap with allowed action succeeds', async () => {
-    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const inv = createInvariance();
 
     const { result, receipt } = await inv.wrap(
       { agent: 'bot', action: 'compute', input: { n: 42 } },
@@ -338,9 +360,7 @@ describe('wrap() pipeline', () => {
   });
 
   it('wrap with policy-denied action throws POLICY_DENIED, fn never called', async () => {
-    const inv = Invariance.init({
-      apiKey: 'inv_test',
-      privateKey: privKeyHex,
+    const inv = createInvariance({
       policies: [{ action: 'forbidden', custom: () => false }],
     });
 
@@ -360,7 +380,7 @@ describe('wrap() pipeline', () => {
   });
 
   it('wrap with throwing fn records receipt with error and rethrows with .receipt', async () => {
-    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const inv = createInvariance();
 
     let caughtErr: any;
     try {
