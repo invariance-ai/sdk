@@ -88,6 +88,14 @@ describe('Invariance', () => {
     await inv.shutdown();
   });
 
+  it('record() requires agent for one-off receipt', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    await expect(inv.record({ action: 'compute', input: { n: 1 } } as any)).rejects.toThrow(
+      'agent is required for one-off record(); use session() to default agent',
+    );
+    await inv.shutdown();
+  });
+
   it('agent() supports typed action templates', async () => {
     const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
     const actions = defineActions({

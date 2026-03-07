@@ -132,6 +132,9 @@ export class Invariance {
    * Record a single action (creates a one-off receipt outside any session).
    */
   async record(action: Action): Promise<Receipt> {
+    if (!action.agent) {
+      throw new InvarianceError('API_ERROR', 'agent is required for one-off record(); use session() to default agent');
+    }
     const session = this.session({ agent: action.agent, name: '__single__' });
     const receipt = await session.record(action);
     session.end();
