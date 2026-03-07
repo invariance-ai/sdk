@@ -125,6 +125,67 @@ describe('Session', () => {
     });
   });
 
+  it('record() awaits ready before proceeding', async () => {
+    let createResolved = false;
+    const onCreate = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+      setTimeout(() => { createResolved = true; resolve(); }, 50);
+    }));
+    const { session } = makeSession({ onCreateSession: onCreate });
+
+    // record should wait for ready
+    const recordPromise = session.record({ agent: 'test-agent', action: 'step', input: { x: 1 } });
+    // createResolved should be false initially
+    expect(createResolved).toBe(false);
+    await recordPromise;
+    expect(createResolved).toBe(true);
+  });
+
+  it('record() defaults agent to session agent when omitted', async () => {
+    const { session, enqueue } = makeSession();
+    const receipt = await session.record({ action: 'step', input: { x: 1 } } as any);
+    expect(receipt.agent).toBe('test-agent');
+    expect(enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it('wrap() executes fn and records receipt within session', async () => {
+    const { session } = makeSession();
+    const { result, receipt } = await session.wrap(
+      { action: 'compute', input: { n: 42 } },
+      () => ({ answer: 42 }),
+    );
+    expect(result).toEqual({ answer: 42 });
+    expect(receipt.action).toBe('compute');
+    expect(receipt.agent).toBe('test-agent');
+  });
+
+  it('wrap() records error and rethrows on fn failure', async () => {
+    const { session } = makeSession();
+    let caughtErr: any;
+    try {
+      await session.wrap(
+        { action: 'risky', input: {} },
+        () => { throw new Error('boom'); },
+      );
+    } catch (err) {
+      caughtErr = err;
+    }
+    expect(caughtErr).toBeDefined();
+    expect(caughtErr.message).toBe('boom');
+    expect(caughtErr.receipt).toBeDefined();
+    expect(caughtErr.receipt.error).toBe('boom');
+  });
+
+  it('wrap() checks policies before executing', async () => {
+    const { session } = makeSession();
+    await expect(
+      session.wrap(
+        { action: 'forbidden', input: {} },
+        () => 'should not run',
+        () => ({ allowed: false, reason: 'Policy denied' }),
+      ),
+    ).rejects.toThrow('Policy denied');
+  });
+
   it('does not throw if onError itself throws', async () => {
     const onCreate = vi.fn().mockRejectedValue(new Error('create failed'));
     const onError = vi.fn(() => {

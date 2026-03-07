@@ -115,6 +115,54 @@ describe('Session receipt chain pipeline', () => {
   });
 });
 
+// ─── Suite 1b: Session.wrap() pipeline ────────────────────────────────────────
+
+describe('Session.wrap() pipeline', () => {
+  it('wrap within session records receipt and returns result', async () => {
+    const inv = createInvariance();
+    const session = inv.session({ agent: 'bot', name: 'wrap-run' });
+
+    const { result, receipt } = await session.wrap(
+      { action: 'compute', input: { n: 10 } },
+      () => ({ answer: 100 }),
+    );
+
+    expect(result).toEqual({ answer: 100 });
+    expect(receipt.action).toBe('compute');
+    expect(receipt.agent).toBe('bot');
+
+    const receipts = session.getReceipts();
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]!.hash).toBe(receipt.hash);
+
+    session.end();
+  });
+
+  it('wrap records error receipt on failure and rethrows', async () => {
+    const inv = createInvariance();
+    const session = inv.session({ agent: 'bot', name: 'wrap-err' });
+
+    let caughtErr: any;
+    try {
+      await session.wrap(
+        { action: 'risky', input: {} },
+        () => { throw new Error('explosion'); },
+      );
+    } catch (err) {
+      caughtErr = err;
+    }
+
+    expect(caughtErr.message).toBe('explosion');
+    expect(caughtErr.receipt.error).toBe('explosion');
+
+    const receipts = session.getReceipts();
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]!.error).toBe('explosion');
+
+    session.end();
+  });
+});
+
 // ─── Suite 2: Tracer span tree pipeline ──────────────────────────────────────
 
 function makeTracer(

@@ -13,6 +13,24 @@ const privKeyHex = Buffer.from(privKey).toString('hex');
 // Mock fetch globally for transport calls
 vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
 
+describe('Invariance.generateKeypair()', () => {
+  it('produces valid 64-char hex strings', () => {
+    const { privateKey, publicKey } = Invariance.generateKeypair();
+    expect(privateKey).toMatch(/^[0-9a-f]{64}$/);
+    expect(publicKey).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('public key can verify signatures from private key', async () => {
+    const { privateKey, publicKey } = Invariance.generateKeypair();
+    const message = new TextEncoder().encode('test message');
+    const privBytes = ed25519.etc.hexToBytes(privateKey);
+    const sig = await ed25519.signAsync(message, privBytes);
+    const pubBytes = ed25519.etc.hexToBytes(publicKey);
+    const valid = await ed25519.verifyAsync(sig, message, pubBytes);
+    expect(valid).toBe(true);
+  });
+});
+
 describe('Invariance', () => {
   it('init() throws if apiKey missing', () => {
     expect(() => Invariance.init({ apiKey: '', privateKey: privKeyHex })).toThrow('apiKey is required');
@@ -60,6 +78,22 @@ describe('Invariance', () => {
     await expect(session.record('finance.balance.read', { accountId: 'acc-1' })).resolves.toBeDefined();
     await expect(session.record('finance.transfer.execute', { from: 'a', to: 'b', amount: 1 } as any)).rejects.toThrow(InvarianceError);
     await expect(session.record('finance.unlisted', {} as any)).rejects.toThrow('not allowed');
+  });
+
+  it('healthCheck() calls transport', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    (fetch as any).mockResolvedValueOnce({ ok: true });
+    const result = await inv.healthCheck();
+    expect(result).toBe(true);
+    await inv.shutdown();
+  });
+
+  it('record() requires agent for one-off receipt', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    await expect(inv.record({ action: 'compute', input: { n: 1 } } as any)).rejects.toThrow(
+      'agent is required for one-off record(); use session() to default agent',
+    );
+    await inv.shutdown();
   });
 
   it('agent() supports typed action templates', async () => {

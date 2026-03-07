@@ -1,5 +1,5 @@
 import { ulid } from 'ulid';
-import type { Action, ErrorHandler, Receipt, SessionInfo, VerifyResult } from './types.js';
+import type { Action, ErrorHandler, PolicyCheck, Receipt, SessionInfo, VerifyResult } from './types.js';
 import { createReceipt, verifyChain } from './receipt.js';
 
 /** Callback to enqueue a receipt for flushing */
@@ -65,8 +65,13 @@ export class Session {
    * Creates a hash-chained receipt and enqueues it for flushing.
    */
   async record(action: Action): Promise<Receipt> {
+    await this.ready;
     if (this.status !== 'open') {
       throw new Error(`Session ${this.id} is ${this.status}, cannot record`);
+    }
+    // Default agent to session's agent if not provided
+    if (!action.agent) {
+      action = { ...action, agent: this.agent };
     }
     if (action.agent !== this.agent) {
       throw new Error(`Action agent "${action.agent}" does not match session agent "${this.agent}"`);
@@ -112,6 +117,44 @@ export class Session {
     });
 
     return this.info();
+  }
+
+  /**
+   * Policy check → execute → record within this session.
+   */
+  async wrap<T>(
+    action: Omit<Action, 'output' | 'error'>,
+    fn: () => T | Promise<T>,
+    checkPolicies?: (action: Action) => PolicyCheck,
+  ): Promise<{ result: T; receipt: Receipt }> {
+    await this.ready;
+
+    const fullAction: Action = { ...action, agent: action.agent || this.agent };
+
+    if (checkPolicies) {
+      const policyResult = checkPolicies(fullAction);
+      if (!policyResult.allowed) {
+        throw new Error(policyResult.reason ?? 'Policy denied');
+      }
+    }
+
+    let output: Record<string, unknown> | undefined;
+    let error: string | undefined;
+    let result: T;
+
+    try {
+      result = await fn();
+      output = typeof result === 'object' && result !== null
+        ? result as Record<string, unknown>
+        : { value: result };
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+      const receipt = await this.record({ ...fullAction, error });
+      throw Object.assign(err instanceof Error ? err : new Error(error), { receipt });
+    }
+
+    const receipt = await this.record({ ...fullAction, output });
+    return { result, receipt };
   }
 
   getReceipts(): readonly Receipt[] {

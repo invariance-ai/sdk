@@ -3,6 +3,8 @@ import { Session } from './session.js';
 import { Transport } from './transport.js';
 import { checkPolicies } from './policy.js';
 import { InvarianceError } from './errors.js';
+import { bytesToHex } from './receipt.js';
+import * as ed25519 from '@noble/ed25519';
 import type { ActionMap, InputOf, OutputOf } from './templates.js';
 import { InvarianceTracer } from './observability/tracer.js';
 import type { TraceAction, TraceEvent, DecisionPointPayload, GoalDriftPayload, SubAgentSpawnPayload, ToolInvocationPayload, VerificationProof, BehavioralPrimitive } from './observability/types.js';
@@ -38,6 +40,10 @@ type AgentSession<TActions extends ActionMap> = {
     output?: OutputOf<TActions[K]>,
     error?: string,
   ): Promise<Receipt>;
+  wrap<T>(
+    action: Omit<Action, 'output' | 'error' | 'agent'> & { agent?: string },
+    fn: () => T | Promise<T>,
+  ): Promise<{ result: T; receipt: Receipt }>;
   end(status?: 'closed' | 'tampered'): ReturnType<Session['info']>;
   info(): ReturnType<Session['info']>;
 };
@@ -81,6 +87,7 @@ export class Invariance {
       this.config.flushIntervalMs,
       this.config.maxBatchSize,
       this.config.onError,
+      config.maxQueueSize,
     );
 
     this.tracer = new InvarianceTracer(this.transport, {
@@ -98,6 +105,18 @@ export class Invariance {
    * @param config - SDK configuration (apiKey required)
    * @returns Configured Invariance instance
    */
+  /**
+   * Generate a new Ed25519 keypair for agent signing.
+   */
+  static generateKeypair(): { privateKey: string; publicKey: string } {
+    const privKey = ed25519.utils.randomPrivateKey();
+    const pubKey = ed25519.getPublicKey(privKey);
+    return {
+      privateKey: bytesToHex(privKey),
+      publicKey: bytesToHex(pubKey),
+    };
+  }
+
   static init(config: InvarianceConfig): Invariance {
     if (!config.apiKey) {
       throw new InvarianceError('API_ERROR', 'apiKey is required');
@@ -113,6 +132,9 @@ export class Invariance {
    * Record a single action (creates a one-off receipt outside any session).
    */
   async record(action: Action): Promise<Receipt> {
+    if (!action.agent) {
+      throw new InvarianceError('API_ERROR', 'agent is required for one-off record(); use session() to default agent');
+    }
     const session = this.session({ agent: action.agent, name: '__single__' });
     const receipt = await session.record(action);
     session.end();
@@ -184,6 +206,9 @@ export class Invariance {
             output: output as Record<string, unknown> | undefined,
             error,
           });
+        },
+        wrap: async <T>(action: Omit<Action, 'output' | 'error' | 'agent'> & { agent?: string }, fn: () => T | Promise<T>) => {
+          return base.wrap({ ...action, agent: opts.id }, fn);
         },
         end: (status = 'closed') => base.end(status),
         info: () => base.info(),
@@ -322,6 +347,13 @@ export class Invariance {
   /**
    * Force-flush all batched receipts to the API.
    */
+  /**
+   * Check if the Invariance backend is reachable.
+   */
+  async healthCheck(): Promise<boolean> {
+    return this.transport.healthCheck();
+  }
+
   async flush(): Promise<void> {
     return this.transport.flush();
   }
