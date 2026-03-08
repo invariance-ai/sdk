@@ -4,7 +4,9 @@ export type BehavioralPrimitive =
   | 'DecisionPoint'
   | 'ToolInvocation'
   | 'SubAgentSpawn'
-  | 'GoalDrift';
+  | 'GoalDrift'
+  | 'ConstraintCheck'
+  | 'PlanRevision';
 
 // ── Tracer Types ──
 
@@ -20,6 +22,8 @@ export interface TracerConfig {
   onAnomaly?: (node: TraceEvent) => void;
   random?: () => number;
   now?: () => number;
+  replayContext?: ReplayContextMode;
+  captureReplaySnapshots?: boolean;
 }
 
 export interface TraceEvent {
@@ -37,6 +41,8 @@ export interface TraceEvent {
   durationMs: number;
   hash: string;
   previousHash: string;
+  contextHash?: string;
+  previousContextHash?: string;
   anomalyScore: number;
 }
 
@@ -81,6 +87,61 @@ export type BehavioralPayload =
   | { type: 'ToolInvocation'; data: ToolInvocationPayload }
   | { type: 'SubAgentSpawn'; data: SubAgentSpawnPayload }
   | { type: 'GoalDrift'; data: GoalDriftPayload };
+
+// ── Replay Types ──
+
+export type ReplayContextMode =
+  | { type: 'full' }
+  | { type: 'last' }
+  | { type: 'window'; size: number };
+
+export interface ReplaySnapshot {
+  nodeId: string;
+  sessionId: string;
+  timestamp: number;
+  /** LLM messages at this point */
+  llmMessages?: unknown[];
+  /** Tool call results */
+  toolResults?: unknown[];
+  /** RAG chunks retrieved */
+  ragChunks?: unknown[];
+  /** External data reads */
+  externalReads?: unknown[];
+  /** Arbitrary context data */
+  custom?: Record<string, unknown>;
+}
+
+export interface ReplayTimelineEntry {
+  nodeId: string;
+  actionType: BehavioralPrimitive;
+  timestamp: number;
+  durationMs: number;
+  hash: string;
+  contextHash: string;
+  hasSnapshot: boolean;
+  agentId: string;
+  input: unknown;
+  output: unknown | null;
+  error: unknown | null;
+}
+
+export interface CounterfactualRequest {
+  /** Node ID to branch from */
+  branchFromNodeId: string;
+  /** Modified input for the counterfactual */
+  modifiedInput: unknown;
+  /** Optional modified action type */
+  modifiedActionType?: BehavioralPrimitive;
+  /** Tag for this counterfactual run */
+  tag?: string;
+}
+
+export interface CounterfactualResult {
+  originalNodeId: string;
+  counterfactualNodeId: string;
+  branchSessionId: string;
+  tag?: string;
+}
 
 // ── Verification ──
 

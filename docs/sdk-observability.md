@@ -176,6 +176,41 @@ This is the agent-queryable surface. Agents can use this to check their own exec
 
 ---
 
+## 8. Replay + Counterfactual APIs
+
+Enable replay capture at init:
+
+```typescript
+const invariance = Invariance.init({
+  apiKey: 'inv_...',
+  privateKey: '...',
+  captureReplaySnapshots: true,
+  replayContext: { type: 'window', size: 10 } // 'full' | 'last' | 'window'
+})
+```
+
+Fetch replay timeline and snapshots:
+
+```typescript
+const timeline = await invariance.replayTimeline('sess-123')
+const snapshot = await invariance.nodeSnapshot(timeline[0].nodeId)
+```
+
+Branch a counterfactual run:
+
+```typescript
+const result = await invariance.counterfactual({
+  branchFromNodeId: '01HX...',
+  modifiedInput: { prompt: 'alternative input' },
+  modifiedActionType: 'ToolInvocation',
+  tag: 'alt-a'
+})
+```
+
+Replay/counterfactual transport methods accept and normalize both snake_case and camelCase API payloads. SDK return values are always camelCase.
+
+---
+
 ## What Does NOT Change
 
 - Core signing primitives (Ed25519)

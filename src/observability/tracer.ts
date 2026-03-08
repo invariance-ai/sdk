@@ -12,6 +12,8 @@ import type {
   ToolInvocationPayload,
   TraceAction,
   VerificationProof,
+  ReplayContextMode,
+  ReplaySnapshot,
 } from './types.js';
 import type { Transport } from '../transport.js';
 import { sortedStringify, sha256 } from '../receipt.js';
@@ -34,6 +36,10 @@ export class InvarianceTracer {
   private hotPaths = new Map<string, number>(); // spanId -> last_seen
   private lastHash = new Map<string, string>(); // sessionId -> last hash
   private sessionTrees = new Map<string, TraceEvent[]>(); // DEV mode tree
+  private readonly replayContext: ReplayContextMode;
+  private readonly captureReplaySnapshots: boolean;
+  private snapshots = new Map<string, Map<string, ReplaySnapshot>>(); // sessionId -> nodeId -> snapshot
+  private lastContextHash = new Map<string, string>(); // sessionId -> last context hash
 
   constructor(transport: Transport, config: TracerConfig) {
     this.mode = config.mode;
@@ -44,6 +50,11 @@ export class InvarianceTracer {
     this.devOutput = config.devOutput ?? 'console';
     this.rand = config.random ?? Math.random;
     this.now = config.now ?? Date.now;
+    const replayContext = config.replayContext ?? { type: 'last' };
+    this.replayContext = replayContext.type === 'window' && replayContext.size < 1
+      ? { type: 'last' }
+      : replayContext;
+    this.captureReplaySnapshots = config.captureReplaySnapshots ?? false;
   }
 
   async trace<T>(params: {
@@ -128,6 +139,28 @@ export class InvarianceTracer {
 
     this.lastHash.set(params.sessionId, hash);
 
+    if (this.captureReplaySnapshots) {
+      const snapshot: ReplaySnapshot = {
+        nodeId,
+        sessionId: params.sessionId,
+        timestamp: startTime,
+        llmMessages: params.action.input != null ? [params.action.input] : undefined,
+        toolResults: output != null ? [output] : undefined,
+      };
+      const previousContextHash = this.lastContextHash.get(params.sessionId) ?? '0';
+      const contextHashData = sortedStringify(snapshot) + previousContextHash;
+      const contextHash = await sha256(contextHashData);
+      event.contextHash = contextHash;
+      event.previousContextHash = previousContextHash;
+      this.lastContextHash.set(params.sessionId, contextHash);
+
+      if (!this.snapshots.has(params.sessionId)) {
+        this.snapshots.set(params.sessionId, new Map());
+      }
+      this.snapshots.get(params.sessionId)!.set(nodeId, snapshot);
+      this.pruneSnapshots(params.sessionId);
+    }
+
     if (this.mode === 'DEV' || this.shouldCapture(spanId, anomalyScore, error !== undefined)) {
       this.submitEvent(event);
     }
@@ -186,6 +219,34 @@ export class InvarianceTracer {
     const toolCalls = events.filter((e) => e.actionType === 'ToolInvocation').length;
     const anomalies = events.filter((e) => e.anomalyScore > 0.5).length;
     console.log(`└── Total: ${totalMs}ms | ${toolCalls} tool calls | ${anomalies} anomalies\n`);
+  }
+
+  captureSnapshot(sessionId: string, nodeId: string, snapshot: ReplaySnapshot): void {
+    if (!this.snapshots.has(sessionId)) {
+      this.snapshots.set(sessionId, new Map());
+    }
+    this.snapshots.get(sessionId)!.set(nodeId, snapshot);
+    this.pruneSnapshots(sessionId);
+  }
+
+  getSnapshot(sessionId: string, nodeId: string): ReplaySnapshot | undefined {
+    return this.snapshots.get(sessionId)?.get(nodeId);
+  }
+
+  private pruneSnapshots(sessionId: string): void {
+    const sessionSnapshots = this.snapshots.get(sessionId);
+    if (!sessionSnapshots) return;
+
+    if (this.replayContext.type === 'full') return;
+
+    const keep = this.replayContext.type === 'last' ? 1 : this.replayContext.size;
+    if (sessionSnapshots.size <= keep) return;
+
+    const sorted = [...sessionSnapshots.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toRemove = sorted.length - keep;
+    for (let i = 0; i < toRemove; i++) {
+      sessionSnapshots.delete(sorted[i]![0]);
+    }
   }
 
   private shouldCapture(spanId: string, anomalyScore: number, hasError: boolean): boolean {
