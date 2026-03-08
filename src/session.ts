@@ -1,6 +1,7 @@
 import { ulid } from 'ulid';
 import type { Action, ErrorHandler, PolicyCheck, Receipt, SessionInfo, VerifyResult } from './types.js';
 import { createReceipt, verifyChain } from './receipt.js';
+import { InvarianceError } from './errors.js';
 
 /** Callback to enqueue a receipt for flushing */
 export type EnqueueFn = (receipt: Receipt) => void;
@@ -20,6 +21,7 @@ export class Session {
   readonly agent: string;
   readonly name: string;
   readonly ready: Promise<void>;
+  private initializationError?: InvarianceError;
   private status: 'open' | 'closed' | 'tampered' = 'open';
   private previousHash = '0';
   private receipts: Receipt[] = [];
@@ -55,9 +57,41 @@ export class Session {
 
     this.ready = onCreateSession
       ? onCreateSession({ id: this.id, name: this.name }).catch((err) => {
-          this.reportError(err);
+          const normalizedError = err instanceof InvarianceError
+            ? err
+            : new InvarianceError(
+                'SESSION_NOT_READY',
+                `Failed to initialize session "${this.id}": ${err instanceof Error ? err.message : String(err)}`,
+              );
+          this.initializationError = normalizedError;
+          this.reportError(normalizedError);
         })
       : Promise.resolve();
+  }
+
+  private async ensureReady(): Promise<void> {
+    await this.ready;
+    if (this.initializationError) {
+      throw this.initializationError;
+    }
+  }
+
+  /**
+   * Create a session that is guaranteed to be ready (initialized).
+   * Prefer this over `new Session()` to avoid race conditions with the hidden `ready` promise.
+   */
+  static async create(
+    agent: string,
+    name: string,
+    privateKey: string,
+    enqueue: EnqueueFn,
+    onCreateSession?: OnCreateSessionFn,
+    onCloseSession?: OnCloseSessionFn,
+    onError: ErrorHandler = () => {},
+  ): Promise<Session> {
+    const session = new Session(agent, name, privateKey, enqueue, onCreateSession, onCloseSession, onError);
+    await session.ensureReady();
+    return session;
   }
 
   /**
@@ -65,16 +99,16 @@ export class Session {
    * Creates a hash-chained receipt and enqueues it for flushing.
    */
   async record(action: Action): Promise<Receipt> {
-    await this.ready;
+    await this.ensureReady();
     if (this.status !== 'open') {
-      throw new Error(`Session ${this.id} is ${this.status}, cannot record`);
+      throw new InvarianceError('SESSION_CLOSED', `Session ${this.id} is ${this.status}, cannot record`);
     }
     // Default agent to session's agent if not provided
     if (!action.agent) {
       action = { ...action, agent: this.agent };
     }
     if (action.agent !== this.agent) {
-      throw new Error(`Action agent "${action.agent}" does not match session agent "${this.agent}"`);
+      throw new InvarianceError('API_ERROR', `Action agent "${action.agent}" does not match session agent "${this.agent}"`);
     }
 
     let receipt;
@@ -127,14 +161,14 @@ export class Session {
     fn: () => T | Promise<T>,
     checkPolicies?: (action: Action) => PolicyCheck,
   ): Promise<{ result: T; receipt: Receipt }> {
-    await this.ready;
+    await this.ensureReady();
 
     const fullAction: Action = { ...action, agent: action.agent || this.agent };
 
     if (checkPolicies) {
       const policyResult = checkPolicies(fullAction);
       if (!policyResult.allowed) {
-        throw new Error(policyResult.reason ?? 'Policy denied');
+        throw new InvarianceError('POLICY_DENIED', policyResult.reason ?? 'Policy denied');
       }
     }
 

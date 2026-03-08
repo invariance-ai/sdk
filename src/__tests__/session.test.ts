@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Session } from '../session.js';
+import { InvarianceError } from '../errors.js';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha512';
 
@@ -115,6 +116,26 @@ describe('Session', () => {
     expect(onError).toHaveBeenCalledTimes(1);
   });
 
+  it('Session.create() rejects when create callback fails', async () => {
+    const onError = vi.fn();
+    const onCreate = vi.fn().mockRejectedValue(new Error('create failed'));
+    const enqueue = vi.fn();
+
+    await expect(
+      Session.create(
+        'test-agent',
+        'test-session',
+        privKeyHex,
+        enqueue,
+        onCreate,
+        undefined,
+        onError,
+      ),
+    ).rejects.toThrow('Failed to initialize session');
+
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
   it('forwards close-session failures to onError', async () => {
     const onError = vi.fn();
     const onClose = vi.fn().mockRejectedValue(new Error('close failed'));
@@ -145,6 +166,15 @@ describe('Session', () => {
     const receipt = await session.record({ action: 'step', input: { x: 1 } } as any);
     expect(receipt.agent).toBe('test-agent');
     expect(enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it('record() throws SESSION_NOT_READY when initialization failed', async () => {
+    const onCreate = vi.fn().mockRejectedValue(new Error('create failed'));
+    const { session } = makeSession({ onCreateSession: onCreate });
+    await expect(session.record({ action: 'step', input: { x: 1 } } as any)).rejects.toMatchObject({
+      name: 'InvarianceError',
+      code: 'SESSION_NOT_READY',
+    } satisfies Partial<InvarianceError>);
   });
 
   it('wrap() executes fn and records receipt within session', async () => {

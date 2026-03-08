@@ -17,7 +17,22 @@ const DEFAULT_MAX_BATCH_SIZE = 50;
 
 function assertPrivateKey(privateKey: string): void {
   if (!/^[0-9a-f]{64}$/i.test(privateKey)) {
-    throw new InvarianceError('API_ERROR', 'privateKey must be a 32-byte hex string');
+    throw new InvarianceError('INIT_FAILED', 'privateKey must be a 32-byte hex string');
+  }
+}
+
+/** Validate config and warn about mode-specific field mismatches. */
+function validateConfig(config: InvarianceConfig): void {
+  const mode = config.mode ?? 'PROD';
+  if (mode === 'PROD') {
+    if (config.devOutput) {
+      console.warn('[Invariance] devOutput is ignored in PROD mode');
+    }
+  }
+  if (mode === 'DEV') {
+    if (config.sampleRate !== undefined) {
+      console.warn('[Invariance] sampleRate is ignored in DEV mode (all events captured)');
+    }
   }
 }
 
@@ -25,8 +40,8 @@ type AgentOptions<TActions extends ActionMap> = {
   id: string;
   privateKey: string;
   actions?: TActions;
-  allowActions?: ReadonlyArray<Extract<keyof TActions, string> | string>;
-  denyActions?: ReadonlyArray<Extract<keyof TActions, string> | string>;
+  allowActions?: ReadonlyArray<Extract<keyof TActions, string>>;
+  denyActions?: ReadonlyArray<Extract<keyof TActions, string>>;
 };
 
 type AgentSession<TActions extends ActionMap> = {
@@ -121,26 +136,32 @@ export class Invariance {
 
   static init(config: InvarianceConfig): Invariance {
     if (!config.apiKey) {
-      throw new InvarianceError('API_ERROR', 'apiKey is required');
+      throw new InvarianceError('INIT_FAILED', 'apiKey is required');
     }
     if (!config.privateKey) {
-      throw new InvarianceError('API_ERROR', 'privateKey is required');
+      throw new InvarianceError('INIT_FAILED', 'privateKey is required');
     }
     assertPrivateKey(config.privateKey);
+    validateConfig(config);
     return new Invariance(config);
   }
 
   /**
-   * Record a single action (creates a one-off receipt outside any session).
+   * Record a single action outside any session (creates a one-off receipt).
+   * For session-based recording with hash-chain context, use `session().record()` instead.
+   *
+   * @throws InvarianceError if agent is not specified
    */
   async record(action: Action): Promise<Receipt> {
     if (!action.agent) {
       throw new InvarianceError('API_ERROR', 'agent is required for one-off record(); use session() to default agent');
     }
-    const session = this.session({ agent: action.agent, name: '__single__' });
-    const receipt = await session.record(action);
-    session.end();
-    return receipt;
+    const session = await this.createSession({ agent: action.agent, name: '__single__' });
+    try {
+      return await session.record(action);
+    } finally {
+      session.end();
+    }
   }
 
   /**
@@ -159,6 +180,22 @@ export class Invariance {
   }
 
   /**
+   * Create a session and wait for backend initialization.
+   * Use this when you want explicit failure if session creation fails.
+   */
+  async createSession(opts: { agent: string; name: string }): Promise<Session> {
+    return Session.create(
+      opts.agent,
+      opts.name,
+      this.config.privateKey,
+      (receipt) => this.transport.enqueue(receipt),
+      (session) => this.transport.createSession(session),
+      (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+      this.config.onError,
+    );
+  }
+
+  /**
    * Create an agent-scoped client with its own signing key and optional action policy.
    * This enables simple multi-agent setups under one account/application.
    */
@@ -166,9 +203,10 @@ export class Invariance {
     readonly id: string;
     readonly actions?: TActions;
     session(input: { name: string }): AgentSession<TActions>;
+    sessionAsync(input: { name: string }): Promise<AgentSession<TActions>>;
   } {
     if (!opts.id) {
-      throw new InvarianceError('API_ERROR', 'agent id is required');
+      throw new InvarianceError('INIT_FAILED', 'agent id is required');
     }
     assertPrivateKey(opts.privateKey);
 
@@ -176,17 +214,7 @@ export class Invariance {
     const denyActions = new Set((opts.denyActions ?? []).map((x) => String(x)));
     const actions = opts.actions;
 
-    const createAgentSession = ({ name }: { name: string }): AgentSession<TActions> => {
-      const base = new Session(
-        opts.id,
-        name,
-        opts.privateKey,
-        (receipt) => this.transport.enqueue(receipt),
-        (session) => this.transport.createSession(session),
-        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
-        this.config.onError,
-      );
-
+    const toAgentSession = (base: Session): AgentSession<TActions> => {
       return {
         id: base.id,
         agent: base.agent,
@@ -217,16 +245,44 @@ export class Invariance {
       };
     };
 
+    const createAgentSession = ({ name }: { name: string }): AgentSession<TActions> => {
+      const base = new Session(
+        opts.id,
+        name,
+        opts.privateKey,
+        (receipt) => this.transport.enqueue(receipt),
+        (session) => this.transport.createSession(session),
+        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+        this.config.onError,
+      );
+      return toAgentSession(base);
+    };
+
+    const createAgentSessionAsync = async ({ name }: { name: string }): Promise<AgentSession<TActions>> => {
+      const base = await Session.create(
+        opts.id,
+        name,
+        opts.privateKey,
+        (receipt) => this.transport.enqueue(receipt),
+        (session) => this.transport.createSession(session),
+        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+        this.config.onError,
+      );
+      return toAgentSession(base);
+    };
+
     return {
       id: opts.id,
       actions,
       session: createAgentSession,
+      sessionAsync: createAgentSessionAsync,
     };
   }
 
   /**
-   * Policy check → execute → record.
-   * Checks local policies first, then runs the function, then records the result.
+   * Policy check → execute → record — creates an auditable receipt.
+   * Use this for actions that need policy enforcement and a tamper-evident audit trail.
+   * For observability/debugging without receipts, use `trace()` instead.
    *
    * @throws InvarianceError with code POLICY_DENIED if policies deny the action
    */
@@ -259,7 +315,9 @@ export class Invariance {
   }
 
   /**
-   * Trace an agent action with automatic timing, hashing, and sampling.
+   * Trace an agent action for observability and debugging.
+   * Captures timing, hashing, sampling, and anomaly detection — but does NOT create receipts.
+   * For receipt-based audit trails, use `wrap()` instead.
    *
    * @example
    * ```ts

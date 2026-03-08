@@ -51,6 +51,18 @@ describe('Invariance', () => {
     expect(session.agent).toBe('bot');
   });
 
+  it('createSession() rejects when backend session creation fails', async () => {
+    const onError = vi.fn();
+    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex, onError });
+    (fetch as any).mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+    await expect(inv.createSession({ agent: 'bot', name: 'run' })).rejects.toMatchObject({
+      name: 'InvarianceError',
+      code: 'API_ERROR',
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    await inv.shutdown();
+  });
+
   it('check() runs policy evaluation', () => {
     const inv = Invariance.init({
       apiKey: 'inv_test',
@@ -117,5 +129,26 @@ describe('Invariance', () => {
     const receipt = await session.record('finance.balance.read', { accountId: 'acc-1' }, { balance: 100, currency: 'USD' });
     expect(receipt.action).toBe('finance.balance.read');
     expect(receipt.agent).toBe('finance-agent');
+  });
+
+  it('agent().sessionAsync() creates an initialized typed session', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    const actions = defineActions({
+      'finance.balance.read': action<{ accountId: string }, { balance: number; currency: string }>({
+        label: 'Read Balance',
+      }),
+    });
+
+    const agent = inv.agent({
+      id: 'finance-agent',
+      privateKey: privKeyHex,
+      actions,
+      allowActions: ['finance.balance.read'],
+    });
+
+    const session = await agent.sessionAsync({ name: 'typed-async' });
+    const receipt = await session.record('finance.balance.read', { accountId: 'acc-1' }, { balance: 100, currency: 'USD' });
+    expect(session.id).toBeTruthy();
+    expect(receipt.action).toBe('finance.balance.read');
   });
 });

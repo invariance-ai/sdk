@@ -6,21 +6,17 @@ export { Session } from './session.js';
 export { createReceipt, verifyChain, verifyChainOrThrow, sortedStringify, sha256, ed25519Sign, hexToBytes, bytesToHex } from './receipt.js';
 
 // Action typing templates
-export { action, defineActions } from './templates.js';
+export { action } from './templates.js';
 export type { ActionDefinition, ActionMap, InputOf, OutputOf } from './templates.js';
 
 // Policy engine
 export { checkPolicies, clearRateLimits } from './policy.js';
-
-// HTTP utilities
-export { fetchWithAuth } from './http.js';
 
 // Errors
 export { InvarianceError } from './errors.js';
 export type { InvarianceErrorCode } from './errors.js';
 
 // Observability
-export { InvarianceTracer } from './observability/index.js';
 export type {
   TracerConfig,
   TracerMode,

@@ -2,48 +2,7 @@ import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler } from './types.j
 import { InvarianceError } from './errors.js';
 import { fetchWithAuth } from './http.js';
 
-const ACTION_TYPE_MAP: Record<string, string> = {
-  DecisionPoint: 'decision_point',
-  ToolInvocation: 'tool_invocation',
-  SubAgentSpawn: 'sub_agent_spawn',
-  GoalDrift: 'goal_drift',
-  ConstraintCheck: 'constraint_check',
-  PlanRevision: 'plan_revision',
-  decision_point: 'decision_point',
-  tool_invocation: 'tool_invocation',
-  sub_agent_spawn: 'sub_agent_spawn',
-  goal_drift: 'goal_drift',
-  constraint_check: 'constraint_check',
-  plan_revision: 'plan_revision',
-};
-
-const SDK_ACTION_TYPE_MAP: Record<string, string> = {
-  decision_point: 'DecisionPoint',
-  tool_invocation: 'ToolInvocation',
-  sub_agent_spawn: 'SubAgentSpawn',
-  goal_drift: 'GoalDrift',
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function toCanonicalActionType(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  return ACTION_TYPE_MAP[value] ?? null;
-}
-
-function toSdkActionType(value: unknown): string | null {
-  const canonical = toCanonicalActionType(value);
-  if (!canonical) return null;
-  return SDK_ACTION_TYPE_MAP[canonical] ?? null;
-}
-
-function addAlias(target: Record<string, unknown>, from: string, to: string): void {
-  if (Object.prototype.hasOwnProperty.call(target, from) && !Object.prototype.hasOwnProperty.call(target, to)) {
-    target[to] = target[from];
-  }
-}
+import { isRecord, toCanonicalActionType, toSdkActionType, addAlias } from './normalize.js';
 
 function normalizeTraceEventPayload(event: unknown): unknown {
   if (!isRecord(event)) return event;
@@ -217,7 +176,7 @@ export class Transport {
     if (this.batch.length > this.maxQueueSize) {
       const dropped = this.batch.length - this.maxQueueSize;
       this.batch = this.batch.slice(dropped);
-      this.onError(new InvarianceError('FLUSH_FAILED', `Queue overflow: dropped ${dropped} oldest receipt(s)`));
+      this.onError(new InvarianceError('QUEUE_OVERFLOW', `Queue overflow: dropped ${dropped} oldest receipt(s)`));
     }
     if (this.batch.length >= this.maxBatchSize) {
       void this.flush();
