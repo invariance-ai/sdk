@@ -3,7 +3,11 @@ export type InvarianceErrorCode =
   | 'POLICY_DENIED'
   | 'CHAIN_BROKEN'
   | 'API_ERROR'
-  | 'FLUSH_FAILED';
+  | 'FLUSH_FAILED'
+  | 'SESSION_CLOSED'
+  | 'SESSION_NOT_READY'
+  | 'INIT_FAILED'
+  | 'QUEUE_OVERFLOW';
 
 /**
  * Invariance SDK error with a machine-readable code.

@@ -2,31 +2,7 @@ import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler } from './types.j
 import { InvarianceError } from './errors.js';
 import { fetchWithAuth } from './http.js';
 
-const ACTION_TYPE_MAP: Record<string, string> = {
-  DecisionPoint: 'decision_point',
-  ToolInvocation: 'tool_invocation',
-  SubAgentSpawn: 'sub_agent_spawn',
-  GoalDrift: 'goal_drift',
-  decision_point: 'decision_point',
-  tool_invocation: 'tool_invocation',
-  sub_agent_spawn: 'sub_agent_spawn',
-  goal_drift: 'goal_drift',
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function toCanonicalActionType(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  return ACTION_TYPE_MAP[value] ?? null;
-}
-
-function addAlias(target: Record<string, unknown>, from: string, to: string): void {
-  if (Object.prototype.hasOwnProperty.call(target, from) && !Object.prototype.hasOwnProperty.call(target, to)) {
-    target[to] = target[from];
-  }
-}
+import { isRecord, toCanonicalActionType, toSdkActionType, addAlias } from './normalize.js';
 
 function normalizeTraceEventPayload(event: unknown): unknown {
   if (!isRecord(event)) return event;
@@ -70,6 +46,88 @@ function normalizeBehavioralPayload(payload: unknown): unknown {
     addAlias(data, 'latencyMs', 'latency_ms');
     normalized.data = data;
   }
+
+  return normalized;
+}
+
+function normalizeReplayTimelineEntry(entry: unknown): unknown {
+  if (!isRecord(entry)) return entry;
+
+  const normalized: Record<string, unknown> = { ...entry };
+  addAlias(normalized, 'node_id', 'nodeId');
+  addAlias(normalized, 'action_type', 'actionType');
+  addAlias(normalized, 'duration_ms', 'durationMs');
+  addAlias(normalized, 'context_hash', 'contextHash');
+  addAlias(normalized, 'has_snapshot', 'hasSnapshot');
+  addAlias(normalized, 'agent_id', 'agentId');
+
+  const sdkActionType = toSdkActionType(normalized.actionType ?? normalized.action_type);
+  if (sdkActionType) {
+    normalized.actionType = sdkActionType;
+  }
+
+  return normalized;
+}
+
+function normalizeReplayTimelineResponse(payload: unknown): unknown {
+  if (!isRecord(payload)) return payload;
+
+  const normalized: Record<string, unknown> = { ...payload };
+  if (Array.isArray(normalized.timeline)) {
+    normalized.timeline = normalized.timeline.map(normalizeReplayTimelineEntry);
+  }
+
+  return normalized;
+}
+
+function normalizeReplaySnapshot(snapshot: unknown): unknown {
+  if (!isRecord(snapshot)) return snapshot;
+
+  const normalized: Record<string, unknown> = { ...snapshot };
+  addAlias(normalized, 'node_id', 'nodeId');
+  addAlias(normalized, 'session_id', 'sessionId');
+  addAlias(normalized, 'llm_messages', 'llmMessages');
+  addAlias(normalized, 'tool_results', 'toolResults');
+  addAlias(normalized, 'rag_chunks', 'ragChunks');
+  addAlias(normalized, 'external_reads', 'externalReads');
+
+  return normalized;
+}
+
+function normalizeNodeSnapshotResponse(payload: unknown): unknown {
+  if (!isRecord(payload)) return payload;
+
+  const normalized: Record<string, unknown> = { ...payload };
+  if ('snapshot' in normalized) {
+    normalized.snapshot = normalizeReplaySnapshot(normalized.snapshot);
+  }
+
+  return normalized;
+}
+
+function normalizeCounterfactualRequest(request: unknown): unknown {
+  if (!isRecord(request)) return request;
+
+  const normalized: Record<string, unknown> = { ...request };
+  addAlias(normalized, 'branchFromNodeId', 'branch_from_node_id');
+  addAlias(normalized, 'modifiedInput', 'modified_input');
+  addAlias(normalized, 'modifiedActionType', 'modified_action_type');
+
+  const canonical = toCanonicalActionType(normalized.modified_action_type ?? normalized.modifiedActionType);
+  if (canonical) {
+    normalized.modified_action_type = canonical;
+  }
+
+  return normalized;
+}
+
+function normalizeCounterfactualResponse(payload: unknown): unknown {
+  if (!isRecord(payload)) return payload;
+
+  const normalized: Record<string, unknown> = { ...payload };
+  addAlias(normalized, 'original_node_id', 'originalNodeId');
+  addAlias(normalized, 'counterfactual_node_id', 'counterfactualNodeId');
+  addAlias(normalized, 'branch_session_id', 'branchSessionId');
 
   return normalized;
 }
@@ -118,7 +176,7 @@ export class Transport {
     if (this.batch.length > this.maxQueueSize) {
       const dropped = this.batch.length - this.maxQueueSize;
       this.batch = this.batch.slice(dropped);
-      this.onError(new InvarianceError('FLUSH_FAILED', `Queue overflow: dropped ${dropped} oldest receipt(s)`));
+      this.onError(new InvarianceError('QUEUE_OVERFLOW', `Queue overflow: dropped ${dropped} oldest receipt(s)`));
     }
     if (this.batch.length >= this.maxBatchSize) {
       void this.flush();
@@ -267,6 +325,43 @@ export class Transport {
       throw new InvarianceError('API_ERROR', `POST /v1/trace/graph/query returned ${res.status}`);
     }
     return res.json();
+  }
+
+  /** Get replay timeline for a session */
+  async getReplayTimeline(sessionId: string): Promise<unknown> {
+    const encodedId = encodeURIComponent(sessionId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/trace/sessions/${encodedId}/replay`);
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET /v1/trace/sessions/${encodedId}/replay returned ${res.status}`);
+    }
+    const data = await res.json();
+    return normalizeReplayTimelineResponse(data);
+  }
+
+  /** Get snapshot for a specific node */
+  async getNodeSnapshot(nodeId: string): Promise<unknown> {
+    const encodedId = encodeURIComponent(nodeId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/trace/nodes/${encodedId}/snapshot`);
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET /v1/trace/nodes/${encodedId}/snapshot returned ${res.status}`);
+    }
+    const data = await res.json();
+    return normalizeNodeSnapshotResponse(data);
+  }
+
+  /** Submit a counterfactual replay request */
+  async submitCounterfactual(request: unknown): Promise<unknown> {
+    const payload = normalizeCounterfactualRequest(request);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/counterfactual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `POST /v1/trace/counterfactual returned ${res.status}`);
+    }
+    const data = await res.json();
+    return normalizeCounterfactualResponse(data);
   }
 
   /** Check if the backend is reachable. */

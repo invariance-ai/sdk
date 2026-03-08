@@ -7,7 +7,7 @@ import { bytesToHex } from './receipt.js';
 import * as ed25519 from '@noble/ed25519';
 import type { ActionMap, InputOf, OutputOf } from './templates.js';
 import { InvarianceTracer } from './observability/tracer.js';
-import type { TraceAction, TraceEvent, DecisionPointPayload, GoalDriftPayload, SubAgentSpawnPayload, ToolInvocationPayload, VerificationProof, BehavioralPrimitive } from './observability/types.js';
+import type { TraceAction, TraceEvent, DecisionPointPayload, GoalDriftPayload, SubAgentSpawnPayload, ToolInvocationPayload, VerificationProof, BehavioralPrimitive, ReplaySnapshot, ReplayTimelineEntry, CounterfactualRequest, CounterfactualResult } from './observability/types.js';
 
 declare const __SDK_VERSION__: string;
 
@@ -17,7 +17,22 @@ const DEFAULT_MAX_BATCH_SIZE = 50;
 
 function assertPrivateKey(privateKey: string): void {
   if (!/^[0-9a-f]{64}$/i.test(privateKey)) {
-    throw new InvarianceError('API_ERROR', 'privateKey must be a 32-byte hex string');
+    throw new InvarianceError('INIT_FAILED', 'privateKey must be a 32-byte hex string');
+  }
+}
+
+/** Validate config and warn about mode-specific field mismatches. */
+function validateConfig(config: InvarianceConfig): void {
+  const mode = config.mode ?? 'PROD';
+  if (mode === 'PROD') {
+    if (config.devOutput) {
+      console.warn('[Invariance] devOutput is ignored in PROD mode');
+    }
+  }
+  if (mode === 'DEV') {
+    if (config.sampleRate !== undefined) {
+      console.warn('[Invariance] sampleRate is ignored in DEV mode (all events captured)');
+    }
   }
 }
 
@@ -25,8 +40,8 @@ type AgentOptions<TActions extends ActionMap> = {
   id: string;
   privateKey: string;
   actions?: TActions;
-  allowActions?: ReadonlyArray<Extract<keyof TActions, string> | string>;
-  denyActions?: ReadonlyArray<Extract<keyof TActions, string> | string>;
+  allowActions?: ReadonlyArray<Extract<keyof TActions, string>>;
+  denyActions?: ReadonlyArray<Extract<keyof TActions, string>>;
 };
 
 type AgentSession<TActions extends ActionMap> = {
@@ -96,6 +111,8 @@ export class Invariance {
       anomalyThreshold: config.anomalyThreshold,
       devOutput: config.devOutput,
       onAnomaly: config.onAnomaly,
+      replayContext: config.replayContext,
+      captureReplaySnapshots: config.captureReplaySnapshots,
     });
   }
 
@@ -119,17 +136,21 @@ export class Invariance {
 
   static init(config: InvarianceConfig): Invariance {
     if (!config.apiKey) {
-      throw new InvarianceError('API_ERROR', 'apiKey is required');
+      throw new InvarianceError('INIT_FAILED', 'apiKey is required');
     }
     if (!config.privateKey) {
-      throw new InvarianceError('API_ERROR', 'privateKey is required');
+      throw new InvarianceError('INIT_FAILED', 'privateKey is required');
     }
     assertPrivateKey(config.privateKey);
+    validateConfig(config);
     return new Invariance(config);
   }
 
   /**
-   * Record a single action (creates a one-off receipt outside any session).
+   * Record a single action outside any session (creates a one-off receipt).
+   * For session-based recording with hash-chain context, use `session().record()` instead.
+   *
+   * @throws InvarianceError if agent is not specified
    */
   async record(action: Action): Promise<Receipt> {
     if (!action.agent) {
@@ -166,7 +187,7 @@ export class Invariance {
     session(input: { name: string }): AgentSession<TActions>;
   } {
     if (!opts.id) {
-      throw new InvarianceError('API_ERROR', 'agent id is required');
+      throw new InvarianceError('INIT_FAILED', 'agent id is required');
     }
     assertPrivateKey(opts.privateKey);
 
@@ -223,8 +244,9 @@ export class Invariance {
   }
 
   /**
-   * Policy check → execute → record.
-   * Checks local policies first, then runs the function, then records the result.
+   * Policy check → execute → record — creates an auditable receipt.
+   * Use this for actions that need policy enforcement and a tamper-evident audit trail.
+   * For observability/debugging without receipts, use `trace()` instead.
    *
    * @throws InvarianceError with code POLICY_DENIED if policies deny the action
    */
@@ -257,7 +279,9 @@ export class Invariance {
   }
 
   /**
-   * Trace an agent action with automatic timing, hashing, and sampling.
+   * Trace an agent action for observability and debugging.
+   * Captures timing, hashing, sampling, and anomaly detection — but does NOT create receipts.
+   * For receipt-based audit trails, use `wrap()` instead.
    *
    * @example
    * ```ts
@@ -328,6 +352,29 @@ export class Invariance {
    */
   async queryGraph(query: string): Promise<unknown> {
     return this.transport.queryGraph(query);
+  }
+
+  /**
+   * Get the replay timeline for a session.
+   */
+  async replayTimeline(sessionId: string): Promise<ReplayTimelineEntry[]> {
+    const data = await this.transport.getReplayTimeline(sessionId) as { timeline: ReplayTimelineEntry[] };
+    return data.timeline;
+  }
+
+  /**
+   * Get the full replay snapshot for a specific node.
+   */
+  async nodeSnapshot(nodeId: string): Promise<ReplaySnapshot | null> {
+    const data = await this.transport.getNodeSnapshot(nodeId) as { snapshot: ReplaySnapshot | null };
+    return data.snapshot;
+  }
+
+  /**
+   * Submit a counterfactual replay request.
+   */
+  async counterfactual(request: CounterfactualRequest): Promise<CounterfactualResult> {
+    return await this.transport.submitCounterfactual(request) as CounterfactualResult;
   }
 
   /**

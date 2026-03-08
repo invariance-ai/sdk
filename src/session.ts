@@ -1,6 +1,7 @@
 import { ulid } from 'ulid';
 import type { Action, ErrorHandler, PolicyCheck, Receipt, SessionInfo, VerifyResult } from './types.js';
 import { createReceipt, verifyChain } from './receipt.js';
+import { InvarianceError } from './errors.js';
 
 /** Callback to enqueue a receipt for flushing */
 export type EnqueueFn = (receipt: Receipt) => void;
@@ -61,20 +62,38 @@ export class Session {
   }
 
   /**
+   * Create a session that is guaranteed to be ready (initialized).
+   * Prefer this over `new Session()` to avoid race conditions with the hidden `ready` promise.
+   */
+  static async create(
+    agent: string,
+    name: string,
+    privateKey: string,
+    enqueue: EnqueueFn,
+    onCreateSession?: OnCreateSessionFn,
+    onCloseSession?: OnCloseSessionFn,
+    onError: ErrorHandler = () => {},
+  ): Promise<Session> {
+    const session = new Session(agent, name, privateKey, enqueue, onCreateSession, onCloseSession, onError);
+    await session.ready;
+    return session;
+  }
+
+  /**
    * Record an action in this session.
    * Creates a hash-chained receipt and enqueues it for flushing.
    */
   async record(action: Action): Promise<Receipt> {
     await this.ready;
     if (this.status !== 'open') {
-      throw new Error(`Session ${this.id} is ${this.status}, cannot record`);
+      throw new InvarianceError('SESSION_CLOSED', `Session ${this.id} is ${this.status}, cannot record`);
     }
     // Default agent to session's agent if not provided
     if (!action.agent) {
       action = { ...action, agent: this.agent };
     }
     if (action.agent !== this.agent) {
-      throw new Error(`Action agent "${action.agent}" does not match session agent "${this.agent}"`);
+      throw new InvarianceError('SESSION_NOT_READY', `Action agent "${action.agent}" does not match session agent "${this.agent}"`);
     }
 
     let receipt;
@@ -134,7 +153,7 @@ export class Session {
     if (checkPolicies) {
       const policyResult = checkPolicies(fullAction);
       if (!policyResult.allowed) {
-        throw new Error(policyResult.reason ?? 'Policy denied');
+        throw new InvarianceError('POLICY_DENIED', policyResult.reason ?? 'Policy denied');
       }
     }
 
