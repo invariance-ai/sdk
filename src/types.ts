@@ -29,6 +29,10 @@ export interface InvarianceConfig {
   onAnomaly?: (node: import('./observability/types.js').TraceEvent) => void;
   /** DEV mode output: 'ui' | 'console' | 'both' (default: 'console') */
   devOutput?: 'ui' | 'console' | 'both';
+  /** Enable replay snapshot capture (default: false) */
+  captureReplaySnapshots?: boolean;
+  /** Replay context retention mode (default: { type: 'last' }) */
+  replayContext?: import('./observability/types.js').ReplayContextMode;
 }
 
 /** Template metadata used for richer action visualization. */

@@ -7,7 +7,7 @@ import { bytesToHex } from './receipt.js';
 import * as ed25519 from '@noble/ed25519';
 import type { ActionMap, InputOf, OutputOf } from './templates.js';
 import { InvarianceTracer } from './observability/tracer.js';
-import type { TraceAction, TraceEvent, DecisionPointPayload, GoalDriftPayload, SubAgentSpawnPayload, ToolInvocationPayload, VerificationProof, BehavioralPrimitive } from './observability/types.js';
+import type { TraceAction, TraceEvent, DecisionPointPayload, GoalDriftPayload, SubAgentSpawnPayload, ToolInvocationPayload, VerificationProof, BehavioralPrimitive, ReplaySnapshot, ReplayTimelineEntry, CounterfactualRequest, CounterfactualResult } from './observability/types.js';
 
 declare const __SDK_VERSION__: string;
 
@@ -96,6 +96,8 @@ export class Invariance {
       anomalyThreshold: config.anomalyThreshold,
       devOutput: config.devOutput,
       onAnomaly: config.onAnomaly,
+      replayContext: config.replayContext,
+      captureReplaySnapshots: config.captureReplaySnapshots,
     });
   }
 
@@ -328,6 +330,29 @@ export class Invariance {
    */
   async queryGraph(query: string): Promise<unknown> {
     return this.transport.queryGraph(query);
+  }
+
+  /**
+   * Get the replay timeline for a session.
+   */
+  async replayTimeline(sessionId: string): Promise<ReplayTimelineEntry[]> {
+    const data = await this.transport.getReplayTimeline(sessionId) as { timeline: ReplayTimelineEntry[] };
+    return data.timeline;
+  }
+
+  /**
+   * Get the full replay snapshot for a specific node.
+   */
+  async nodeSnapshot(nodeId: string): Promise<ReplaySnapshot | null> {
+    const data = await this.transport.getNodeSnapshot(nodeId) as { snapshot: ReplaySnapshot | null };
+    return data.snapshot;
+  }
+
+  /**
+   * Submit a counterfactual replay request.
+   */
+  async counterfactual(request: CounterfactualRequest): Promise<CounterfactualResult> {
+    return await this.transport.submitCounterfactual(request) as CounterfactualResult;
   }
 
   /**
