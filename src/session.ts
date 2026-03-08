@@ -21,6 +21,7 @@ export class Session {
   readonly agent: string;
   readonly name: string;
   readonly ready: Promise<void>;
+  private initializationError?: InvarianceError;
   private status: 'open' | 'closed' | 'tampered' = 'open';
   private previousHash = '0';
   private receipts: Receipt[] = [];
@@ -56,9 +57,23 @@ export class Session {
 
     this.ready = onCreateSession
       ? onCreateSession({ id: this.id, name: this.name }).catch((err) => {
-          this.reportError(err);
+          const normalizedError = err instanceof InvarianceError
+            ? err
+            : new InvarianceError(
+                'SESSION_NOT_READY',
+                `Failed to initialize session "${this.id}": ${err instanceof Error ? err.message : String(err)}`,
+              );
+          this.initializationError = normalizedError;
+          this.reportError(normalizedError);
         })
       : Promise.resolve();
+  }
+
+  private async ensureReady(): Promise<void> {
+    await this.ready;
+    if (this.initializationError) {
+      throw this.initializationError;
+    }
   }
 
   /**
@@ -75,7 +90,7 @@ export class Session {
     onError: ErrorHandler = () => {},
   ): Promise<Session> {
     const session = new Session(agent, name, privateKey, enqueue, onCreateSession, onCloseSession, onError);
-    await session.ready;
+    await session.ensureReady();
     return session;
   }
 
@@ -84,7 +99,7 @@ export class Session {
    * Creates a hash-chained receipt and enqueues it for flushing.
    */
   async record(action: Action): Promise<Receipt> {
-    await this.ready;
+    await this.ensureReady();
     if (this.status !== 'open') {
       throw new InvarianceError('SESSION_CLOSED', `Session ${this.id} is ${this.status}, cannot record`);
     }
@@ -93,7 +108,7 @@ export class Session {
       action = { ...action, agent: this.agent };
     }
     if (action.agent !== this.agent) {
-      throw new InvarianceError('SESSION_NOT_READY', `Action agent "${action.agent}" does not match session agent "${this.agent}"`);
+      throw new InvarianceError('API_ERROR', `Action agent "${action.agent}" does not match session agent "${this.agent}"`);
     }
 
     let receipt;
@@ -146,7 +161,7 @@ export class Session {
     fn: () => T | Promise<T>,
     checkPolicies?: (action: Action) => PolicyCheck,
   ): Promise<{ result: T; receipt: Receipt }> {
-    await this.ready;
+    await this.ensureReady();
 
     const fullAction: Action = { ...action, agent: action.agent || this.agent };
 

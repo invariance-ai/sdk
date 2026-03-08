@@ -156,10 +156,12 @@ export class Invariance {
     if (!action.agent) {
       throw new InvarianceError('API_ERROR', 'agent is required for one-off record(); use session() to default agent');
     }
-    const session = this.session({ agent: action.agent, name: '__single__' });
-    const receipt = await session.record(action);
-    session.end();
-    return receipt;
+    const session = await this.createSession({ agent: action.agent, name: '__single__' });
+    try {
+      return await session.record(action);
+    } finally {
+      session.end();
+    }
   }
 
   /**
@@ -178,6 +180,22 @@ export class Invariance {
   }
 
   /**
+   * Create a session and wait for backend initialization.
+   * Use this when you want explicit failure if session creation fails.
+   */
+  async createSession(opts: { agent: string; name: string }): Promise<Session> {
+    return Session.create(
+      opts.agent,
+      opts.name,
+      this.config.privateKey,
+      (receipt) => this.transport.enqueue(receipt),
+      (session) => this.transport.createSession(session),
+      (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+      this.config.onError,
+    );
+  }
+
+  /**
    * Create an agent-scoped client with its own signing key and optional action policy.
    * This enables simple multi-agent setups under one account/application.
    */
@@ -185,6 +203,7 @@ export class Invariance {
     readonly id: string;
     readonly actions?: TActions;
     session(input: { name: string }): AgentSession<TActions>;
+    sessionAsync(input: { name: string }): Promise<AgentSession<TActions>>;
   } {
     if (!opts.id) {
       throw new InvarianceError('INIT_FAILED', 'agent id is required');
@@ -195,17 +214,7 @@ export class Invariance {
     const denyActions = new Set((opts.denyActions ?? []).map((x) => String(x)));
     const actions = opts.actions;
 
-    const createAgentSession = ({ name }: { name: string }): AgentSession<TActions> => {
-      const base = new Session(
-        opts.id,
-        name,
-        opts.privateKey,
-        (receipt) => this.transport.enqueue(receipt),
-        (session) => this.transport.createSession(session),
-        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
-        this.config.onError,
-      );
-
+    const toAgentSession = (base: Session): AgentSession<TActions> => {
       return {
         id: base.id,
         agent: base.agent,
@@ -236,10 +245,37 @@ export class Invariance {
       };
     };
 
+    const createAgentSession = ({ name }: { name: string }): AgentSession<TActions> => {
+      const base = new Session(
+        opts.id,
+        name,
+        opts.privateKey,
+        (receipt) => this.transport.enqueue(receipt),
+        (session) => this.transport.createSession(session),
+        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+        this.config.onError,
+      );
+      return toAgentSession(base);
+    };
+
+    const createAgentSessionAsync = async ({ name }: { name: string }): Promise<AgentSession<TActions>> => {
+      const base = await Session.create(
+        opts.id,
+        name,
+        opts.privateKey,
+        (receipt) => this.transport.enqueue(receipt),
+        (session) => this.transport.createSession(session),
+        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+        this.config.onError,
+      );
+      return toAgentSession(base);
+    };
+
     return {
       id: opts.id,
       actions,
       session: createAgentSession,
+      sessionAsync: createAgentSessionAsync,
     };
   }
 
