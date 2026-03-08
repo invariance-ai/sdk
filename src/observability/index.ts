@@ -12,4 +12,9 @@ export type {
   ToolInvocationPayload,
   VerificationProof,
   TraceAction,
+  ReplaySnapshot,
+  ReplayTimelineEntry,
+  ReplayContextMode,
+  CounterfactualRequest,
+  CounterfactualResult,
 } from './types.js';
