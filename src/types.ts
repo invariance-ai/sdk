@@ -206,3 +206,13 @@ export interface VerifyResult {
   receiptCount: number;
   errors: Array<{ index: number; reason: string }>;
 }
+
+/** Agent identity in the form {org}/{name} */
+export interface AgentIdentity {
+  /** Owner handle or org name */
+  org: string;
+  /** Agent name */
+  name: string;
+  /** Full identity string "org/name" */
+  fullIdentity: string;
+}

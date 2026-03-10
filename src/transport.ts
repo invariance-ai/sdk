@@ -453,6 +453,52 @@ export class Transport {
     return res.json() as Promise<unknown[]>;
   }
 
+  // ── Identity endpoints ──
+
+  async signup(body: { email: string; name: string; handle: string }): Promise<{
+    handle: string; public_key: string; private_key: string; api_key: string;
+  }> {
+    const res = await fetch(`${this.apiUrl}/v1/identity/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/signup returned ${res.status}`);
+    return res.json() as Promise<{ handle: string; public_key: string; private_key: string; api_key: string }>;
+  }
+
+  async createOrg(name: string): Promise<{
+    name: string; public_key: string; private_key: string; api_key: string;
+  }> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/identity/orgs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/orgs returned ${res.status}`);
+    return res.json() as Promise<{ name: string; public_key: string; private_key: string; api_key: string }>;
+  }
+
+  async registerAgent(owner: string, body: { name: string; public_key: string }): Promise<{
+    owner: string; name: string; public_key: string; agent_id: string; created_at: string;
+  }> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/identity/agents/${encodeURIComponent(owner)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/agents/${owner} returned ${res.status}`);
+    return res.json() as Promise<{ owner: string; name: string; public_key: string; agent_id: string; created_at: string }>;
+  }
+
+  async lookupIdentity(owner: string, name: string): Promise<{
+    owner: string; name: string; public_key: string; created_at: string;
+  }> {
+    const res = await fetch(`${this.apiUrl}/v1/identity/agents/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/agents/${owner}/${name} returned ${res.status}`);
+    return res.json() as Promise<{ owner: string; name: string; public_key: string; created_at: string }>;
+  }
+
   /** Check if the backend is reachable. */
   async healthCheck(): Promise<boolean> {
     try {
