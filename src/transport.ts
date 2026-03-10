@@ -364,6 +364,95 @@ export class Transport {
     return normalizeCounterfactualResponse(data);
   }
 
+  // ── Contract / Settlement endpoints ──
+
+  async proposeContract(body: {
+    providerId: string;
+    terms: Record<string, unknown>;
+    termsHash: string;
+    signature: string;
+  }): Promise<{ id: string; sessionId: string; status: string }> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/contracts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/contracts returned ${res.status}`);
+    return res.json() as Promise<{ id: string; sessionId: string; status: string }>;
+  }
+
+  async acceptContract(contractId: string, signature: string): Promise<{ id: string; status: string }> {
+    const id = encodeURIComponent(contractId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/contracts/${id}/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signature }),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/contracts/${id}/accept returned ${res.status}`);
+    return res.json() as Promise<{ id: string; status: string }>;
+  }
+
+  async submitDelivery(contractId: string, body: {
+    outputData: Record<string, unknown>;
+    outputHash: string;
+    signature: string;
+  }): Promise<{ id: string; status: string }> {
+    const id = encodeURIComponent(contractId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/contracts/${id}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/contracts/${id}/deliver returned ${res.status}`);
+    return res.json() as Promise<{ id: string; status: string }>;
+  }
+
+  async acceptDelivery(contractId: string, deliveryId: string, signature: string): Promise<{ id: string; status: string }> {
+    const id = encodeURIComponent(contractId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/contracts/${id}/accept-delivery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deliveryId, signature }),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/contracts/${id}/accept-delivery returned ${res.status}`);
+    return res.json() as Promise<{ id: string; status: string }>;
+  }
+
+  async settleContract(contractId: string): Promise<unknown> {
+    const id = encodeURIComponent(contractId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/contracts/${id}/settle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/contracts/${id}/settle returned ${res.status}`);
+    return res.json();
+  }
+
+  async disputeContract(contractId: string, reason?: string): Promise<{ id: string; status: string }> {
+    const id = encodeURIComponent(contractId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/contracts/${id}/dispute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/contracts/${id}/dispute returned ${res.status}`);
+    return res.json() as Promise<{ id: string; status: string }>;
+  }
+
+  async getContract(contractId: string): Promise<unknown> {
+    const id = encodeURIComponent(contractId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/contracts/${id}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/contracts/${id} returned ${res.status}`);
+    return res.json();
+  }
+
+  async listContracts(): Promise<unknown[]> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/contracts');
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/contracts returned ${res.status}`);
+    return res.json() as Promise<unknown[]>;
+  }
+
   /** Check if the backend is reachable. */
   async healthCheck(): Promise<boolean> {
     try {

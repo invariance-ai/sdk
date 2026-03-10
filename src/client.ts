@@ -1,9 +1,9 @@
-import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery } from './types.js';
+import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms } from './types.js';
 import { Session } from './session.js';
 import { Transport } from './transport.js';
 import { checkPolicies } from './policy.js';
 import { InvarianceError } from './errors.js';
-import { bytesToHex } from './receipt.js';
+import { bytesToHex, sortedStringify, sha256, ed25519Sign } from './receipt.js';
 import * as ed25519 from '@noble/ed25519';
 import type { ActionMap, InputOf, OutputOf } from './templates.js';
 import { InvarianceTracer } from './observability/tracer.js';
@@ -439,6 +439,70 @@ export class Invariance {
 
   async flush(): Promise<void> {
     return this.transport.flush();
+  }
+
+  // ── Settlement Layer ──
+
+  /**
+   * Propose a contract to another agent.
+   * Signs the terms hash with the SDK's private key.
+   */
+  async proposeContract(providerId: string, terms: ContractTerms): Promise<{ id: string; sessionId: string }> {
+    const termsHash = await sha256(sortedStringify(terms));
+    const signature = await ed25519Sign(termsHash, this.config.privateKey);
+    return this.transport.proposeContract({ providerId, terms, termsHash, signature });
+  }
+
+  /**
+   * Accept a contract (as provider). Counter-signs the terms hash.
+   */
+  async acceptContract(contractId: string, termsHash: string): Promise<{ id: string; status: string }> {
+    const signature = await ed25519Sign(termsHash, this.config.privateKey);
+    return this.transport.acceptContract(contractId, signature);
+  }
+
+  /**
+   * Get a session wrapper that auto-attaches contract_id to every receipt.
+   */
+  contractSession(contractId: string, opts: { agent: string; name: string; sessionId: string }): Session {
+    const session = new Session(
+      opts.agent,
+      opts.name,
+      this.config.privateKey,
+      (receipt) => {
+        (receipt as Receipt & { contractId?: string }).contractId = contractId;
+        this.transport.enqueue(receipt);
+      },
+      undefined, // session already exists on backend
+      (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+      this.config.onError,
+      opts.sessionId,
+    );
+    return session;
+  }
+
+  /**
+   * Submit delivery proof (as provider). Signs the output hash.
+   */
+  async deliver(contractId: string, outputData: Record<string, unknown>): Promise<{ id: string; status: string }> {
+    const outputHash = await sha256(sortedStringify(outputData));
+    const signature = await ed25519Sign(outputHash, this.config.privateKey);
+    return this.transport.submitDelivery(contractId, { outputData, outputHash, signature });
+  }
+
+  /**
+   * Accept a delivery proof (as requestor). Signs the output hash.
+   */
+  async acceptDelivery(contractId: string, deliveryId: string, outputHash: string): Promise<{ id: string; status: string }> {
+    const signature = await ed25519Sign(outputHash, this.config.privateKey);
+    return this.transport.acceptDelivery(contractId, deliveryId, signature);
+  }
+
+  /**
+   * Dispute a contract. Freezes the session.
+   */
+  async dispute(contractId: string, reason?: string): Promise<{ id: string; status: string }> {
+    return this.transport.disputeContract(contractId, reason);
   }
 
   /**
