@@ -69,6 +69,12 @@ describe.skipIf(!shouldRun)('Integration: demo backend', () => {
     // Flush receipts to backend
     await inv.flush();
 
+    const persistedReceipts = await inv.query({ sessionId: session.id });
+    expect(persistedReceipts).toHaveLength(2);
+    expect(persistedReceipts[0]?.previousHash).toBe('0');
+    expect(persistedReceipts[1]?.previousHash).toBe(persistedReceipts[0]?.hash);
+    expect(persistedReceipts.map((receipt) => receipt.action)).toEqual(['search', 'analyze']);
+
     // End session
     const info = await session.end();
     expect(info.status).toBe('closed');
@@ -90,6 +96,10 @@ describe.skipIf(!shouldRun)('Integration: demo backend', () => {
     expect(receipt.output).toEqual({ answer: 1764 });
 
     await inv.flush();
+    const persistedReceipts = await inv.query({ sessionId: session.id });
+    expect(persistedReceipts).toHaveLength(1);
+    expect(persistedReceipts[0]?.hash).toBe(receipt.hash);
+
     session.end();
   });
 
