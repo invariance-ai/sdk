@@ -49,4 +49,8 @@ export type {
   ErrorHandler,
   ActionTemplate,
   VerifyResult,
+  ContractTerms,
+  Contract,
+  DeliveryProof,
+  SettlementProof,
 } from './types.js';

@@ -46,8 +46,9 @@ export class Session {
     onCreateSession?: OnCreateSessionFn,
     onCloseSession?: OnCloseSessionFn,
     onError: ErrorHandler = () => {},
+    existingSessionId?: string,
   ) {
-    this.id = ulid();
+    this.id = existingSessionId ?? ulid();
     this.agent = agent;
     this.name = name;
     this.privateKey = privateKey;

@@ -95,6 +95,12 @@ export interface Receipt {
   previousHash: string;
   /** Ed25519 signature over `hash` */
   signature: string;
+  /** Contract ID if this receipt is part of a contract */
+  contractId?: string;
+  /** Counter-party agent ID for cross-party receipts */
+  counterAgentId?: string;
+  /** Counter-party signature for cross-party receipts */
+  counterSignature?: string;
 }
 
 /** A session groups a sequence of hash-chained receipts */
@@ -142,6 +148,57 @@ export interface ReceiptQuery {
   toTimestamp?: number;
   limit?: number;
   offset?: number;
+}
+
+/** Terms of a contract between two agents */
+export interface ContractTerms {
+  description: string;
+  deliverables: string[];
+  [key: string]: unknown;
+}
+
+/** A contract between two agents */
+export interface Contract {
+  id: string;
+  requestorId: string;
+  providerId: string;
+  sessionId: string;
+  terms: ContractTerms;
+  termsHash: string;
+  requestorSignature: string;
+  providerSignature?: string;
+  status: 'proposed' | 'accepted' | 'active' | 'settled' | 'disputed' | 'expired';
+  settlementHash?: string;
+  settlementProof?: SettlementProof;
+  createdAt: string;
+}
+
+/** Proof of delivery submitted by a provider */
+export interface DeliveryProof {
+  id: string;
+  contractId: string;
+  providerId: string;
+  outputHash: string;
+  outputData: Record<string, unknown>;
+  signature: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  requestorSignature?: string;
+}
+
+/** Settlement proof for a completed contract */
+export interface SettlementProof {
+  contractId: string;
+  termsHash: string;
+  settlementHash: string;
+  sessionId: string;
+  sessionValid: boolean;
+  deliveryCount: number;
+  signatures: {
+    requestor: string;
+    provider: string;
+  };
+  deliveries: Array<{ id: string; outputHash: string }>;
+  settledAt: string;
 }
 
 export interface VerifyResult {
