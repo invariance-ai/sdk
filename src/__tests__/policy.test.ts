@@ -73,6 +73,30 @@ describe('checkPolicies', () => {
     vi.useRealTimers();
   });
 
+  it('does not prune longer-window keys using a shorter window', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-06T00:00:00Z'));
+
+    for (let i = 0; i < 101; i++) {
+      checkPolicies(
+        [{ action: `filler-${i}`, rateLimit: { max: 5, windowMs: 10 } }],
+        action({ action: `filler-${i}` }),
+      );
+    }
+
+    const longWindowRules: PolicyRule[] = [{ action: 'long-window', rateLimit: { max: 1, windowMs: 60_000 } }];
+    const shortWindowRules: PolicyRule[] = [{ action: 'short-window', rateLimit: { max: 5, windowMs: 100 } }];
+
+    expect(checkPolicies(longWindowRules, action({ action: 'long-window' })).allowed).toBe(true);
+
+    vi.advanceTimersByTime(1_000);
+
+    expect(checkPolicies(shortWindowRules, action({ action: 'short-window' })).allowed).toBe(true);
+    expect(checkPolicies(longWindowRules, action({ action: 'long-window' })).allowed).toBe(false);
+
+    vi.useRealTimers();
+  });
+
   it('clearRateLimits resets all state', () => {
     const rules: PolicyRule[] = [{ action: 'clear-test', rateLimit: { max: 1, windowMs: 60000 } }];
     const a = action({ action: 'clear-test' });

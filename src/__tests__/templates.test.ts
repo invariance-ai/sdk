@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { action } from '../templates.js';
+import { action, defineActions } from '../templates.js';
 import type { InputOf, OutputOf, ActionDefinition } from '../templates.js';
 
 describe('action()', () => {
@@ -56,5 +56,15 @@ describe('InputOf / OutputOf type helpers', () => {
 
     expect(_input.x).toBe(1);
     expect(_output.y).toBe('hello');
+  });
+});
+
+describe('defineActions()', () => {
+  it('returns the original action map unchanged for backwards compatibility', () => {
+    const actions = defineActions({
+      transfer: action<{ amount: number }, { txId: string }>({ label: 'Transfer' }),
+    });
+
+    expect(actions.transfer.template.label).toBe('Transfer');
   });
 });

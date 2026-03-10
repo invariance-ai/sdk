@@ -9,7 +9,7 @@ export { createReceipt, verifyChain, verifyChainOrThrow, sortedStringify, sha256
 export { deriveAgentKeypair } from './crypto.js';
 
 // Action typing templates
-export { action } from './templates.js';
+export { action, defineActions } from './templates.js';
 export type { ActionDefinition, ActionMap, InputOf, OutputOf } from './templates.js';
 
 // Policy engine

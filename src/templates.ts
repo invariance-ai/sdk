@@ -22,3 +22,8 @@ export function action<
 >(template: ActionTemplate): ActionDefinition<TInput, TOutput> {
   return { template };
 }
+
+/** @deprecated Pass action definitions directly; this wrapper is a no-op compatibility shim. */
+export function defineActions<TActions extends ActionMap>(actions: TActions): TActions {
+  return actions;
+}
