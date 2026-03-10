@@ -249,6 +249,19 @@ describe('Session', () => {
     expect(info2.status).toBe('closed');
   });
 
+  it('end() is idempotent for status and close callback side effects', () => {
+    const onClose = vi.fn().mockResolvedValue(undefined);
+    const { session } = makeSession({ onCloseSession: onClose });
+
+    const info1 = session.end('closed');
+    const info2 = session.end('tampered');
+
+    expect(info1.status).toBe('closed');
+    expect(info2.status).toBe('closed');
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith(session.id, 'closed', '0');
+  });
+
   it('end("tampered") sets status to tampered', () => {
     const { session } = makeSession();
     const info = session.end('tampered');

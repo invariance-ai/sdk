@@ -144,6 +144,10 @@ export class Session {
    * End this session with a final status.
    */
   end(status: 'closed' | 'tampered' = 'closed'): SessionInfo {
+    if (this.status !== 'open') {
+      return this.info();
+    }
+
     this.status = status;
 
     // Fire-and-forget session close
