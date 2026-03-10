@@ -224,4 +224,131 @@ describe('Session', () => {
     const { session } = makeSession({ onCreateSession: onCreate, onError });
     await expect(session.ready).resolves.toBeUndefined();
   });
+
+  // --- Concurrency & Ordering ---
+
+  it('multiple sequential record() calls produce correct chain (3+ receipts)', async () => {
+    const { session } = makeSession();
+    const action = { agent: 'test-agent', action: 'step', input: { x: 1 } };
+
+    const r1 = await session.record(action);
+    const r2 = await session.record(action);
+    const r3 = await session.record(action);
+
+    expect(r1.previousHash).toBe('0');
+    expect(r2.previousHash).toBe(r1.hash);
+    expect(r3.previousHash).toBe(r2.hash);
+    expect(session.getReceipts()).toHaveLength(3);
+  });
+
+  it('double end() does not crash', () => {
+    const { session } = makeSession();
+    const info1 = session.end();
+    const info2 = session.end();
+    expect(info1.status).toBe('closed');
+    expect(info2.status).toBe('closed');
+  });
+
+  it('end("tampered") sets status to tampered', () => {
+    const { session } = makeSession();
+    const info = session.end('tampered');
+    expect(info.status).toBe('tampered');
+  });
+
+  // --- Wrap Edge Cases ---
+
+  it('wrap() with async fn', async () => {
+    const { session } = makeSession();
+    const { result, receipt } = await session.wrap(
+      { action: 'async-op', input: { n: 1 } },
+      async () => ({ value: 'async-result' }),
+    );
+    expect(result).toEqual({ value: 'async-result' });
+    expect(receipt.action).toBe('async-op');
+  });
+
+  it('wrap() where fn returns a primitive number stores { value: number }', async () => {
+    const { session } = makeSession();
+    const { result, receipt } = await session.wrap(
+      { action: 'compute', input: {} },
+      () => 42,
+    );
+    expect(result).toBe(42);
+    expect(receipt.output).toEqual({ value: 42 });
+  });
+
+  it('wrap() on closed session throws', async () => {
+    const { session } = makeSession();
+    session.end();
+    await expect(
+      session.wrap({ action: 'late', input: {} }, () => 'nope'),
+    ).rejects.toThrow(/closed/);
+  });
+
+  it('wrap() with policy returning { allowed: true } proceeds', async () => {
+    const { session } = makeSession();
+    const { result } = await session.wrap(
+      { action: 'allowed-op', input: {} },
+      () => ({ ok: true }),
+      () => ({ allowed: true as const }),
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  // --- Session Identity ---
+
+  it('existingSessionId parameter is used', () => {
+    const enqueue = vi.fn();
+    const session = new Session(
+      'test-agent',
+      'test-session',
+      privKeyHex,
+      enqueue,
+      undefined,
+      undefined,
+      undefined,
+      'custom-session-id',
+    );
+    expect(session.id).toBe('custom-session-id');
+  });
+
+  it('info() reflects state changes through lifecycle', async () => {
+    const { session } = makeSession();
+
+    const infoBefore = session.info();
+    expect(infoBefore.status).toBe('open');
+    expect(infoBefore.receiptCount).toBe(0);
+
+    await session.record({ agent: 'test-agent', action: 'step', input: { x: 1 } });
+    const infoAfterRecord = session.info();
+    expect(infoAfterRecord.status).toBe('open');
+    expect(infoAfterRecord.receiptCount).toBe(1);
+
+    session.end();
+    const infoAfterEnd = session.info();
+    expect(infoAfterEnd.status).toBe('closed');
+    expect(infoAfterEnd.receiptCount).toBe(1);
+  });
+
+  // --- Verification ---
+
+  it('verify() on empty session returns valid with receiptCount 0', async () => {
+    const { session } = makeSession();
+    const result = await session.verify();
+    expect(result.valid).toBe(true);
+    expect(result.receiptCount).toBe(0);
+  });
+
+  it('verify() detects tampered receipt', async () => {
+    const { session } = makeSession();
+    await session.record({ agent: 'test-agent', action: 'step', input: { x: 1 } });
+    await session.record({ agent: 'test-agent', action: 'step', input: { x: 2 } });
+
+    // Tamper with internal receipts array
+    const receipts = (session as any).receipts as Array<{ hash: string }>;
+    receipts[0]!.hash = 'tampered-hash';
+
+    const result = await session.verify();
+    expect(result.valid).toBe(false);
+  });
 });
