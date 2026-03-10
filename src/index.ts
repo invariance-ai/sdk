@@ -2,6 +2,10 @@
 export { Invariance } from './client.js';
 export { Session } from './session.js';
 
+// A2A (Agent-to-Agent)
+export { A2AChannel } from './a2a.js';
+export type { A2AEnvelope } from './a2a.js';
+
 // Receipt utilities
 export { createReceipt, verifyChain, verifyChainOrThrow, sortedStringify, sha256, ed25519Sign, hexToBytes, bytesToHex } from './receipt.js';
 
