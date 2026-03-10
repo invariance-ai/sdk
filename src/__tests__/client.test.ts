@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Invariance } from '../client.js';
 import { InvarianceError } from '../errors.js';
-import { action, defineActions } from '../templates.js';
+import { action } from '../templates.js';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha512';
 
@@ -110,13 +110,13 @@ describe('Invariance', () => {
 
   it('agent() supports typed action templates', async () => {
     const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
-    const actions = defineActions({
+    const actions = {
       'finance.balance.read': action<{ accountId: string }, { balance: number; currency: string }>({
         label: 'Read Balance',
         category: 'read',
         highlights: ['accountId', 'balance', 'currency'],
       }),
-    });
+    };
 
     const agent = inv.agent({
       id: 'finance-agent',
@@ -133,11 +133,11 @@ describe('Invariance', () => {
 
   it('agent().sessionAsync() creates an initialized typed session', async () => {
     const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
-    const actions = defineActions({
+    const actions = {
       'finance.balance.read': action<{ accountId: string }, { balance: number; currency: string }>({
         label: 'Read Balance',
       }),
-    });
+    };
 
     const agent = inv.agent({
       id: 'finance-agent',

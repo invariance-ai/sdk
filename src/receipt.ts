@@ -9,6 +9,11 @@ ed25519.etc.sha512Sync = sha512;
  * Deterministic JSON serialization with sorted keys.
  * Objects: sort keys lexicographically, recurse values.
  * Arrays: keep order, recurse elements. Primitives: pass through.
+ *
+ * NOTE: This is a duplicate of sortedStringify in invariance-core/backend/src/crypto.ts.
+ * The SDK uses Web Crypto (async sha256) for browser/edge compatibility, while the core
+ * backend uses Node's crypto module (sync sha256). Both implementations must produce
+ * identical output — keep them in sync when modifying.
  */
 export function sortedStringify(value: unknown): string {
   if (value === null || value === undefined) return 'null';
