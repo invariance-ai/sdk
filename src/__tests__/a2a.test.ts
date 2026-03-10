@@ -109,6 +109,19 @@ describe('A2AChannel', () => {
     expect(result.verified).toBe(false);
   });
 
+  it('wrapIncoming rejects envelopes addressed to another receiver → verified=false', async () => {
+    const { session: sessionA } = makeSession('agent-a', agentA.privateKey);
+    const { session: sessionB } = makeSession('agent-b', agentB.privateKey);
+
+    const channelA = new A2AChannel(sessionA, 'agent-a', agentA.privateKey);
+    const channelB = new A2AChannel(sessionB, 'agent-b', agentB.privateKey);
+
+    const { envelope } = await channelA.wrapOutgoing('agent-c', { data: 42 });
+
+    const result = await channelB.wrapIncoming(envelope, agentA.publicKey);
+    expect(result.verified).toBe(false);
+  });
+
   it('round-trip: agent A wraps outgoing → agent B wraps incoming → both receipts link', async () => {
     const { session: sessionA, enqueue: enqueueA } = makeSession('agent-a', agentA.privateKey);
     const { session: sessionB, enqueue: enqueueB } = makeSession('agent-b', agentB.privateKey);

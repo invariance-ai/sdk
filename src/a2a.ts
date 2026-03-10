@@ -104,7 +104,7 @@ export class A2AChannel {
     verified: boolean;
     receipt: Receipt;
   }> {
-    let verified = false;
+    let verified = envelope.receiver === this.agentIdentity;
 
     // Resolve sender public key
     let pubKey = senderPublicKey;
@@ -112,7 +112,7 @@ export class A2AChannel {
       pubKey = await this.fetchAgentPublicKey(envelope.sender);
     }
 
-    if (pubKey) {
+    if (verified && pubKey) {
       try {
         // Recompute the signed data
         const payloadHash = await sha256(sortedStringify(envelope.payload));
