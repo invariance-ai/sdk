@@ -1,7 +1,12 @@
 import type { Action, PolicyCheck, PolicyRule } from './types.js';
 
-/** In-memory rate limit state: action pattern → timestamps */
-const rateLimitState = new Map<string, number[]>();
+type RateLimitEntry = {
+  timestamps: number[];
+  windowMs: number;
+};
+
+/** In-memory rate limit state: action pattern → timestamps and their retention window */
+const rateLimitState = new Map<string, RateLimitEntry>();
 
 /**
  * Check if an action name matches a policy pattern.
@@ -43,10 +48,11 @@ function evaluateRule(rule: PolicyRule, action: Action): PolicyCheck {
 
   // Rate limit check
   if (rule.rateLimit) {
+    const rateLimit = rule.rateLimit;
     const key = rule.action;
     const now = Date.now();
-    const windowStart = now - rule.rateLimit.windowMs;
-    const timestamps = (rateLimitState.get(key) ?? []).filter((t) => t > windowStart);
+    const entry = rateLimitState.get(key);
+    const timestamps = (entry?.timestamps ?? []).filter((t) => t > now - rateLimit.windowMs);
 
     if (timestamps.length === 0) {
       rateLimitState.delete(key);
@@ -54,20 +60,20 @@ function evaluateRule(rule: PolicyRule, action: Action): PolicyCheck {
 
     // Opportunistically prune expired entries from other keys to prevent unbounded growth
     if (rateLimitState.size > 100) {
-      for (const [k, ts] of rateLimitState) {
+      for (const [k, otherEntry] of rateLimitState) {
         if (k === key) continue;
-        const active = ts.filter((t) => t > windowStart);
+        const active = otherEntry.timestamps.filter((t) => t > now - otherEntry.windowMs);
         if (active.length === 0) rateLimitState.delete(k);
-        else rateLimitState.set(k, active);
+        else rateLimitState.set(k, { ...otherEntry, timestamps: active });
       }
     }
 
-    if (timestamps.length >= rule.rateLimit.max) {
-      return { allowed: false, reason: `Rate limit exceeded: ${rule.rateLimit.max} per ${rule.rateLimit.windowMs}ms` };
+    if (timestamps.length >= rateLimit.max) {
+      return { allowed: false, reason: `Rate limit exceeded: ${rateLimit.max} per ${rateLimit.windowMs}ms` };
     }
 
     timestamps.push(now);
-    rateLimitState.set(key, timestamps);
+    rateLimitState.set(key, { timestamps, windowMs: rateLimit.windowMs });
   }
 
   // Custom predicate

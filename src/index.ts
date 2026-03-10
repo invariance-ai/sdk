@@ -6,7 +6,7 @@ export { Session } from './session.js';
 export { createReceipt, verifyChain, verifyChainOrThrow, sortedStringify, sha256, ed25519Sign, hexToBytes, bytesToHex } from './receipt.js';
 
 // Action typing templates
-export { action } from './templates.js';
+export { action, defineActions } from './templates.js';
 export type { ActionDefinition, ActionMap, InputOf, OutputOf } from './templates.js';
 
 // Policy engine
