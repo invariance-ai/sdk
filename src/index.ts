@@ -5,6 +5,9 @@ export { Session } from './session.js';
 // Receipt utilities
 export { createReceipt, verifyChain, verifyChainOrThrow, sortedStringify, sha256, ed25519Sign, hexToBytes, bytesToHex } from './receipt.js';
 
+// Identity crypto
+export { deriveAgentKeypair } from './crypto.js';
+
 // Action typing templates
 export { action } from './templates.js';
 export type { ActionDefinition, ActionMap, InputOf, OutputOf } from './templates.js';
@@ -53,4 +56,5 @@ export type {
   Contract,
   DeliveryProof,
   SettlementProof,
+  AgentIdentity,
 } from './types.js';

@@ -1,9 +1,10 @@
-import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms } from './types.js';
+import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity } from './types.js';
 import { Session } from './session.js';
 import { Transport } from './transport.js';
 import { checkPolicies } from './policy.js';
 import { InvarianceError } from './errors.js';
 import { bytesToHex, sortedStringify, sha256, ed25519Sign } from './receipt.js';
+import { deriveAgentKeypair } from './crypto.js';
 import * as ed25519 from '@noble/ed25519';
 import type { ActionMap, InputOf, OutputOf } from './templates.js';
 import { InvarianceTracer } from './observability/tracer.js';
@@ -503,6 +504,121 @@ export class Invariance {
    */
   async dispute(contractId: string, reason?: string): Promise<{ id: string; status: string }> {
     return this.transport.disputeContract(contractId, reason);
+  }
+
+  // ── Identity Registration ──
+
+  /**
+   * Register a named agent identity with the server.
+   * Derives the keypair locally, sends only the public key.
+   */
+  async registerAgent(owner: string, name: string): Promise<{
+    owner: string; name: string; public_key: string; agent_id: string; created_at: string;
+  }> {
+    const identity = `${owner}/${name}`;
+    const { publicKey } = deriveAgentKeypair(this.config.privateKey, identity);
+    return this.transport.registerAgent(owner, { name, public_key: publicKey });
+  }
+
+  /**
+   * Look up a public agent identity (no auth required).
+   */
+  async lookupIdentity(owner: string, name: string): Promise<{
+    owner: string; name: string; public_key: string; created_at: string;
+  }> {
+    return this.transport.lookupIdentity(owner, name);
+  }
+
+  // ── Identity System ──
+
+  /**
+   * Parse an identity string like "acme/compliance-agent" into its components.
+   */
+  static parseIdentity(identity: string): AgentIdentity {
+    const slash = identity.indexOf('/');
+    if (slash < 1 || slash === identity.length - 1) {
+      throw new InvarianceError('INIT_FAILED', `Invalid identity format "${identity}". Expected "org/name".`);
+    }
+    return {
+      org: identity.slice(0, slash),
+      name: identity.slice(slash + 1),
+      fullIdentity: identity,
+    };
+  }
+
+  /**
+   * Create an identity-bound wrapper around an agent function.
+   * Derives a signing key from the configured private key for the given identity,
+   * and attaches the identity to every emitted TraceNode.
+   *
+   * @param fn - The agent function to wrap
+   * @param opts - Options including the identity string (e.g., "acme/compliance-agent")
+   * @returns A wrapped function that records traces with identity + derived signature
+   */
+  wrapWithIdentity<T>(
+    fn: () => T | Promise<T>,
+    opts: {
+      identity: string;
+      action: string;
+      input: Record<string, unknown>;
+      sessionName?: string;
+    },
+  ): Promise<{ result: T; receipt: Receipt; identity: AgentIdentity }> {
+    const parsedIdentity = Invariance.parseIdentity(opts.identity);
+    const { privateKey: derivedPrivateKey } = deriveAgentKeypair(this.config.privateKey, opts.identity);
+
+    return (async () => {
+      const session = new Session(
+        opts.identity,
+        opts.sessionName ?? `${opts.identity}-session`,
+        derivedPrivateKey,
+        (receipt) => this.transport.enqueue(receipt),
+        (session) => this.transport.createSession(session),
+        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+        this.config.onError,
+      );
+
+      await session.ready;
+
+      let output: Record<string, unknown> | undefined;
+      let error: string | undefined;
+      let result: T;
+
+      try {
+        result = await fn();
+        output = typeof result === 'object' && result !== null
+          ? result as Record<string, unknown>
+          : { value: result };
+      } catch (err) {
+        error = err instanceof Error ? err.message : String(err);
+        const receipt = await session.record({
+          agent: opts.identity,
+          action: opts.action,
+          input: opts.input,
+          error,
+        });
+        session.end();
+        throw Object.assign(err instanceof Error ? err : new Error(error), { receipt });
+      }
+
+      const receipt = await session.record({
+        agent: opts.identity,
+        action: opts.action,
+        input: opts.input,
+        output,
+      });
+      session.end();
+
+      return { result, receipt, identity: parsedIdentity };
+    })();
+  }
+
+  /**
+   * Derive a keypair for a named agent identity.
+   * Convenience wrapper around deriveAgentKeypair using the SDK's configured private key.
+   */
+  deriveAgentKeypair(identity: string): { privateKey: string; publicKey: string } {
+    return deriveAgentKeypair(this.config.privateKey, identity);
   }
 
   /**
