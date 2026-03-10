@@ -11,7 +11,7 @@ import type { TraceAction, TraceEvent, DecisionPointPayload, GoalDriftPayload, S
 
 declare const __SDK_VERSION__: string;
 
-const DEFAULT_API_URL = 'https://api.invariance.dev';
+const DEFAULT_API_URL = process.env.INVARIANCE_API_URL || 'https://api.invariance.dev';
 const DEFAULT_FLUSH_INTERVAL_MS = 5000;
 const DEFAULT_MAX_BATCH_SIZE = 50;
 

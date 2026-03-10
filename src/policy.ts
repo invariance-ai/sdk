@@ -52,6 +52,16 @@ function evaluateRule(rule: PolicyRule, action: Action): PolicyCheck {
       rateLimitState.delete(key);
     }
 
+    // Opportunistically prune expired entries from other keys to prevent unbounded growth
+    if (rateLimitState.size > 100) {
+      for (const [k, ts] of rateLimitState) {
+        if (k === key) continue;
+        const active = ts.filter((t) => t > windowStart);
+        if (active.length === 0) rateLimitState.delete(k);
+        else rateLimitState.set(k, active);
+      }
+    }
+
     if (timestamps.length >= rule.rateLimit.max) {
       return { allowed: false, reason: `Rate limit exceeded: ${rule.rateLimit.max} per ${rule.rateLimit.windowMs}ms` };
     }

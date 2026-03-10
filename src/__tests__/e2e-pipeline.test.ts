@@ -4,7 +4,7 @@ import { InvarianceError } from '../errors.js';
 import { verifyChain } from '../receipt.js';
 import { InvarianceTracer } from '../observability/tracer.js';
 import { Transport } from '../transport.js';
-import { action, defineActions } from '../templates.js';
+import { action } from '../templates.js';
 import type { InvarianceConfig } from '../types.js';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha512';
@@ -356,11 +356,11 @@ describe('Agent-scoped session with policies', () => {
   it('allow/deny enforcement across record calls', async () => {
     const inv = createInvariance();
 
-    const actions = defineActions({
+    const actions = {
       allowed: action<{ x: number }>({ label: 'Allowed' }),
       denied: action<{ x: number }>({ label: 'Denied' }),
       unlisted: action<{ x: number }>({ label: 'Unlisted' }),
-    });
+    };
 
     const agent = inv.agent({
       id: 'policy-agent',
