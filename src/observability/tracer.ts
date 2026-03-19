@@ -32,6 +32,7 @@ export class InvarianceTracer {
   private readonly devOutput: 'ui' | 'console' | 'both';
   private readonly rand: () => number;
   private readonly now: () => number;
+  private readonly maxSessionTreeSize: number;
 
   private hotPaths = new Map<string, number>(); // spanId -> last_seen
   private lastHash = new Map<string, string>(); // sessionId -> last hash
@@ -55,6 +56,7 @@ export class InvarianceTracer {
       ? { type: 'last' }
       : replayContext;
     this.captureReplaySnapshots = config.captureReplaySnapshots ?? false;
+    this.maxSessionTreeSize = config.maxSessionTreeSize ?? 10_000;
   }
 
   async trace<T>(params: {
@@ -199,6 +201,13 @@ export class InvarianceTracer {
     return raw;
   }
 
+  clearSession(sessionId: string): void {
+    this.sessionTrees.delete(sessionId);
+    this.snapshots.delete(sessionId);
+    this.lastHash.delete(sessionId);
+    this.lastContextHash.delete(sessionId);
+  }
+
   getDevTree(sessionId: string): TraceEvent[] {
     return this.sessionTrees.get(sessionId) ?? [];
   }
@@ -272,6 +281,10 @@ export class InvarianceTracer {
   private trackDevTree(event: TraceEvent): void {
     const existing = this.sessionTrees.get(event.sessionId) ?? [];
     existing.push(event);
+    // Cap session tree size — prune oldest events
+    if (existing.length > this.maxSessionTreeSize) {
+      existing.splice(0, existing.length - this.maxSessionTreeSize);
+    }
     this.sessionTrees.set(event.sessionId, existing);
   }
 

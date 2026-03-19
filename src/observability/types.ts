@@ -24,6 +24,7 @@ export interface TracerConfig {
   now?: () => number;
   replayContext?: ReplayContextMode;
   captureReplaySnapshots?: boolean;
+  maxSessionTreeSize?: number;
 }
 
 export interface TraceEvent {
