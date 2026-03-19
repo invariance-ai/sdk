@@ -16,11 +16,11 @@ export { createReceipt, verifyChain, verifyChainOrThrow, sortedStringify, sha256
 export { deriveAgentKeypair } from './crypto.js';
 
 // Action typing templates
-export { action, defineActions } from './templates.js';
+export { action } from './templates.js';
 export type { ActionDefinition, ActionMap, InputOf, OutputOf } from './templates.js';
 
 // Policy engine
-export { checkPolicies, clearRateLimits } from './policy.js';
+export { checkPolicies } from './policy.js';
 
 // Errors
 export { InvarianceError } from './errors.js';
