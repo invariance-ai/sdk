@@ -47,3 +47,28 @@ export function addAlias(target: Record<string, unknown>, from: string, to: stri
     target[to] = target[from];
   }
 }
+
+export function normalizeSdkActionType(value: unknown): string | null {
+  return toSdkActionType(value) ?? toCanonicalActionType(value);
+}
+
+export function addAliases(target: Record<string, unknown>, pairs: Array<[string, string]>): void {
+  for (const [from, to] of pairs) {
+    addAlias(target, from, to);
+  }
+}
+
+export function normalizeActionTypeAlias(target: Record<string, unknown>, keys: string[]): string | null {
+  const targetKey = keys[0];
+  if (!targetKey) return null;
+
+  for (const key of keys) {
+    const canonical = toCanonicalActionType(target[key]);
+    if (canonical) {
+      target[targetKey] = canonical;
+      return canonical;
+    }
+  }
+
+  return null;
+}
