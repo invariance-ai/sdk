@@ -191,7 +191,10 @@ export class Invariance {
       this.config.privateKey,
       (receipt) => this.transport.enqueue(receipt),
       (session) => this.transport.createSession(session),
-      (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+      (sessionId, status, closeHash) => {
+        this.tracer.clearSession(sessionId);
+        return this.transport.closeSession(sessionId, status, closeHash);
+      },
       this.config.onError,
     );
   }
@@ -207,7 +210,10 @@ export class Invariance {
       this.config.privateKey,
       (receipt) => this.transport.enqueue(receipt),
       (session) => this.transport.createSession(session),
-      (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+      (sessionId, status, closeHash) => {
+        this.tracer.clearSession(sessionId);
+        return this.transport.closeSession(sessionId, status, closeHash);
+      },
       this.config.onError,
     );
   }
@@ -269,7 +275,10 @@ export class Invariance {
         opts.privateKey,
         (receipt) => this.transport.enqueue(receipt),
         (session) => this.transport.createSession(session),
-        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+        (sessionId, status, closeHash) => {
+          this.tracer.clearSession(sessionId);
+          return this.transport.closeSession(sessionId, status, closeHash);
+        },
         this.config.onError,
       );
       return toAgentSession(base);
@@ -282,7 +291,10 @@ export class Invariance {
         opts.privateKey,
         (receipt) => this.transport.enqueue(receipt),
         (session) => this.transport.createSession(session),
-        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+        (sessionId, status, closeHash) => {
+          this.tracer.clearSession(sessionId);
+          return this.transport.closeSession(sessionId, status, closeHash);
+        },
         this.config.onError,
       );
       return toAgentSession(base);
@@ -491,7 +503,10 @@ export class Invariance {
         this.transport.enqueue(receipt);
       },
       undefined, // session already exists on backend
-      (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+      (sessionId, status, closeHash) => {
+        this.tracer.clearSession(sessionId);
+        return this.transport.closeSession(sessionId, status, closeHash);
+      },
       this.config.onError,
       opts.sessionId,
     );
@@ -590,7 +605,10 @@ export class Invariance {
         derivedPrivateKey,
         (receipt) => this.transport.enqueue(receipt),
         (session) => this.transport.createSession(session),
-        (sessionId, status, closeHash) => this.transport.closeSession(sessionId, status, closeHash),
+        (sessionId, status, closeHash) => {
+          this.tracer.clearSession(sessionId);
+          return this.transport.closeSession(sessionId, status, closeHash);
+        },
         this.config.onError,
       );
 
