@@ -6,6 +6,11 @@ This file is the source of truth for end-to-end work in `invariance-sdk`.
 
 ### `feat/monitor-poll`
 
+Live pair:
+
+- SDK branch: `feat/monitor-poll` -> PR #21
+- Core branch: `feat/monitor-eval-loop` -> PR #30
+
 What this branch already adds:
 
 - `onMonitorTrigger` and `monitorPollIntervalMs` on [src/types.ts](/Users/hardiksingh/CS/Projects/Invariance/invariance-sdk/src/types.ts).
@@ -28,6 +33,14 @@ Current limitations to remember:
 - This branch consumes monitor events but does not define monitor management APIs in the SDK.
 - The branch does not yet address the broader semantic trace contract, typed eval definitions, or higher-level instrumentation helpers.
 
+Acceptance criteria for this slice:
+
+- The SDK polls monitor events without overlapping in-flight polls.
+- The event cursor advances monotonically and does not redeliver already consumed pages under normal operation.
+- Per-event callback failures do not abort delivery of the rest of the batch.
+- Polling failures surface through `onError` and back off on repeated server-side failures.
+- Shutdown stops further polling without affecting receipt flushing behavior.
+
 ## End-State Buildout
 
 `invariance-sdk` should end with these major capabilities:
@@ -48,30 +61,45 @@ These tracks should stay different enough that multiple agents can work at the s
 - Files: `src/client.ts`, `src/transport.ts`, `src/types.ts`
 - Scope: new API surface, polling/streaming delivery, result-fetching helpers
 - Keep receipt/session semantics stable
+- Acceptance criteria:
+  - new control-plane APIs are additive and do not regress session or receipt behavior
+  - runtime event delivery supports both callback ergonomics and operational safety
 
 ### Track B: Observability Contract
 
 - Files: `src/observability/*`, `src/normalize.ts`
 - Scope: semantic trace schema, compatibility shims, dependency metadata, replay contracts
 - Avoid editing core client behavior unless a new public API must be exposed
+- Acceptance criteria:
+  - the SDK can emit the canonical semantic trace schema expected by core
+  - existing SDK tracing users keep working without forced migrations
 
 ### Track C: Framework Adapters
 
 - Files: `src/adapters/*`, `src/observability/adapters/*`
 - Scope: LangChain/CrewAI/AutoGen/raw fetch helpers that emit the canonical schema
 - Keep adapter work isolated from client polling or contract management when possible
+- Acceptance criteria:
+  - each supported adapter emits enough context for root-cause and monitor evaluation in core
+  - adapter upgrades do not require application-specific backend patches
 
 ### Track D: Examples And Docs
 
 - Files: tests, examples, future README/docs files
 - Scope: customer-support starter flows, monitor examples, migration guides
 - Avoid mixing example work with transport internals
+- Acceptance criteria:
+  - docs show how to instrument, receive monitor events, and validate a full support-agent flow
+  - examples stay aligned with the actual exported SDK surface
 
 ### Track E: Control-Plane Methods
 
 - Files: client and transport additions only when required
 - Scope: monitor CRUD, reviewer actions, replay/counterfactual helpers, evaluator result fetches
 - Keep separate from trace-emission changes so multiple branches can move independently
+- Acceptance criteria:
+  - the SDK can manage monitors and fetch governance artifacts without requiring raw REST calls
+  - control-plane methods remain separable from trace emission so multiple branches can proceed in parallel
 
 ## Pairing Rules
 
