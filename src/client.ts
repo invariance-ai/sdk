@@ -129,6 +129,7 @@ export class Invariance {
       onAnomaly: config.onAnomaly,
       replayContext: config.replayContext,
       captureReplaySnapshots: config.captureReplaySnapshots,
+      onError: config.onError,
     });
   }
 
@@ -670,8 +671,8 @@ export class Invariance {
         if (!result.next_cursor) break;
         cursor = result.next_cursor;
       }
-    } catch {
-      // fetch-level error — backoff will apply
+    } catch (err) {
+      this.config.onError?.(err);
     } finally {
       this.monitorPolling = false;
 

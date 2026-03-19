@@ -28,6 +28,7 @@ export class InvarianceTracer {
   private readonly sampleRate: number;
   private readonly anomalyThreshold: number;
   private readonly onAnomaly?: (node: TraceEvent) => void;
+  private readonly onError?: (error: unknown) => void;
   private readonly transport: Transport;
   private readonly devOutput: 'ui' | 'console' | 'both';
   private readonly rand: () => number;
@@ -46,6 +47,7 @@ export class InvarianceTracer {
     this.sampleRate = config.sampleRate ?? DEFAULT_SAMPLE_RATE;
     this.anomalyThreshold = config.anomalyThreshold ?? DEFAULT_ANOMALY_THRESHOLD;
     this.onAnomaly = config.onAnomaly;
+    this.onError = config.onError;
     this.transport = transport;
     this.devOutput = config.devOutput ?? 'console';
     this.rand = config.random ?? Math.random;
@@ -183,7 +185,7 @@ export class InvarianceTracer {
   emit(type: BehavioralPrimitive, data: unknown): void {
     const payload: BehavioralPayload = { type, data } as BehavioralPayload;
     // Fire-and-forget: submit behavioral primitive to backend
-    this.transport.submitBehavioralEvent(payload).catch(() => {});
+    this.transport.submitBehavioralEvent(payload).catch((err) => { this.onError?.(err); });
   }
 
   async verify(executionId: string): Promise<VerificationProof> {
@@ -266,7 +268,7 @@ export class InvarianceTracer {
   }
 
   private submitEvent(event: TraceEvent): void {
-    this.transport.submitTraceEvent(event).catch(() => {});
+    this.transport.submitTraceEvent(event).catch((err) => { this.onError?.(err); });
   }
 
   private trackDevTree(event: TraceEvent): void {
