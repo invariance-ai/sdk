@@ -24,6 +24,7 @@ export interface TracerConfig {
   now?: () => number;
   replayContext?: ReplayContextMode;
   captureReplaySnapshots?: boolean;
+  onError?: (error: unknown) => void;
 }
 
 export interface TraceEvent {
