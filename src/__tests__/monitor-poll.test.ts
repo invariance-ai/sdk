@@ -103,37 +103,6 @@ describe('Monitor poll integration', () => {
     await transport.shutdown();
   });
 
-  it('callback error does not break subsequent events', async () => {
-    const { transport } = makeTransport();
-
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        events: [
-          { event_id: 'mev_1', monitor_id: 'mon_1', monitor_name: 'Latency Guard', severity: 'warning', trace_node_id: 'tn_1', matched_value: {}, created_at: '2026-01-01' },
-          { event_id: 'mev_2', monitor_id: 'mon_1', monitor_name: 'Latency Guard', severity: 'critical', trace_node_id: 'tn_2', matched_value: {}, created_at: '2026-01-01' },
-        ],
-        next_cursor: null,
-      }),
-    });
-
-    const received: string[] = [];
-    let callCount = 0;
-
-    const { events } = await transport.getMonitorEvents();
-    for (const e of events) {
-      callCount++;
-      if (callCount === 1) {
-        // Simulate callback error
-        try { throw new Error('bad callback'); } catch { /* ignore */ }
-      }
-      received.push(e.event_id);
-    }
-
-    expect(received).toEqual(['mev_1', 'mev_2']);
-    await transport.shutdown();
-  });
-
   it('client poller reports callback errors and stops after shutdown', async () => {
     vi.useFakeTimers();
 

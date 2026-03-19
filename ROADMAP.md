@@ -8,9 +8,9 @@ This file is the source of truth for end-to-end work in `invariance-sdk`.
 
 What this branch already adds:
 
-- `onMonitorTrigger` and `monitorPollIntervalMs` on [src/types.ts](/Users/hardiksingh/CS/Projects/Invariance/invariance-sdk/src/types.ts).
-- Cursor-based monitor event polling through [src/transport.ts](/Users/hardiksingh/CS/Projects/Invariance/invariance-sdk/src/transport.ts).
-- A guarded client-side poll loop in [src/client.ts](/Users/hardiksingh/CS/Projects/Invariance/invariance-sdk/src/client.ts) that:
+- `onMonitorTrigger` and `monitorPollIntervalMs` on [src/types.ts](src/types.ts).
+- Cursor-based monitor event polling through [src/transport.ts](src/transport.ts).
+- A guarded client-side poll loop in [src/client.ts](src/client.ts) that:
   - avoids overlapping polls
   - advances an `after_id` cursor
   - routes callback failures to `onError`
