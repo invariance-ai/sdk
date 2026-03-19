@@ -4,7 +4,10 @@ export { Session } from './session.js';
 
 // A2A (Agent-to-Agent)
 export { A2AChannel } from './a2a.js';
-export type { A2AEnvelope } from './a2a.js';
+export type { A2AEnvelope, A2AVerificationError } from './a2a.js';
+export { createInstrumentedFetch } from './adapters/a2a-fetch.js';
+export { wrapLangChainTool } from './adapters/a2a-langchain.js';
+export type { A2ALangChainToolOptions } from './adapters/a2a-langchain.js';
 
 // Receipt utilities
 export { createReceipt, verifyChain, verifyChainOrThrow, sortedStringify, sha256, ed25519Sign, hexToBytes, bytesToHex } from './receipt.js';

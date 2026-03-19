@@ -19,9 +19,17 @@ export interface A2AEnvelope {
   session_id: string;
 }
 
+export type A2AVerificationError =
+  | 'wrong_receiver'
+  | 'missing_sender_public_key'
+  | 'payload_hash_mismatch'
+  | 'invalid_sender_signature'
+  | 'sender_verification_failed';
+
 /**
  * A2AChannel instruments agent-to-agent communication with dual signatures.
- * Both sender and receiver produce signed receipts, creating a bilateral proof of communication.
+ * The receiver only countersigns after successful verification, so bilateral
+ * proof exists only for authenticated traffic.
  *
  * Protocol-agnostic — wraps MCP, A2A, CrewAI, LangChain, raw HTTP.
  */
@@ -102,14 +110,25 @@ export class A2AChannel {
   async wrapIncoming(envelope: A2AEnvelope, senderPublicKey?: string): Promise<{
     payload: unknown;
     verified: boolean;
+    verificationError?: A2AVerificationError;
     receipt: Receipt;
   }> {
     let verified = envelope.receiver === this.agentIdentity;
+    let verificationError: A2AVerificationError | undefined;
+
+    if (!verified) {
+      verificationError = 'wrong_receiver';
+    }
 
     // Resolve sender public key
     let pubKey = senderPublicKey;
     if (!pubKey && this.apiUrl && this.apiKey) {
       pubKey = await this.fetchAgentPublicKey(envelope.sender);
+    }
+
+    if (verified && !pubKey) {
+      verified = false;
+      verificationError = 'missing_sender_public_key';
     }
 
     if (verified && pubKey) {
@@ -120,6 +139,7 @@ export class A2AChannel {
         // Verify payload hash matches
         if (payloadHash !== envelope.payload_hash) {
           verified = false;
+          verificationError = 'payload_hash_mismatch';
         } else {
           const sigInput = await sha256(sortedStringify({
             payload_hash: payloadHash,
@@ -132,21 +152,35 @@ export class A2AChannel {
           const msgBytes = new TextEncoder().encode(sigInput);
           const pubKeyBytes = hexToBytes(pubKey);
           verified = ed25519.verify(sigBytes, msgBytes, pubKeyBytes);
+          if (!verified) {
+            verificationError = 'invalid_sender_signature';
+          }
         }
       } catch {
         verified = false;
+        verificationError = 'sender_verification_failed';
       }
     }
 
-    // Record a receipt for the receive action with counter-signature
-    const counterSigInput = await sha256(sortedStringify({
-      payload_hash: envelope.payload_hash,
-      sender: envelope.sender,
-      receiver: this.agentIdentity,
-      timestamp: envelope.timestamp,
-      sender_signature: envelope.sender_signature,
-    }));
-    const counterSignature = await ed25519Sign(counterSigInput, this.privateKey);
+    const output: Record<string, unknown> = {};
+    let counterSignature: string | undefined;
+
+    if (verified) {
+      // Only countersign traffic that we successfully authenticated.
+      const counterSigInput = await sha256(sortedStringify({
+        payload_hash: envelope.payload_hash,
+        sender: envelope.sender,
+        receiver: this.agentIdentity,
+        timestamp: envelope.timestamp,
+        sender_signature: envelope.sender_signature,
+      }));
+      counterSignature = await ed25519Sign(counterSigInput, this.privateKey);
+      output.counter_signature = counterSignature;
+    }
+
+    if (verificationError) {
+      output.verification_error = verificationError;
+    }
 
     const receipt = await this.session.record({
       agent: this.agentIdentity,
@@ -156,17 +190,18 @@ export class A2AChannel {
         payload_hash: envelope.payload_hash,
         trace_node_id: envelope.trace_node_id,
         verified,
+        ...(verificationError ? { verification_error: verificationError } : {}),
       },
-      output: {
-        counter_signature: counterSignature,
-      },
+      output: Object.keys(output).length > 0 ? output : undefined,
     });
 
-    // Attach counter-party metadata to receipt
+    // Attach counter-party metadata to receipt for successful bilateral proofs.
     (receipt as Receipt & { counterAgentId?: string }).counterAgentId = envelope.sender;
-    (receipt as Receipt & { counterSignature?: string }).counterSignature = counterSignature;
+    if (counterSignature) {
+      (receipt as Receipt & { counterSignature?: string }).counterSignature = counterSignature;
+    }
 
-    return { payload: envelope.payload, verified, receipt };
+    return { payload: envelope.payload, verified, verificationError, receipt };
   }
 
   private async fetchAgentPublicKey(agentId: string): Promise<string | undefined> {
