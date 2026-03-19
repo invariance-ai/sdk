@@ -33,6 +33,10 @@ export interface InvarianceConfig {
   captureReplaySnapshots?: boolean;
   /** Replay context retention mode (default: { type: 'last' }) */
   replayContext?: import('./observability/types.js').ReplayContextMode;
+  /** Callback when a monitor triggers on a trace event */
+  onMonitorTrigger?: (event: MonitorTriggerEvent) => void;
+  /** How often to poll for monitor events in ms (default: 30000) */
+  monitorPollIntervalMs?: number;
 }
 
 /** Template metadata used for richer action visualization. */
@@ -215,4 +219,15 @@ export interface AgentIdentity {
   name: string;
   /** Full identity string "org/name" */
   fullIdentity: string;
+}
+
+/** A monitor trigger event received from the backend */
+export interface MonitorTriggerEvent {
+  event_id: string;
+  monitor_id: string;
+  monitor_name: string;
+  severity: string;
+  trace_node_id: string;
+  matched_value: Record<string, unknown>;
+  created_at: string;
 }

@@ -64,4 +64,5 @@ export type {
   DeliveryProof,
   SettlementProof,
   AgentIdentity,
+  MonitorTriggerEvent,
 } from './types.js';

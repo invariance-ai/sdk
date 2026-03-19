@@ -1,4 +1,4 @@
-import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity } from './types.js';
+import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity, MonitorTriggerEvent } from './types.js';
 import { Session } from './session.js';
 import { Transport } from './transport.js';
 import { checkPolicies } from './policy.js';
@@ -82,6 +82,13 @@ export class Invariance {
 
   private readonly config: Required<Pick<InvarianceConfig, 'apiKey' | 'apiUrl' | 'policies' | 'flushIntervalMs' | 'maxBatchSize' | 'onError' | 'privateKey'>>;
   private readonly transport: Transport;
+  private monitorPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private monitorPolling = false;
+  private lastSeenEventId: string | null = null;
+  private readonly onMonitorTrigger?: (event: MonitorTriggerEvent) => void;
+  private readonly monitorPollIntervalMs: number;
+  private currentPollIntervalMs: number;
+  private static readonly MAX_POLL_BACKOFF_MS = 300_000; // 5 minutes
 
   /** The observability tracer instance. Access directly for advanced usage. */
   readonly tracer: InvarianceTracer;
@@ -105,6 +112,14 @@ export class Invariance {
       this.config.onError,
       config.maxQueueSize,
     );
+
+    this.onMonitorTrigger = config.onMonitorTrigger;
+    this.monitorPollIntervalMs = config.monitorPollIntervalMs ?? 30_000;
+    this.currentPollIntervalMs = this.monitorPollIntervalMs;
+
+    if (this.onMonitorTrigger) {
+      this.schedulePoll();
+    }
 
     this.tracer = new InvarianceTracer(this.transport, {
       mode: config.mode ?? 'PROD',
@@ -621,10 +636,71 @@ export class Invariance {
     return deriveAgentKeypair(this.config.privateKey, identity);
   }
 
+  private schedulePoll(): void {
+    this.monitorPollTimer = setTimeout(() => void this.pollMonitorEvents(), this.currentPollIntervalMs);
+    if (typeof this.monitorPollTimer === 'object' && 'unref' in this.monitorPollTimer) {
+      this.monitorPollTimer.unref();
+    }
+  }
+
+  private async pollMonitorEvents(): Promise<void> {
+    if (!this.onMonitorTrigger || this.monitorPolling) return;
+    this.monitorPolling = true;
+
+    let success = false;
+    try {
+      let cursor = this.lastSeenEventId ?? undefined;
+      // Drain all pages (cap at 50 to prevent runaway loops)
+      for (let page = 0; page < 50; page++) {
+        const result = await this.transport.getMonitorEvents(cursor, 200);
+
+        if (result.error) break;
+
+        for (const event of result.events) {
+          try {
+            this.onMonitorTrigger(event);
+          } catch (error) {
+            this.config.onError(error);
+          }
+          this.lastSeenEventId = event.event_id;
+        }
+
+        success = true;
+
+        if (!result.next_cursor) break;
+        cursor = result.next_cursor;
+      }
+    } catch {
+      // fetch-level error — backoff will apply
+    } finally {
+      this.monitorPolling = false;
+
+      if (success) {
+        // Reset to base interval on success
+        this.currentPollIntervalMs = this.monitorPollIntervalMs;
+      } else {
+        // Double the interval on failure, capped at 5 minutes
+        this.currentPollIntervalMs = Math.min(
+          this.currentPollIntervalMs * 2,
+          Invariance.MAX_POLL_BACKOFF_MS,
+        );
+      }
+
+      // Schedule next poll (unless shutdown cleared the timer reference)
+      if (this.monitorPollTimer !== null) {
+        this.schedulePoll();
+      }
+    }
+  }
+
   /**
    * Shut down the SDK: stop the flush timer and send remaining receipts.
    */
   async shutdown(): Promise<void> {
+    if (this.monitorPollTimer) {
+      clearTimeout(this.monitorPollTimer);
+      this.monitorPollTimer = null;
+    }
     return this.transport.shutdown();
   }
 }

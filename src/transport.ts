@@ -1,4 +1,4 @@
-import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler } from './types.js';
+import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler, MonitorTriggerEvent } from './types.js';
 import { InvarianceError } from './errors.js';
 import { fetchWithAuth } from './http.js';
 
@@ -497,6 +497,27 @@ export class Transport {
     const res = await fetch(`${this.apiUrl}/v1/identity/agents/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`);
     if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/agents/${owner}/${name} returned ${res.status}`);
     return res.json() as Promise<{ owner: string; name: string; public_key: string; created_at: string }>;
+  }
+
+  /** Poll monitor events from the backend */
+  async getMonitorEvents(afterId?: string, limit?: number): Promise<{ events: MonitorTriggerEvent[], next_cursor: string | null, error?: boolean }> {
+    const params = new URLSearchParams();
+    if (afterId) params.set('after_id', afterId);
+    if (limit !== undefined) params.set('limit', String(limit));
+    const query = params.toString();
+    const path = query ? `/v1/monitors/events?${query}` : '/v1/monitors/events';
+
+    try {
+      const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+      if (!res.ok) {
+        this.onError(new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`));
+        return { events: [], next_cursor: null, error: true };
+      }
+      return await res.json() as { events: MonitorTriggerEvent[], next_cursor: string | null };
+    } catch (error) {
+      this.onError(error);
+      return { events: [], next_cursor: null, error: true };
+    }
   }
 
   /** Check if the backend is reachable. */
