@@ -230,9 +230,19 @@ export class Transport {
       throw new InvarianceError('API_ERROR', `GET /v1/receipts returned ${res.status}`);
     }
 
-    const data = await res.json() as Receipt[] | { receipts: Receipt[] };
-    if (Array.isArray(data)) return data;
-    return data.receipts;
+    const data: unknown = await res.json();
+    if (Array.isArray(data)) {
+      return data as Receipt[];
+    }
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      'receipts' in data &&
+      Array.isArray((data as Record<string, unknown>).receipts)
+    ) {
+      return (data as { receipts: Receipt[] }).receipts;
+    }
+    throw new InvarianceError('API_ERROR', 'Unexpected response format from GET /v1/receipts');
   }
 
   /** Get session info from the API. */
@@ -305,17 +315,17 @@ export class Transport {
   }
 
   /** Verify an execution via the hosted verification API. */
-  async verifyExecution(executionId: string): Promise<unknown> {
+  async verifyExecution(executionId: string): Promise<Record<string, unknown>> {
     const encodedId = encodeURIComponent(executionId);
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/trace/verify/${encodedId}`);
     if (!res.ok) {
       throw new InvarianceError('API_ERROR', `GET /v1/trace/verify/${encodedId} returned ${res.status}`);
     }
-    return res.json();
+    return await res.json() as Record<string, unknown>;
   }
 
   /** Query the semantic behavior graph. */
-  async queryGraph(query: string): Promise<unknown> {
+  async queryGraph(query: string): Promise<Record<string, unknown>> {
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/graph/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -324,33 +334,33 @@ export class Transport {
     if (!res.ok) {
       throw new InvarianceError('API_ERROR', `POST /v1/trace/graph/query returned ${res.status}`);
     }
-    return res.json();
+    return await res.json() as Record<string, unknown>;
   }
 
   /** Get replay timeline for a session */
-  async getReplayTimeline(sessionId: string): Promise<unknown> {
+  async getReplayTimeline(sessionId: string): Promise<Record<string, unknown>> {
     const encodedId = encodeURIComponent(sessionId);
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/trace/sessions/${encodedId}/replay`);
     if (!res.ok) {
       throw new InvarianceError('API_ERROR', `GET /v1/trace/sessions/${encodedId}/replay returned ${res.status}`);
     }
     const data = await res.json();
-    return normalizeReplayTimelineResponse(data);
+    return normalizeReplayTimelineResponse(data) as Record<string, unknown>;
   }
 
   /** Get snapshot for a specific node */
-  async getNodeSnapshot(nodeId: string): Promise<unknown> {
+  async getNodeSnapshot(nodeId: string): Promise<Record<string, unknown>> {
     const encodedId = encodeURIComponent(nodeId);
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/trace/nodes/${encodedId}/snapshot`);
     if (!res.ok) {
       throw new InvarianceError('API_ERROR', `GET /v1/trace/nodes/${encodedId}/snapshot returned ${res.status}`);
     }
     const data = await res.json();
-    return normalizeNodeSnapshotResponse(data);
+    return normalizeNodeSnapshotResponse(data) as Record<string, unknown>;
   }
 
   /** Submit a counterfactual replay request */
-  async submitCounterfactual(request: unknown): Promise<unknown> {
+  async submitCounterfactual(request: unknown): Promise<Record<string, unknown>> {
     const payload = normalizeCounterfactualRequest(request);
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/counterfactual', {
       method: 'POST',
@@ -361,10 +371,10 @@ export class Transport {
       throw new InvarianceError('API_ERROR', `POST /v1/trace/counterfactual returned ${res.status}`);
     }
     const data = await res.json();
-    return normalizeCounterfactualResponse(data);
+    return normalizeCounterfactualResponse(data) as Record<string, unknown>;
   }
 
-  // ── Contract / Settlement endpoints ──
+  // -- Contract / Settlement endpoints --
 
   async proposeContract(body: {
     providerId: string;
@@ -418,7 +428,7 @@ export class Transport {
     return res.json() as Promise<{ id: string; status: string }>;
   }
 
-  async settleContract(contractId: string): Promise<unknown> {
+  async settleContract(contractId: string): Promise<Record<string, unknown>> {
     const id = encodeURIComponent(contractId);
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/contracts/${id}/settle`, {
       method: 'POST',
@@ -426,7 +436,7 @@ export class Transport {
       body: '{}',
     });
     if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/contracts/${id}/settle returned ${res.status}`);
-    return res.json();
+    return await res.json() as Record<string, unknown>;
   }
 
   async disputeContract(contractId: string, reason?: string): Promise<{ id: string; status: string }> {
@@ -440,20 +450,20 @@ export class Transport {
     return res.json() as Promise<{ id: string; status: string }>;
   }
 
-  async getContract(contractId: string): Promise<unknown> {
+  async getContract(contractId: string): Promise<Record<string, unknown>> {
     const id = encodeURIComponent(contractId);
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/contracts/${id}`);
     if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/contracts/${id} returned ${res.status}`);
-    return res.json();
+    return await res.json() as Record<string, unknown>;
   }
 
-  async listContracts(): Promise<unknown[]> {
+  async listContracts(): Promise<Record<string, unknown>[]> {
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/contracts');
     if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/contracts returned ${res.status}`);
-    return res.json() as Promise<unknown[]>;
+    return await res.json() as Record<string, unknown>[];
   }
 
-  // ── Identity endpoints ──
+  // -- Identity endpoints --
 
   async signup(body: { email: string; name: string; handle: string }): Promise<{
     handle: string; public_key: string; private_key: string; api_key: string;

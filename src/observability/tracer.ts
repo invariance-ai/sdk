@@ -187,7 +187,7 @@ export class InvarianceTracer {
   }
 
   async verify(executionId: string): Promise<VerificationProof> {
-    const raw = await this.transport.verifyExecution(executionId) as VerificationProof & { anchoredAt?: string | Date };
+    const raw = await this.transport.verifyExecution(executionId) as unknown as VerificationProof & { anchoredAt?: string | Date };
 
     if (raw.anchoredAt && typeof raw.anchoredAt === 'string') {
       return {

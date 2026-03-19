@@ -426,7 +426,7 @@ export class Invariance {
    * Submit a counterfactual replay request.
    */
   async counterfactual(request: CounterfactualRequest): Promise<CounterfactualResult> {
-    return await this.transport.submitCounterfactual(request) as CounterfactualResult;
+    return await this.transport.submitCounterfactual(request) as unknown as CounterfactualResult;
   }
 
   /**
