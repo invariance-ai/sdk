@@ -1,4 +1,4 @@
-import type { A2AChannel, A2AEnvelope } from '../a2a.js';
+import type { A2AChannel } from '../a2a.js';
 
 /**
  * Options for wrapping a LangChain tool with A2A instrumentation.
@@ -14,7 +14,8 @@ export interface A2ALangChainToolOptions {
 
 /**
  * Wrap a LangChain-style tool's _call method with A2A instrumentation.
- * Intercepts outgoing calls and signs them, captures responses.
+ * Records the outbound handoff, but does not fabricate a remote response
+ * receipt because LangChain tools do not return signed A2A envelopes.
  *
  * Works with any object that has a `_call(input: string)` method (LangChain Tool pattern).
  *
@@ -35,26 +36,15 @@ export function wrapLangChainTool<T extends { _call(input: string): Promise<stri
   const original = tool._call.bind(tool);
 
   tool._call = async (input: string): Promise<string> => {
-    // Wrap outgoing
-    const { envelope } = await opts.channel.wrapOutgoing(opts.receiverAgent, { input });
+    // Record the outbound handoff with adapter metadata.
+    await opts.channel.wrapOutgoing(
+      opts.receiverAgent,
+      { input },
+      { protocol: 'langchain', adapter: 'langchain_tool' },
+    );
 
     // Execute the tool
     const result = await original(input);
-
-    // Wrap the response as incoming (the receiver's response)
-    const responseEnvelope: A2AEnvelope = {
-      payload: { output: result },
-      sender: opts.receiverAgent,
-      receiver: envelope.sender,
-      timestamp: new Date().toISOString(),
-      sender_signature: '', // Response isn't signed by remote in this adapter
-      payload_hash: '',
-      trace_node_id: envelope.trace_node_id,
-      session_id: envelope.session_id,
-    };
-
-    // Record the incoming receipt (verification will be false since response isn't signed)
-    await opts.channel.wrapIncoming(responseEnvelope, opts.senderPublicKey);
 
     return result;
   };

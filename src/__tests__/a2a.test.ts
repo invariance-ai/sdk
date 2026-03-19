@@ -3,7 +3,7 @@ import { A2AChannel } from '../a2a.js';
 import { Session } from '../session.js';
 import * as ed25519 from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha512';
-import { sortedStringify, sha256, hexToBytes, bytesToHex } from '../receipt.js';
+import { sortedStringify, sha256, hexToBytes } from '../receipt.js';
 
 ed25519.etc.sha512Sync = sha512;
 
@@ -93,6 +93,8 @@ describe('A2AChannel', () => {
 
     const result = await channelB.wrapIncoming(tamperedEnvelope, agentA.publicKey);
     expect(result.verified).toBe(false);
+    expect(result.verificationError).toBe('payload_hash_mismatch');
+    expect(result.receipt.output?.counter_signature).toBeUndefined();
   });
 
   it('wrapIncoming rejects wrong sender key → verified=false', async () => {
@@ -107,6 +109,8 @@ describe('A2AChannel', () => {
     // Use wrong public key (agent B's instead of agent A's)
     const result = await channelB.wrapIncoming(envelope, agentB.publicKey);
     expect(result.verified).toBe(false);
+    expect(result.verificationError).toBe('invalid_sender_signature');
+    expect(result.receipt.output?.counter_signature).toBeUndefined();
   });
 
   it('wrapIncoming rejects envelopes addressed to another receiver → verified=false', async () => {
@@ -120,6 +124,23 @@ describe('A2AChannel', () => {
 
     const result = await channelB.wrapIncoming(envelope, agentA.publicKey);
     expect(result.verified).toBe(false);
+    expect(result.verificationError).toBe('wrong_receiver');
+    expect(result.receipt.output?.counter_signature).toBeUndefined();
+  });
+
+  it('wrapIncoming fails closed when sender public key is unavailable', async () => {
+    const { session: sessionA } = makeSession('agent-a', agentA.privateKey);
+    const { session: sessionB } = makeSession('agent-b', agentB.privateKey);
+
+    const channelA = new A2AChannel(sessionA, 'agent-a', agentA.privateKey);
+    const channelB = new A2AChannel(sessionB, 'agent-b', agentB.privateKey);
+
+    const { envelope } = await channelA.wrapOutgoing('agent-b', { data: 42 });
+
+    const result = await channelB.wrapIncoming(envelope);
+    expect(result.verified).toBe(false);
+    expect(result.verificationError).toBe('missing_sender_public_key');
+    expect(result.receipt.output?.counter_signature).toBeUndefined();
   });
 
   it('round-trip: agent A wraps outgoing → agent B wraps incoming → both receipts link', async () => {
