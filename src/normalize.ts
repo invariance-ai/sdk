@@ -11,12 +11,18 @@ export const ACTION_TYPE_MAP: Record<string, string> = {
   GoalDrift: 'goal_drift',
   ConstraintCheck: 'constraint_check',
   PlanRevision: 'plan_revision',
+  A2ASend: 'a2a_send',
+  A2AReceive: 'a2a_receive',
+  OrchestrationDecision: 'orchestrator_decision',
   decision_point: 'decision_point',
   tool_invocation: 'tool_invocation',
   sub_agent_spawn: 'sub_agent_spawn',
   goal_drift: 'goal_drift',
   constraint_check: 'constraint_check',
   plan_revision: 'plan_revision',
+  a2a_send: 'a2a_send',
+  a2a_receive: 'a2a_receive',
+  orchestrator_decision: 'orchestrator_decision',
 };
 
 /** Maps canonical snake_case action types back to SDK PascalCase. */
@@ -25,6 +31,11 @@ export const SDK_ACTION_TYPE_MAP: Record<string, string> = {
   tool_invocation: 'ToolInvocation',
   sub_agent_spawn: 'SubAgentSpawn',
   goal_drift: 'GoalDrift',
+  constraint_check: 'ConstraintCheck',
+  plan_revision: 'PlanRevision',
+  a2a_send: 'A2ASend',
+  a2a_receive: 'A2AReceive',
+  orchestrator_decision: 'OrchestrationDecision',
 };
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
