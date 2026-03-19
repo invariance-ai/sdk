@@ -196,9 +196,9 @@ export class A2AChannel {
     });
 
     // Attach counter-party metadata to receipt for successful bilateral proofs.
-    (receipt as Receipt & { counterAgentId?: string }).counterAgentId = envelope.sender;
+    receipt.counterAgentId = envelope.sender;
     if (counterSignature) {
-      (receipt as Receipt & { counterSignature?: string }).counterSignature = counterSignature;
+      receipt.counterSignature = counterSignature;
     }
 
     return { payload: envelope.payload, verified, verificationError, receipt };
