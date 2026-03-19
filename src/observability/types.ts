@@ -1,12 +1,40 @@
+export const SEMANTIC_TRACE_SCHEMA_VERSION = 'invariance.semantic-trace.v1alpha1';
+
+export type SemanticTraceSchemaVersion = typeof SEMANTIC_TRACE_SCHEMA_VERSION;
+
 // ── Behavioral Primitives ──
 
 export type BehavioralPrimitive =
   | 'DecisionPoint'
+  | 'OrchestrationDecision'
   | 'ToolInvocation'
   | 'SubAgentSpawn'
   | 'GoalDrift'
+  | 'RetrievalEvent'
+  | 'OutputGeneration'
   | 'ConstraintCheck'
-  | 'PlanRevision';
+  | 'PlanRevision'
+  | 'A2ASend'
+  | 'A2AReceive';
+
+export type DependencyEvidence = 'declared' | 'inferred' | 'replay_validated';
+
+export type ContextInputKind =
+  | 'trace_node'
+  | 'tool_result'
+  | 'a2a_message'
+  | 'session_goal'
+  | 'external_artifact'
+  | 'unknown';
+
+export type DependencyRelation =
+  | 'parent'
+  | 'depends_on'
+  | 'caused_by'
+  | 'informed_by'
+  | 'reads_from'
+  | 'delegated_from'
+  | 'orchestrated_by';
 
 // ── Tracer Types ──
 
@@ -27,6 +55,7 @@ export interface TracerConfig {
 }
 
 export interface TraceEvent {
+  schemaVersion?: SemanticTraceSchemaVersion | string;
   nodeId: string;
   sessionId: string;
   parentNodeId?: string;
@@ -48,8 +77,39 @@ export interface TraceEvent {
 
 export interface TraceMetadata {
   depth: number;
+  branchFactor?: number;
+  executionMs?: number;
   tokenCost?: number;
   toolCalls?: string[];
+  semanticContext?: string;
+  tags?: string[];
+  schemaVersion?: SemanticTraceSchemaVersion | string;
+  contextInputs?: ContextInputReference[];
+  dependencyEdges?: DependencyEdge[];
+  dependencyContext?: DependencyContextSummary;
+}
+
+export interface ContextInputReference {
+  id: string;
+  sourceNodeId?: string;
+  kind: ContextInputKind;
+  label: string;
+  required: boolean;
+}
+
+export interface DependencyEdge {
+  fromNodeId: string;
+  relation: DependencyRelation;
+  confidence: number;
+  evidence: DependencyEvidence;
+}
+
+export interface DependencyContextSummary {
+  strategy: 'full_session' | 'ancestor_chain' | 'declared_dependencies' | 'hybrid';
+  confidence: number;
+  validationStatus: 'unvalidated' | 'stable' | 'drifted';
+  minimumSafeContextNodeIds: string[];
+  tokensPrunedEstimate?: number;
 }
 
 // ── Behavioral Primitive Payloads ──
@@ -82,11 +142,28 @@ export interface ToolInvocationPayload {
   latencyMs: number;
 }
 
+export interface RetrievalEventPayload {
+  nodeId: string;
+  query: string;
+  resultCount: number;
+  sourceIds?: string[];
+  relevanceScores?: number[];
+}
+
+export interface OutputGenerationPayload {
+  nodeId: string;
+  confidence?: number;
+  citations?: string[];
+  format?: 'text' | 'json' | 'markdown' | 'unknown';
+}
+
 export type BehavioralPayload =
   | { type: 'DecisionPoint'; data: DecisionPointPayload }
   | { type: 'ToolInvocation'; data: ToolInvocationPayload }
   | { type: 'SubAgentSpawn'; data: SubAgentSpawnPayload }
-  | { type: 'GoalDrift'; data: GoalDriftPayload };
+  | { type: 'GoalDrift'; data: GoalDriftPayload }
+  | { type: 'RetrievalEvent'; data: RetrievalEventPayload }
+  | { type: 'OutputGeneration'; data: OutputGenerationPayload };
 
 // ── Replay Types ──
 

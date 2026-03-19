@@ -1,13 +1,72 @@
 import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler } from './types.js';
 import { InvarianceError } from './errors.js';
 import { fetchWithAuth } from './http.js';
+import { SEMANTIC_TRACE_SCHEMA_VERSION } from './observability/types.js';
 
 import { isRecord, toCanonicalActionType, toSdkActionType, addAlias } from './normalize.js';
+
+function normalizeContextInput(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+
+  const normalized: Record<string, unknown> = { ...input };
+  addAlias(normalized, 'sourceNodeId', 'source_node_id');
+  return normalized;
+}
+
+function normalizeDependencyEdge(edge: unknown): unknown {
+  if (!isRecord(edge)) return edge;
+
+  const normalized: Record<string, unknown> = { ...edge };
+  addAlias(normalized, 'fromNodeId', 'from_node_id');
+  return normalized;
+}
+
+function normalizeDependencyContext(summary: unknown): unknown {
+  if (!isRecord(summary)) return summary;
+
+  const normalized: Record<string, unknown> = { ...summary };
+  addAlias(normalized, 'validationStatus', 'validation_status');
+  addAlias(normalized, 'minimumSafeContextNodeIds', 'minimum_safe_context_node_ids');
+  addAlias(normalized, 'tokensPrunedEstimate', 'tokens_pruned_estimate');
+  return normalized;
+}
+
+function normalizeTraceMetadata(metadata: unknown): unknown {
+  if (!isRecord(metadata)) return metadata;
+
+  const normalized: Record<string, unknown> = { ...metadata };
+  addAlias(normalized, 'branchFactor', 'branch_factor');
+  addAlias(normalized, 'executionMs', 'execution_ms');
+  addAlias(normalized, 'tokenCost', 'token_cost');
+  addAlias(normalized, 'toolCalls', 'tool_calls');
+  addAlias(normalized, 'semanticContext', 'semantic_context');
+  addAlias(normalized, 'schemaVersion', 'schema_version');
+  addAlias(normalized, 'contextInputs', 'context_inputs');
+  addAlias(normalized, 'dependencyEdges', 'dependency_edges');
+  addAlias(normalized, 'dependencyContext', 'dependency_context');
+
+  if (Array.isArray(normalized.context_inputs)) {
+    normalized.context_inputs = normalized.context_inputs.map(normalizeContextInput);
+  }
+  if (Array.isArray(normalized.dependency_edges)) {
+    normalized.dependency_edges = normalized.dependency_edges.map(normalizeDependencyEdge);
+  }
+  if (normalized.dependency_context) {
+    normalized.dependency_context = normalizeDependencyContext(normalized.dependency_context);
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(normalized, 'schema_version')) {
+    normalized.schema_version = SEMANTIC_TRACE_SCHEMA_VERSION;
+  }
+
+  return normalized;
+}
 
 function normalizeTraceEventPayload(event: unknown): unknown {
   if (!isRecord(event)) return event;
 
   const normalized: Record<string, unknown> = { ...event };
+  addAlias(normalized, 'schemaVersion', 'schema_version');
   addAlias(normalized, 'nodeId', 'node_id');
   addAlias(normalized, 'sessionId', 'session_id');
   addAlias(normalized, 'parentNodeId', 'parent_id');
@@ -22,6 +81,11 @@ function normalizeTraceEventPayload(event: unknown): unknown {
     normalized.action_type = canonical;
   }
 
+  normalized.metadata = normalizeTraceMetadata(normalized.metadata);
+  if (!Object.prototype.hasOwnProperty.call(normalized, 'schema_version')) {
+    normalized.schema_version = SEMANTIC_TRACE_SCHEMA_VERSION;
+  }
+
   return normalized;
 }
 
@@ -29,6 +93,7 @@ function normalizeBehavioralPayload(payload: unknown): unknown {
   if (!isRecord(payload)) return payload;
 
   const normalized: Record<string, unknown> = { ...payload };
+  addAlias(normalized, 'schemaVersion', 'schema_version');
   const canonical = toCanonicalActionType(normalized.type);
   if (canonical) {
     normalized.action_type = canonical;
@@ -44,7 +109,14 @@ function normalizeBehavioralPayload(payload: unknown): unknown {
     addAlias(data, 'inputHash', 'input_hash');
     addAlias(data, 'outputHash', 'output_hash');
     addAlias(data, 'latencyMs', 'latency_ms');
+    addAlias(data, 'resultCount', 'result_count');
+    addAlias(data, 'sourceIds', 'source_ids');
+    addAlias(data, 'relevanceScores', 'relevance_scores');
     normalized.data = data;
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(normalized, 'schema_version')) {
+    normalized.schema_version = SEMANTIC_TRACE_SCHEMA_VERSION;
   }
 
   return normalized;

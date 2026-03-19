@@ -33,11 +33,20 @@ export type {
   TraceEvent,
   TraceMetadata,
   BehavioralPrimitive,
+  SemanticTraceSchemaVersion,
+  DependencyEvidence,
+  ContextInputKind,
+  DependencyRelation,
+  ContextInputReference,
+  DependencyEdge,
+  DependencyContextSummary,
   DevOutput,
   DecisionPointPayload,
   GoalDriftPayload,
   SubAgentSpawnPayload,
   ToolInvocationPayload,
+  RetrievalEventPayload,
+  OutputGenerationPayload,
   VerificationProof,
   TraceAction,
   ReplaySnapshot,
@@ -46,6 +55,7 @@ export type {
   CounterfactualRequest,
   CounterfactualResult,
 } from './observability/index.js';
+export { SEMANTIC_TRACE_SCHEMA_VERSION } from './observability/index.js';
 
 // Types
 export type {

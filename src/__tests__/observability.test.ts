@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { InvarianceTracer } from '../observability/tracer.js';
+import { SEMANTIC_TRACE_SCHEMA_VERSION } from '../observability/types.js';
 import { Transport } from '../transport.js';
 
 function makeTracer(
@@ -139,15 +140,46 @@ describe('Transport observability payload normalization', () => {
     );
 
     await transport.submitTraceEvent({
+      schemaVersion: SEMANTIC_TRACE_SCHEMA_VERSION,
       nodeId: 'node-1',
       sessionId: 'sess-1',
       parentNodeId: null,
       spanId: 'span-1',
       agentId: 'agent-1',
-      actionType: 'ToolInvocation',
+      actionType: 'RetrievalEvent',
       input: {},
       output: {},
-      metadata: { depth: 0 },
+      metadata: {
+        depth: 0,
+        branchFactor: 2,
+        executionMs: 8,
+        tokenCost: 0.12,
+        toolCalls: ['search'],
+        semanticContext: 'Look up refund policy evidence',
+        contextInputs: [
+          {
+            id: 'ctx-1',
+            kind: 'trace_node',
+            label: 'prior decision',
+            required: true,
+            sourceNodeId: 'node-0',
+          },
+        ],
+        dependencyEdges: [
+          {
+            fromNodeId: 'node-0',
+            relation: 'depends_on',
+            confidence: 0.9,
+            evidence: 'declared',
+          },
+        ],
+        dependencyContext: {
+          strategy: 'declared_dependencies',
+          confidence: 0.9,
+          validationStatus: 'unvalidated',
+          minimumSafeContextNodeIds: ['node-0'],
+        },
+      },
       timestamp: 10,
       durationMs: 2,
       hash: 'h1',
@@ -166,11 +198,18 @@ describe('Transport observability payload normalization', () => {
     });
 
     const tracePayload = JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>;
-    expect(tracePayload.action_type).toBe('tool_invocation');
+    expect(tracePayload.schema_version).toBe(SEMANTIC_TRACE_SCHEMA_VERSION);
+    expect(tracePayload.action_type).toBe('retrieval_event');
     expect(tracePayload.node_id).toBe('node-1');
     expect(tracePayload.session_id).toBe('sess-1');
+    expect((tracePayload.metadata as Record<string, unknown>).branch_factor).toBe(2);
+    expect((tracePayload.metadata as Record<string, unknown>).schema_version).toBe(SEMANTIC_TRACE_SCHEMA_VERSION);
+    expect(((tracePayload.metadata as Record<string, unknown>).context_inputs as Array<Record<string, unknown>>)[0]?.source_node_id).toBe('node-0');
+    expect(((tracePayload.metadata as Record<string, unknown>).dependency_edges as Array<Record<string, unknown>>)[0]?.from_node_id).toBe('node-0');
+    expect((((tracePayload.metadata as Record<string, unknown>).dependency_context as Record<string, unknown>).minimum_safe_context_node_ids as string[])[0]).toBe('node-0');
 
     const behaviorPayload = JSON.parse(fetchMock.mock.calls[1][1].body as string) as Record<string, unknown>;
+    expect(behaviorPayload.schema_version).toBe(SEMANTIC_TRACE_SCHEMA_VERSION);
     expect(behaviorPayload.action_type).toBe('goal_drift');
     expect((behaviorPayload.data as Record<string, unknown>).node_id).toBe('node-1');
 

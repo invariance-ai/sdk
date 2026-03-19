@@ -15,6 +15,7 @@ import type {
   ReplayContextMode,
   ReplaySnapshot,
 } from './types.js';
+import { SEMANTIC_TRACE_SCHEMA_VERSION } from './types.js';
 import type { Transport } from '../transport.js';
 import { sortedStringify, sha256 } from '../receipt.js';
 
@@ -116,6 +117,7 @@ export class InvarianceTracer {
     const hash = await sha256(hashData);
 
     const event: TraceEvent = {
+      schemaVersion: params.metadata?.schemaVersion ?? SEMANTIC_TRACE_SCHEMA_VERSION,
       nodeId,
       sessionId: params.sessionId,
       parentNodeId: params.parentNodeId,
@@ -127,8 +129,16 @@ export class InvarianceTracer {
       error,
       metadata: {
         depth: params.metadata?.depth ?? 0,
+        branchFactor: params.metadata?.branchFactor,
+        executionMs: params.metadata?.executionMs,
         tokenCost: params.metadata?.tokenCost,
         toolCalls: params.metadata?.toolCalls,
+        semanticContext: params.metadata?.semanticContext,
+        tags: params.metadata?.tags,
+        schemaVersion: params.metadata?.schemaVersion ?? SEMANTIC_TRACE_SCHEMA_VERSION,
+        contextInputs: params.metadata?.contextInputs,
+        dependencyEdges: params.metadata?.dependencyEdges,
+        dependencyContext: params.metadata?.dependencyContext,
       },
       timestamp: startTime,
       durationMs,
