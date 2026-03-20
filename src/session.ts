@@ -2,6 +2,7 @@ import { ulid } from 'ulid';
 import type { Action, ErrorHandler, PolicyCheck, Receipt, SessionInfo, VerifyResult } from './types.js';
 import { createReceipt, verifyChain } from './receipt.js';
 import { InvarianceError } from './errors.js';
+import { TraceQuery } from './trace-query.js';
 
 /** Callback to enqueue a receipt for flushing */
 export type EnqueueFn = (receipt: Receipt) => void;
@@ -198,6 +199,11 @@ export class Session {
 
   getReceipts(): readonly Receipt[] {
     return this.receipts.slice();
+  }
+
+  /** Get a TraceQuery over this session's receipts */
+  traces(): TraceQuery {
+    return new TraceQuery([...this.receipts]);
   }
 
   async verify(publicKeyHex?: string): Promise<VerifyResult> {

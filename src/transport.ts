@@ -534,6 +534,30 @@ export class Transport {
     }
   }
 
+  /** Get trace nodes for a session */
+  async getSessionNodes(sessionId: string): Promise<Record<string, unknown>[]> {
+    const encodedId = encodeURIComponent(sessionId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/trace/sessions/${encodedId}/nodes`);
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET /v1/trace/sessions/${encodedId}/nodes returned ${res.status}`);
+    }
+    const data = await res.json() as Record<string, unknown>;
+    return (data.nodes ?? []) as Record<string, unknown>[];
+  }
+
+  /** Query the NL query endpoint */
+  async queryNL(question: string, scope?: { session_id?: string; agent_id?: string; time_range?: { from: number; to: number } }): Promise<Record<string, unknown>> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, scope }),
+    });
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `POST /v1/query returned ${res.status}`);
+    }
+    return await res.json() as Record<string, unknown>;
+  }
+
   /** Check if the backend is reachable. */
   async healthCheck(): Promise<boolean> {
     try {

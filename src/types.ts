@@ -231,3 +231,30 @@ export interface MonitorTriggerEvent {
   matched_value: Record<string, unknown>;
   created_at: string;
 }
+
+/** Source reference in a natural language query response */
+export interface QuerySource {
+  node_id: string;
+  session_id: string;
+  agent_id: string;
+  action_type: string;
+  /** Semantic context or action_type label */
+  label: string;
+  /** Why this source was cited */
+  relevance: string;
+}
+
+/** Result of a natural language query */
+export interface NLQueryResult {
+  answer: string;
+  sources: QuerySource[];
+  tool_calls_made: Array<{ tool: string; args: Record<string, unknown> }>;
+  metadata: { latency_ms: number; model: string };
+}
+
+/** Scope constraints for a natural language query */
+export interface NLQueryScope {
+  session_id?: string;
+  agent_id?: string;
+  time_range?: { from: number; to: number };
+}

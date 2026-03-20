@@ -1,4 +1,4 @@
-import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity, MonitorTriggerEvent } from './types.js';
+import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity, MonitorTriggerEvent, NLQueryResult, NLQueryScope } from './types.js';
 import { Session } from './session.js';
 import { Transport } from './transport.js';
 import { checkPolicies } from './policy.js';
@@ -9,6 +9,8 @@ import * as ed25519 from '@noble/ed25519';
 import type { ActionMap, InputOf, OutputOf } from './templates.js';
 import { InvarianceTracer } from './observability/tracer.js';
 import type { TraceAction, TraceEvent, DecisionPointPayload, GoalDriftPayload, SubAgentSpawnPayload, ToolInvocationPayload, VerificationProof, BehavioralPrimitive, ReplaySnapshot, ReplayTimelineEntry, CounterfactualRequest, CounterfactualResult } from './observability/types.js';
+import { TraceQuery } from './trace-query.js';
+import { EvalSuite } from './eval.js';
 
 declare const __SDK_VERSION__: string;
 
@@ -726,6 +728,43 @@ export class Invariance {
         this.schedulePoll();
       }
     }
+  }
+
+  /**
+   * Create a TraceQuery over a session's receipts fetched from the backend.
+   */
+  async traces(sessionId: string): Promise<TraceQuery> {
+    const nodes = await this.transport.getSessionNodes(sessionId);
+    // Map trace nodes to Receipt-like objects for querying
+    const receipts = nodes.map((n) => ({
+      id: String(n.id ?? ''),
+      sessionId: String(n.session_id ?? ''),
+      agent: String(n.agent_id ?? ''),
+      action: String(n.action_type ?? ''),
+      input: (n.input ?? {}) as Record<string, unknown>,
+      output: (n.output ?? undefined) as Record<string, unknown> | undefined,
+      error: n.error ? String(n.error) : undefined,
+      timestamp: Number(n.timestamp ?? 0),
+      hash: String(n.hash ?? ''),
+      previousHash: String(n.previous_hash ?? '0'),
+      signature: null,
+    }));
+    return new TraceQuery(receipts);
+  }
+
+  /**
+   * Create a new EvalSuite for testing agent behavior.
+   */
+  eval(): EvalSuite {
+    return new EvalSuite();
+  }
+
+  /**
+   * Ask a natural language question about agent data.
+   */
+  async ask(question: string, scope?: NLQueryScope): Promise<NLQueryResult> {
+    const result = await this.transport.queryNL(question, scope);
+    return result as unknown as NLQueryResult;
   }
 
   /**

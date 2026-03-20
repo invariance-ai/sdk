@@ -50,6 +50,22 @@ export type {
   CounterfactualResult,
 } from './observability/index.js';
 
+// Trace query
+export { TraceQuery } from './trace-query.js';
+export type { TraceFilter } from './trace-query.js';
+
+// Assertions
+export { assertTrace, TraceAssertions, AssertionError } from './assertions.js';
+
+// Eval
+export { EvalSuite } from './eval.js';
+
+// Session comparison
+export { compareSessions } from './compare.js';
+
+// Eval types
+export type { EvalResult, JudgeConfig, JudgeVerdict } from './eval-types.js';
+
 // Types
 export type {
   InvarianceConfig,
@@ -68,4 +84,7 @@ export type {
   SettlementProof,
   AgentIdentity,
   MonitorTriggerEvent,
+  QuerySource,
+  NLQueryResult,
+  NLQueryScope,
 } from './types.js';
