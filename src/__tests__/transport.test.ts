@@ -231,6 +231,26 @@ describe('Trace methods', () => {
     expect(init.method).toBe('POST');
     await transport.shutdown();
   });
+
+  it('queryNL posts to /v1/nl-query with the full request payload', async () => {
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse({ answer: 'ok' }));
+    const { transport } = makeTransport();
+
+    await transport.queryNL({
+      question: 'How many sessions?',
+      conversation_id: 'conv-1',
+      context: { session_id: 'sess-1', time_range: { since: 1, until: 2 } },
+    });
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls.at(-1);
+    expect(path).toBe('/v1/nl-query');
+    expect(JSON.parse(init.body)).toEqual({
+      question: 'How many sessions?',
+      conversation_id: 'conv-1',
+      context: { session_id: 'sess-1', time_range: { since: 1, until: 2 } },
+    });
+    await transport.shutdown();
+  });
 });
 
 // ── Contract methods ──

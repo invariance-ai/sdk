@@ -88,8 +88,8 @@ export class LiveStatusClient {
             const event = JSON.parse(frame.data) as LiveStatusEvent;
             if (this.config.eventTypes && !this.config.eventTypes.includes(event.type)) continue;
             this.config.onEvent(event);
-          } catch {
-            // Skip malformed frames
+          } catch (error) {
+            this.config.onError?.(error);
           }
         }
       }

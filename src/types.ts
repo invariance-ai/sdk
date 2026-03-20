@@ -244,19 +244,32 @@ export interface QuerySource {
   relevance: string;
 }
 
-/** Result of a natural language query */
-export interface NLQueryResult {
-  answer: string;
-  sources: QuerySource[];
-  tool_calls_made: Array<{ tool: string; args: Record<string, unknown> }>;
-  metadata: { latency_ms: number; model: string };
-}
-
-/** Scope constraints for a natural language query */
+/** Scope/context constraints for a natural language query */
 export interface NLQueryScope {
   session_id?: string;
   agent_id?: string;
-  time_range?: { from: number; to: number };
+  time_range?: { from?: number; to?: number; since?: number; until?: number };
+}
+
+/** Options for a natural language query */
+export interface NLQueryOptions {
+  conversation_id?: string;
+  context?: NLQueryScope;
+}
+
+/** Result of a natural language query */
+export interface NLQueryResult {
+  answer: string;
+  conversation_id: string;
+  data_sources: Array<{ type: string; count: number; query_description: string }>;
+  structured_results?: Array<{ type: 'table' | 'card' | 'timeline' | 'metric'; title: string; data: unknown }>;
+  trace_context?: {
+    session_id: string;
+    nodes: unknown[];
+    highlighted_node_ids: string[];
+    causal_chain?: unknown;
+  };
+  confidence: number;
 }
 
 /** Result from a trace query */

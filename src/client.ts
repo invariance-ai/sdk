@@ -13,6 +13,7 @@ import { TraceQuery } from './trace-query.js';
 import { EvalSuite } from './eval.js';
 import { LiveStatusClient } from './live-status.js';
 import type { LiveStatusClientConfig } from './live-status.js';
+import type { NLQueryContext } from './query-types.js';
 
 declare const __SDK_VERSION__: string;
 
@@ -24,6 +25,29 @@ function assertPrivateKey(privateKey: string): void {
   if (!/^[0-9a-f]{64}$/i.test(privateKey)) {
     throw new InvarianceError('INIT_FAILED', 'privateKey must be a 32-byte hex string');
   }
+}
+
+function normalizeNLQueryOptions(opts?: NLQueryScope | NLQueryOptions): NLQueryOptions | undefined {
+  if (!opts) return undefined;
+  if ('conversation_id' in opts || 'context' in opts) {
+    return opts as NLQueryOptions;
+  }
+
+  const scope = opts as NLQueryScope;
+  const timeRange = scope.time_range
+    ? {
+        since: scope.time_range.since ?? scope.time_range.from,
+        until: scope.time_range.until ?? scope.time_range.to,
+      }
+    : undefined;
+
+  const context: NLQueryContext = {
+    agent_id: scope.agent_id,
+    session_id: scope.session_id,
+    time_range: timeRange,
+  };
+
+  return { context };
 }
 
 /** Validate config and warn about mode-specific field mismatches. */
@@ -803,9 +827,11 @@ export class Invariance {
   /**
    * Ask a natural language question about agent data.
    */
-  async ask(question: string, scope?: NLQueryScope): Promise<NLQueryResult> {
-    const result = await this.transport.queryNL(question, scope);
-    return result as unknown as NLQueryResult;
+  async ask(question: string, opts?: NLQueryScope | NLQueryOptions): Promise<NLQueryResult> {
+    return await this.transport.queryNL({
+      question,
+      ...normalizeNLQueryOptions(opts),
+    }) as unknown as NLQueryResult;
   }
 
   /**

@@ -1,4 +1,5 @@
 import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler, MonitorTriggerEvent, TraceQueryResult, ToolSchema, StatsResult, AgentNote } from './types.js';
+import type { NLQueryRequest } from './query-types.js';
 import { InvarianceError } from './errors.js';
 import { fetchWithAuth } from './http.js';
 
@@ -546,14 +547,14 @@ export class Transport {
   }
 
   /** Query the NL query endpoint */
-  async queryNL(question: string, scope?: { session_id?: string; agent_id?: string; time_range?: { from: number; to: number } }): Promise<Record<string, unknown>> {
-    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/query', {
+  async queryNL(request: NLQueryRequest): Promise<Record<string, unknown>> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/nl-query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, scope }),
+      body: JSON.stringify(request),
     });
     if (!res.ok) {
-      throw new InvarianceError('API_ERROR', `POST /v1/query returned ${res.status}`);
+      throw new InvarianceError('API_ERROR', `POST /v1/nl-query returned ${res.status}`);
     }
     return await res.json() as Record<string, unknown>;
   }

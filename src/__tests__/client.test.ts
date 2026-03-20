@@ -101,6 +101,36 @@ describe('Invariance', () => {
     await inv.shutdown();
   });
 
+  it('ask() sends the new NL query contract and preserves legacy scope compatibility', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        answer: 'ok',
+        conversation_id: 'conv-1',
+        data_sources: [],
+        confidence: 0.9,
+      }),
+    });
+
+    const result = await inv.ask('What happened?', {
+      session_id: 'sess-1',
+      time_range: { from: 10, to: 20 },
+    });
+
+    const [url, init] = (fetch as any).mock.calls.at(-1);
+    expect(url).toBe('https://api.invariance.dev/v1/nl-query');
+    expect(JSON.parse(init.body)).toEqual({
+      question: 'What happened?',
+      context: {
+        session_id: 'sess-1',
+        time_range: { since: 10, until: 20 },
+      },
+    });
+    expect(result.conversation_id).toBe('conv-1');
+    await inv.shutdown();
+  });
+
   it('record() requires agent for one-off receipt', async () => {
     const inv = Invariance.init({ apiKey: 'inv_test', privateKey: privKeyHex });
     await expect(inv.record({ action: 'compute', input: { n: 1 } } as any)).rejects.toThrow(

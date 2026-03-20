@@ -59,4 +59,31 @@ describe('LiveStatusClient', () => {
     // No error should be thrown when onError is not provided
     client.disconnect();
   });
+
+  it('routes malformed event payloads to onError', async () => {
+    const onError = vi.fn();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('event: trace_node_created\ndata: {not-json}\n\n'));
+          controller.close();
+        },
+      }),
+    } as Response);
+
+    const client = new LiveStatusClient({
+      apiUrl: 'http://localhost:3001',
+      apiKey: 'test-key',
+      onEvent: () => {},
+      onError,
+    });
+
+    client.connect();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(onError).toHaveBeenCalled();
+    client.disconnect();
+    fetchSpy.mockRestore();
+  });
 });
