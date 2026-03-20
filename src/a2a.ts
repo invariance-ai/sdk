@@ -196,9 +196,12 @@ export class A2AChannel {
     });
 
     // Attach counter-party metadata to receipt for successful bilateral proofs.
+    // Set both camelCase (SDK type) and snake_case (backend expects) fields.
     receipt.counterAgentId = envelope.sender;
+    (receipt as unknown as Record<string, unknown>).counter_agent_id = envelope.sender;
     if (counterSignature) {
       receipt.counterSignature = counterSignature;
+      (receipt as unknown as Record<string, unknown>).counter_signature = counterSignature;
     }
 
     return { payload: envelope.payload, verified, verificationError, receipt };
