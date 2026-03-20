@@ -10,7 +10,9 @@ export type BehavioralPrimitive =
   | 'SubAgentSpawn'
   | 'GoalDrift'
   | 'ConstraintCheck'
-  | 'PlanRevision';
+  | 'PlanRevision'
+  | 'A2ASend'
+  | 'A2AReceive';
 
 // ── Tracer Types ──
 
