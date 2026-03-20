@@ -7,7 +7,8 @@ export type InvarianceErrorCode =
   | 'SESSION_CLOSED'
   | 'SESSION_NOT_READY'
   | 'INIT_FAILED'
-  | 'QUEUE_OVERFLOW';
+  | 'QUEUE_OVERFLOW'
+  | 'CRYPTO_REQUIRED';
 
 /**
  * Invariance SDK error with a machine-readable code.
