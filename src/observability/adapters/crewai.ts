@@ -148,8 +148,10 @@ export class InvarianceCrewAIMiddleware {
 
     this.activeSpans.delete(spanId);
     this.crewSpanId = undefined;
-    // Clear task spans on crew end
+    // Clear all nested spans and delegation state on crew end.
+    this.activeSpans.clear();
     this.taskSpans.clear();
+    this.delegationChains = [];
   }
 
   // ── Task lifecycle ──
@@ -190,6 +192,7 @@ export class InvarianceCrewAIMiddleware {
     });
 
     if (spanId) {
+      this.clearActionSpans(spanId);
       this.activeSpans.delete(spanId);
       this.taskSpans.delete(taskName);
     }
@@ -207,6 +210,7 @@ export class InvarianceCrewAIMiddleware {
     });
 
     if (spanId) {
+      this.clearActionSpans(spanId);
       this.activeSpans.delete(spanId);
       this.taskSpans.delete(taskName);
     }
@@ -272,11 +276,14 @@ export class InvarianceCrewAIMiddleware {
   onDelegation(delegation: DelegationInfo): void {
     this.delegationChains.push(delegation);
 
-    const nodeId = ulid();
+    const parentNodeId =
+      this.findTaskSpanForAgent(delegation.fromAgentId) ??
+      this.crewSpanId ??
+      ulid();
 
     // Emit SubAgentSpawn to represent the delegation
     this.tracer.emit('SubAgentSpawn', {
-      parentNodeId: nodeId,
+      parentNodeId,
       childAgentId: delegation.toAgentId,
       depth: InvarianceCrewAIMiddleware.DEPTH_TASK,
     });
@@ -316,5 +323,13 @@ export class InvarianceCrewAIMiddleware {
       }
     }
     return undefined;
+  }
+
+  private clearActionSpans(parentSpanId: string): void {
+    for (const [spanId, span] of this.activeSpans) {
+      if (span.type === 'action' && span.parentSpanId === parentSpanId) {
+        this.activeSpans.delete(spanId);
+      }
+    }
   }
 }
