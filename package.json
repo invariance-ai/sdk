@@ -83,5 +83,17 @@
     "url": "https://github.com/Hardik-Singh/Invariance.git",
     "directory": "sdk"
   },
-  "homepage": "https://invariance.dev"
+  "homepage": "https://invariance.dev",
+  "peerDependencies": {
+    "langchain": ">=0.1.0",
+    "@langchain/core": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "langchain": {
+      "optional": true
+    },
+    "@langchain/core": {
+      "optional": true
+    }
+  }
 }
