@@ -646,6 +646,17 @@ export class Transport {
     return result.tools;
   }
 
+  /** Raw fetch for SSE status endpoint */
+  async connectStatusLive(): Promise<Response> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/status/live', {
+      headers: { Accept: 'text/event-stream' },
+    });
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET /v1/status/live returned ${res.status}`);
+    }
+    return res;
+  }
+
   /** Check if the backend is reachable. */
   async healthCheck(): Promise<boolean> {
     try {

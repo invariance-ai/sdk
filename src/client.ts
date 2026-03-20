@@ -11,6 +11,8 @@ import { InvarianceTracer } from './observability/tracer.js';
 import type { TraceAction, TraceEvent, DecisionPointPayload, GoalDriftPayload, SubAgentSpawnPayload, ToolInvocationPayload, VerificationProof, BehavioralPrimitive, ReplaySnapshot, ReplayTimelineEntry, CounterfactualRequest, CounterfactualResult } from './observability/types.js';
 import { TraceQuery } from './trace-query.js';
 import { EvalSuite } from './eval.js';
+import { LiveStatusClient } from './live-status.js';
+import type { LiveStatusClientConfig } from './live-status.js';
 
 declare const __SDK_VERSION__: string;
 
@@ -804,6 +806,17 @@ export class Invariance {
   async ask(question: string, scope?: NLQueryScope): Promise<NLQueryResult> {
     const result = await this.transport.queryNL(question, scope);
     return result as unknown as NLQueryResult;
+  }
+
+  /**
+   * Create a live status SSE client for real-time event streaming.
+   */
+  liveStatus(opts: Omit<LiveStatusClientConfig, 'apiUrl' | 'apiKey'>): LiveStatusClient {
+    return new LiveStatusClient({
+      apiUrl: this.config.apiUrl,
+      apiKey: this.config.apiKey,
+      ...opts,
+    });
   }
 
   /**

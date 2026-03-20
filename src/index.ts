@@ -93,6 +93,14 @@ export type {
   AgentNote,
 } from './types.js';
 
+// SSE parsing
+export { parseSSEChunk } from './sse-parser.js';
+export type { SSEFrame } from './sse-parser.js';
+
+// Live status
+export { LiveStatusClient } from './live-status.js';
+export type { LiveStatusClientConfig } from './live-status.js';
+
 // NL Query types
 export type {
   NLQueryRequest,
