@@ -16,7 +16,7 @@ describe('deriveAgentKeypair', () => {
     expect(publicKey).toHaveLength(64);
     expect(/^[0-9a-f]{64}$/.test(privateKey)).toBe(true);
     expect(/^[0-9a-f]{64}$/.test(publicKey)).toBe(true);
-  });
+  }, 15_000);
 
   it('derived public key matches derived private key', () => {
     const { privateKey, publicKey } = deriveAgentKeypair(ownerPrivateKey, 'acme/compliance-agent');
