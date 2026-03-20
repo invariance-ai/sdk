@@ -92,3 +92,15 @@ export type {
   StatsResult,
   AgentNote,
 } from './types.js';
+
+// NL Query types
+export type {
+  NLQueryRequest,
+  NLQueryContext,
+  NLQueryResponse,
+  NLQueryDataSource,
+  NLStructuredResult,
+  NLTraceContext,
+  NLTraceNode,
+  LiveStatusEvent,
+} from './query-types.js';
