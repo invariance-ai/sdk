@@ -97,7 +97,7 @@ export interface ReceiptData {
 export async function createReceipt(
   data: ReceiptData,
   previousHash: string,
-  signingKey: string,
+  signingKey: string | null,
 ): Promise<Receipt> {
   const hashObj: Record<string, unknown> = {
     id: data.id,
@@ -116,7 +116,7 @@ export async function createReceipt(
   const hashInput = sortedStringify(hashObj);
 
   const hash = await sha256(hashInput);
-  const signature = await ed25519Sign(hash, signingKey);
+  const signature = signingKey ? await ed25519Sign(hash, signingKey) : null;
 
   return {
     id: data.id,
