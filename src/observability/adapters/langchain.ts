@@ -157,6 +157,7 @@ export class InvarianceLangChainTracer {
   }
 
   handleLLMEnd(output: LLMResultLike, runId: string): void {
+    const depth = this.depthOf(runId);
     const span = this.endSpan(runId);
     if (!span) return;
 
@@ -174,7 +175,7 @@ export class InvarianceLangChainTracer {
       nodeId: span.nodeId,
       candidates: [generationText],
       chosen: generationText,
-      depth: span.metadata.depth as number ?? 0,
+      depth,
     });
 
     // Also emit as a tool invocation to capture latency and token cost
@@ -190,12 +191,13 @@ export class InvarianceLangChainTracer {
   }
 
   handleLLMError(error: Error, runId: string): void {
+    const depth = this.depthOf(runId);
     const span = this.endSpan(runId);
     this.tracer.emit('DecisionPoint', {
       nodeId: span?.nodeId ?? ulid(),
       candidates: [],
       chosen: `error: ${error.message}`,
-      depth: 0,
+      depth,
     });
   }
 
@@ -276,6 +278,7 @@ export class InvarianceLangChainTracer {
   }
 
   handleChainEnd(outputs: ChainValuesLike, runId: string): void {
+    const depth = this.depthOf(runId);
     const span = this.endSpan(runId);
     if (!span) return;
 
@@ -283,17 +286,18 @@ export class InvarianceLangChainTracer {
       nodeId: span.nodeId,
       candidates: Object.keys(outputs),
       chosen: span.name,
-      depth: 0,
+      depth,
     });
   }
 
   handleChainError(error: Error, runId: string): void {
+    const depth = this.depthOf(runId);
     const span = this.endSpan(runId);
     this.tracer.emit('DecisionPoint', {
       nodeId: span?.nodeId ?? ulid(),
       candidates: [],
       chosen: `error: ${error.message}`,
-      depth: 0,
+      depth,
     });
   }
 
@@ -365,13 +369,14 @@ export class InvarianceLangChainTracer {
   }
 
   handleAgentEnd(finish: AgentFinishLike, runId: string): void {
-    const span = this.getSpan(runId);
+    const depth = this.depthOf(runId);
+    const span = this.endSpan(runId);
 
     this.tracer.emit('DecisionPoint', {
       nodeId: span?.nodeId ?? ulid(),
       candidates: Object.keys(finish.returnValues),
       chosen: finish.log || 'agent-finish',
-      depth: 0,
+      depth,
     });
   }
 
