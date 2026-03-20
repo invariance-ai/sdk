@@ -67,6 +67,14 @@
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
   },
+  "peerDependencies": {
+    "@microsoft/autogen": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@microsoft/autogen": {
+      "optional": true
+    }
+  },
   "engines": {
     "node": ">=18.0.0"
   },
