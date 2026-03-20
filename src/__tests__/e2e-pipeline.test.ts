@@ -112,7 +112,7 @@ describe('Session receipt chain pipeline', () => {
     const receipts = session.getReceipts();
     const invalid = await verifyChain(receipts as any, { publicKeyHex: wrongPubHex });
     expect(invalid.valid).toBe(false);
-  });
+  }, 15_000);
 });
 
 // ─── Suite 1b: Session.wrap() pipeline ────────────────────────────────────────

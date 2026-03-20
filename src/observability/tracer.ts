@@ -1,4 +1,7 @@
 import { ulid } from 'ulid';
+import {
+  TRACE_SCHEMA_VERSION,
+} from './types.js';
 import type {
   TracerConfig,
   TracerMode,
@@ -17,6 +20,7 @@ import type {
 } from './types.js';
 import type { Transport } from '../transport.js';
 import { sortedStringify, sha256 } from '../receipt.js';
+import { validateTraceEvent } from './schema-validator.js';
 
 const DEFAULT_SAMPLE_RATE = 0.01;
 const DEFAULT_ANOMALY_THRESHOLD = 0.7;
@@ -120,6 +124,7 @@ export class InvarianceTracer {
     const hash = await sha256(hashData);
 
     const event: TraceEvent = {
+      schemaVersion: TRACE_SCHEMA_VERSION,
       nodeId,
       sessionId: params.sessionId,
       parentNodeId: params.parentNodeId,
@@ -277,6 +282,11 @@ export class InvarianceTracer {
   }
 
   private submitEvent(event: TraceEvent): void {
+    const validation = validateTraceEvent(event);
+    if (!validation.valid) {
+      this.onError?.(new Error(`Invalid trace event: ${validation.errors.join(', ')}`));
+      return;
+    }
     this.transport.submitTraceEvent(event).catch((err) => { this.onError?.(err); });
   }
 
