@@ -87,4 +87,8 @@ export type {
   QuerySource,
   NLQueryResult,
   NLQueryScope,
+  TraceQueryResult,
+  ToolSchema,
+  StatsResult,
+  AgentNote,
 } from './types.js';

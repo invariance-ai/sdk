@@ -1,4 +1,4 @@
-import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity, MonitorTriggerEvent, NLQueryResult, NLQueryScope } from './types.js';
+import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity, MonitorTriggerEvent, NLQueryResult, NLQueryScope, TraceQueryResult, ToolSchema, StatsResult, AgentNote } from './types.js';
 import { Session } from './session.js';
 import { Transport } from './transport.js';
 import { checkPolicies } from './policy.js';
@@ -574,6 +574,45 @@ export class Invariance {
     owner: string; name: string; public_key: string; created_at: string;
   }> {
     return this.transport.lookupIdentity(owner, name);
+  }
+
+  // -- Trace Query --
+
+  /** Query traces using natural language */
+  async queryTraces(
+    query: string,
+    opts?: { session_id?: string; agent_id?: string; limit?: number; llm?: boolean },
+  ): Promise<TraceQueryResult> {
+    return this.transport.queryTraces(query, opts);
+  }
+
+  /** Query traces with a structured AST */
+  async queryTracesStructured(ast: Record<string, unknown>): Promise<TraceQueryResult> {
+    return this.transport.queryTracesStructured(ast);
+  }
+
+  /** Get session or agent stats */
+  async getStats(opts?: { session_id?: string; agent_id?: string }): Promise<StatsResult> {
+    return this.transport.getStats(opts);
+  }
+
+  /** Write an agent note */
+  async writeNote(
+    key: string,
+    content: unknown,
+    opts?: { session_id?: string; node_id?: string; ttl_hours?: number },
+  ): Promise<AgentNote> {
+    return this.transport.writeNote(key, content, opts);
+  }
+
+  /** Read an agent note by key */
+  async readNote(key: string): Promise<AgentNote | null> {
+    return this.transport.readNote(key);
+  }
+
+  /** Get MCP tool schemas for trace query tools */
+  async getToolSchemas(): Promise<ToolSchema[]> {
+    return this.transport.getToolSchemas();
   }
 
   // ── Identity System ──
