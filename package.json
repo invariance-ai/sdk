@@ -68,10 +68,22 @@
     "vitest": "^4.0.18"
   },
   "peerDependencies": {
-    "@microsoft/autogen": ">=0.1.0"
+    "@microsoft/autogen": ">=0.1.0",
+    "crewai": ">=0.1.0",
+    "langchain": ">=0.1.0",
+    "@langchain/core": ">=0.1.0"
   },
   "peerDependenciesMeta": {
     "@microsoft/autogen": {
+      "optional": true
+    },
+    "crewai": {
+      "optional": true
+    },
+    "langchain": {
+      "optional": true
+    },
+    "@langchain/core": {
       "optional": true
     }
   },

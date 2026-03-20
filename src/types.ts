@@ -17,8 +17,8 @@ export interface InvarianceConfig {
   onError?: ErrorHandler;
   /** Maximum number of receipts to queue before dropping oldest (default: 1000) */
   maxQueueSize?: number;
-  /** Ed25519 private key (hex) for signing receipts */
-  privateKey: string;
+  /** Ed25519 private key (hex) for signing receipts. Optional — omit for unsigned hash-chained receipts. */
+  privateKey?: string;
   /** Observability mode: DEV (full fidelity, no crypto) or PROD (sampled, signed) */
   mode?: 'DEV' | 'PROD';
   /** Override default sample rate (PROD only, default: 0.01) */
@@ -97,8 +97,8 @@ export interface Receipt {
   hash: string;
   /** Hash of the previous receipt in the chain ("0" for first) */
   previousHash: string;
-  /** Ed25519 signature over `hash` */
-  signature: string;
+  /** Ed25519 signature over `hash` (null when no privateKey provided) */
+  signature: string | null;
   /** Contract ID if this receipt is part of a contract */
   contractId?: string;
   /** Counter-party agent ID for cross-party receipts */

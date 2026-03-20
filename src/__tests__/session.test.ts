@@ -352,6 +352,67 @@ describe('Session', () => {
     expect(result.receiptCount).toBe(0);
   });
 
+  // --- No-crypto sessions ---
+
+  it('session without privateKey produces null signatures', async () => {
+    const enqueue = vi.fn();
+    const session = new Session('test-agent', 'no-crypto', null, enqueue);
+    const r1 = await session.record({ agent: 'test-agent', action: 'step', input: { x: 1 } });
+    expect(r1.signature).toBeNull();
+    expect(r1.hash).toBeTruthy();
+    expect(r1.previousHash).toBe('0');
+  });
+
+  it('full lifecycle without crypto: record, chain, end', async () => {
+    const enqueue = vi.fn();
+    const session = new Session('test-agent', 'no-crypto', null, enqueue);
+    const r1 = await session.record({ agent: 'test-agent', action: 'step', input: { x: 1 } });
+    const r2 = await session.record({ agent: 'test-agent', action: 'step', input: { x: 2 } });
+    const r3 = await session.record({ agent: 'test-agent', action: 'step', input: { x: 3 } });
+
+    expect(r1.previousHash).toBe('0');
+    expect(r2.previousHash).toBe(r1.hash);
+    expect(r3.previousHash).toBe(r2.hash);
+    expect(r1.signature).toBeNull();
+    expect(r2.signature).toBeNull();
+    expect(r3.signature).toBeNull();
+
+    const info = session.end();
+    expect(info.status).toBe('closed');
+    expect(info.receiptCount).toBe(3);
+    expect(enqueue).toHaveBeenCalledTimes(3);
+  });
+
+  it('verify() on no-crypto session returns valid (hash chain only)', async () => {
+    const enqueue = vi.fn();
+    const session = new Session('test-agent', 'no-crypto', null, enqueue);
+    await session.record({ agent: 'test-agent', action: 'step', input: { x: 1 } });
+    await session.record({ agent: 'test-agent', action: 'step', input: { x: 2 } });
+    const result = await session.verify();
+    expect(result.valid).toBe(true);
+    expect(result.receiptCount).toBe(2);
+  });
+
+  it('wrap() works without crypto', async () => {
+    const enqueue = vi.fn();
+    const session = new Session('test-agent', 'no-crypto', null, enqueue);
+    const { result, receipt } = await session.wrap(
+      { action: 'compute', input: { n: 42 } },
+      () => ({ answer: 42 }),
+    );
+    expect(result).toEqual({ answer: 42 });
+    expect(receipt.signature).toBeNull();
+    expect(receipt.hash).toBeTruthy();
+  });
+
+  it('Session.create() works without crypto', async () => {
+    const enqueue = vi.fn();
+    const session = await Session.create('test-agent', 'no-crypto', null, enqueue);
+    const receipt = await session.record({ agent: 'test-agent', action: 'step', input: {} });
+    expect(receipt.signature).toBeNull();
+    expect(receipt.hash).toBeTruthy();
+  });
+
   it('verify() detects tampered receipt', async () => {
     const { session } = makeSession();
     await session.record({ agent: 'test-agent', action: 'step', input: { x: 1 } });

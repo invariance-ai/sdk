@@ -80,7 +80,7 @@ export class Invariance {
   /** SDK version injected at build time */
   static readonly version: string = typeof __SDK_VERSION__ !== 'undefined' ? __SDK_VERSION__ : '0.0.0';
 
-  private readonly config: Required<Pick<InvarianceConfig, 'apiKey' | 'apiUrl' | 'policies' | 'flushIntervalMs' | 'maxBatchSize' | 'onError' | 'privateKey'>>;
+  private readonly config: Required<Pick<InvarianceConfig, 'apiKey' | 'apiUrl' | 'policies' | 'flushIntervalMs' | 'maxBatchSize' | 'onError'>> & { privateKey: string | null };
   private readonly transport: Transport;
   private monitorPollTimer: ReturnType<typeof setTimeout> | null = null;
   private monitorPolling = false;
@@ -93,6 +93,14 @@ export class Invariance {
   /** The observability tracer instance. Access directly for advanced usage. */
   readonly tracer: InvarianceTracer;
 
+  /** Throw if no privateKey is configured — used to guard signing-dependent methods. */
+  private requirePrivateKey(method: string): string {
+    if (!this.config.privateKey) {
+      throw new InvarianceError('INIT_FAILED', `privateKey required for ${method}`);
+    }
+    return this.config.privateKey;
+  }
+
   private constructor(config: InvarianceConfig) {
     this.config = {
       apiKey: config.apiKey,
@@ -101,7 +109,7 @@ export class Invariance {
       flushIntervalMs: config.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
       maxBatchSize: config.maxBatchSize ?? DEFAULT_MAX_BATCH_SIZE,
       onError: config.onError ?? console.error,
-      privateKey: config.privateKey,
+      privateKey: config.privateKey ?? null,
     };
 
     this.transport = new Transport(
@@ -155,10 +163,9 @@ export class Invariance {
     if (!config.apiKey) {
       throw new InvarianceError('INIT_FAILED', 'apiKey is required');
     }
-    if (!config.privateKey) {
-      throw new InvarianceError('INIT_FAILED', 'privateKey is required');
+    if (config.privateKey) {
+      assertPrivateKey(config.privateKey);
     }
-    assertPrivateKey(config.privateKey);
     validateConfig(config);
     return new Invariance(config);
   }
@@ -477,8 +484,9 @@ export class Invariance {
    * Signs the terms hash with the SDK's private key.
    */
   async proposeContract(providerId: string, terms: ContractTerms): Promise<{ id: string; sessionId: string }> {
+    const privateKey = this.requirePrivateKey('proposeContract()');
     const termsHash = await sha256(sortedStringify(terms));
-    const signature = await ed25519Sign(termsHash, this.config.privateKey);
+    const signature = await ed25519Sign(termsHash, privateKey);
     return this.transport.proposeContract({ providerId, terms, termsHash, signature });
   }
 
@@ -486,7 +494,8 @@ export class Invariance {
    * Accept a contract (as provider). Counter-signs the terms hash.
    */
   async acceptContract(contractId: string, termsHash: string): Promise<{ id: string; status: string }> {
-    const signature = await ed25519Sign(termsHash, this.config.privateKey);
+    const privateKey = this.requirePrivateKey('acceptContract()');
+    const signature = await ed25519Sign(termsHash, privateKey);
     return this.transport.acceptContract(contractId, signature);
   }
 
@@ -494,10 +503,11 @@ export class Invariance {
    * Get a session wrapper that auto-attaches contract_id to every receipt.
    */
   contractSession(contractId: string, opts: { agent: string; name: string; sessionId: string }): Session {
+    const privateKey = this.requirePrivateKey('contractSession()');
     const session = new Session(
       opts.agent,
       opts.name,
-      this.config.privateKey,
+      privateKey,
       (receipt) => {
         (receipt as Receipt & { contractId?: string }).contractId = contractId;
         this.transport.enqueue(receipt);
@@ -517,8 +527,9 @@ export class Invariance {
    * Submit delivery proof (as provider). Signs the output hash.
    */
   async deliver(contractId: string, outputData: Record<string, unknown>): Promise<{ id: string; status: string }> {
+    const privateKey = this.requirePrivateKey('deliver()');
     const outputHash = await sha256(sortedStringify(outputData));
-    const signature = await ed25519Sign(outputHash, this.config.privateKey);
+    const signature = await ed25519Sign(outputHash, privateKey);
     return this.transport.submitDelivery(contractId, { outputData, outputHash, signature });
   }
 
@@ -526,7 +537,8 @@ export class Invariance {
    * Accept a delivery proof (as requestor). Signs the output hash.
    */
   async acceptDelivery(contractId: string, deliveryId: string, outputHash: string): Promise<{ id: string; status: string }> {
-    const signature = await ed25519Sign(outputHash, this.config.privateKey);
+    const privateKey = this.requirePrivateKey('acceptDelivery()');
+    const signature = await ed25519Sign(outputHash, privateKey);
     return this.transport.acceptDelivery(contractId, deliveryId, signature);
   }
 
@@ -534,6 +546,7 @@ export class Invariance {
    * Dispute a contract. Freezes the session.
    */
   async dispute(contractId: string, reason?: string): Promise<{ id: string; status: string }> {
+    this.requirePrivateKey('dispute()');
     return this.transport.disputeContract(contractId, reason);
   }
 
@@ -546,8 +559,9 @@ export class Invariance {
   async registerAgent(owner: string, name: string): Promise<{
     owner: string; name: string; public_key: string; agent_id: string; created_at: string;
   }> {
+    const privateKey = this.requirePrivateKey('registerAgent()');
     const identity = `${owner}/${name}`;
-    const { publicKey } = deriveAgentKeypair(this.config.privateKey, identity);
+    const { publicKey } = deriveAgentKeypair(privateKey, identity);
     return this.transport.registerAgent(owner, { name, public_key: publicKey });
   }
 
@@ -595,8 +609,9 @@ export class Invariance {
       sessionName?: string;
     },
   ): Promise<{ result: T; receipt: Receipt; identity: AgentIdentity }> {
+    const privateKey = this.requirePrivateKey('wrapWithIdentity()');
     const parsedIdentity = Invariance.parseIdentity(opts.identity);
-    const { privateKey: derivedPrivateKey } = deriveAgentKeypair(this.config.privateKey, opts.identity);
+    const { privateKey: derivedPrivateKey } = deriveAgentKeypair(privateKey, opts.identity);
 
     return (async () => {
       const session = new Session(
@@ -652,7 +667,8 @@ export class Invariance {
    * Convenience wrapper around deriveAgentKeypair using the SDK's configured private key.
    */
   deriveAgentKeypair(identity: string): { privateKey: string; publicKey: string } {
-    return deriveAgentKeypair(this.config.privateKey, identity);
+    const privateKey = this.requirePrivateKey('deriveAgentKeypair()');
+    return deriveAgentKeypair(privateKey, identity);
   }
 
   private schedulePoll(): void {
