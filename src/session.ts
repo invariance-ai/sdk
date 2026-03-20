@@ -25,7 +25,7 @@ export class Session {
   private status: 'open' | 'closed' | 'tampered' = 'open';
   private previousHash = '0';
   private receipts: Receipt[] = [];
-  private readonly privateKey: string;
+  private readonly privateKey: string | null;
   private readonly enqueue: EnqueueFn;
   private readonly onCloseSession?: OnCloseSessionFn;
   private readonly onError: ErrorHandler;
@@ -41,7 +41,7 @@ export class Session {
   constructor(
     agent: string,
     name: string,
-    privateKey: string,
+    privateKey: string | null,
     enqueue: EnqueueFn,
     onCreateSession?: OnCreateSessionFn,
     onCloseSession?: OnCloseSessionFn,
@@ -84,7 +84,7 @@ export class Session {
   static async create(
     agent: string,
     name: string,
-    privateKey: string,
+    privateKey: string | null,
     enqueue: EnqueueFn,
     onCreateSession?: OnCreateSessionFn,
     onCloseSession?: OnCloseSessionFn,

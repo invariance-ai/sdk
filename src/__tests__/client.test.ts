@@ -36,8 +36,9 @@ describe('Invariance', () => {
     expect(() => Invariance.init({ apiKey: '', privateKey: privKeyHex })).toThrow('apiKey is required');
   });
 
-  it('init() throws if privateKey missing', () => {
-    expect(() => Invariance.init({ apiKey: 'inv_test', privateKey: '' })).toThrow('privateKey is required');
+  it('init() works without privateKey', () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    expect(inv).toBeDefined();
   });
 
   it('init() throws if privateKey is not valid hex', () => {
@@ -150,5 +151,75 @@ describe('Invariance', () => {
     const receipt = await session.record('finance.balance.read', { accountId: 'acc-1' }, { balance: 100, currency: 'USD' });
     expect(session.id).toBeTruthy();
     expect(receipt.action).toBe('finance.balance.read');
+  });
+
+  // --- Optional crypto (no privateKey) ---
+
+  it('init() without privateKey creates valid instance', () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    expect(inv).toBeDefined();
+  });
+
+  it('session().record() works without privateKey (signature is null)', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    const session = inv.session({ agent: 'bot', name: 'run' });
+    const receipt = await session.record({ agent: 'bot', action: 'step', input: { x: 1 } });
+    expect(receipt.signature).toBeNull();
+    expect(receipt.hash).toBeTruthy();
+    expect(receipt.previousHash).toBe('0');
+  });
+
+  it('hash chain is valid without privateKey', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    const session = inv.session({ agent: 'bot', name: 'run' });
+    const r1 = await session.record({ agent: 'bot', action: 'step', input: { x: 1 } });
+    const r2 = await session.record({ agent: 'bot', action: 'step', input: { x: 2 } });
+    expect(r2.previousHash).toBe(r1.hash);
+    expect(r1.signature).toBeNull();
+    expect(r2.signature).toBeNull();
+  });
+
+  it('proposeContract() throws without privateKey', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    await expect(inv.proposeContract('provider', { description: 'test', deliverables: [] })).rejects.toThrow(
+      'privateKey required for proposeContract()',
+    );
+  });
+
+  it('acceptContract() throws without privateKey', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    await expect(inv.acceptContract('c1', 'hash')).rejects.toThrow('privateKey required for acceptContract()');
+  });
+
+  it('deliver() throws without privateKey', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    await expect(inv.deliver('c1', {})).rejects.toThrow('privateKey required for deliver()');
+  });
+
+  it('acceptDelivery() throws without privateKey', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    await expect(inv.acceptDelivery('c1', 'd1', 'hash')).rejects.toThrow('privateKey required for acceptDelivery()');
+  });
+
+  it('dispute() throws without privateKey', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    await expect(inv.dispute('c1')).rejects.toThrow('privateKey required for dispute()');
+  });
+
+  it('registerAgent() throws without privateKey', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    await expect(inv.registerAgent('acme', 'bot')).rejects.toThrow('privateKey required for registerAgent()');
+  });
+
+  it('wrapWithIdentity() throws without privateKey', () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    expect(() => inv.wrapWithIdentity(() => 'hi', { identity: 'acme/bot', action: 'greet', input: {} })).toThrow(
+      'privateKey required for wrapWithIdentity()',
+    );
+  });
+
+  it('deriveAgentKeypair() throws without privateKey', () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    expect(() => inv.deriveAgentKeypair('acme/bot')).toThrow('privateKey required for deriveAgentKeypair()');
   });
 });

@@ -86,10 +86,47 @@ describe('createReceipt', () => {
 
   it('produces valid Ed25519 signature', async () => {
     const receipt = await createReceipt(data, '0', privKeyHex);
-    const sigBytes = Uint8Array.from(Buffer.from(receipt.signature, 'hex'));
+    const sigBytes = Uint8Array.from(Buffer.from(receipt.signature!, 'hex'));
     const msgBytes = new TextEncoder().encode(receipt.hash);
     const valid = ed25519.verify(sigBytes, msgBytes, pubKey);
     expect(valid).toBe(true);
+  });
+});
+
+describe('createReceipt with null signingKey', () => {
+  const privKey = ed25519.utils.randomPrivateKey();
+  const privKeyHex = Buffer.from(privKey).toString('hex');
+
+  const data = {
+    id: 'r1',
+    sessionId: 's1',
+    agent: 'bot',
+    action: 'swap',
+    input: { from: 'ETH', to: 'USDC' },
+    timestamp: 1000,
+  };
+
+  it('produces null signature when signingKey is null', async () => {
+    const receipt = await createReceipt(data, '0', null);
+    expect(receipt.signature).toBeNull();
+    expect(receipt.hash).toBeTruthy();
+  });
+
+  it('still produces valid hash chain with null signingKey', async () => {
+    const r1 = await createReceipt(data, '0', null);
+    const r2 = await createReceipt({ ...data, id: 'r2' }, r1.hash, null);
+    expect(r2.previousHash).toBe(r1.hash);
+    expect(r1.signature).toBeNull();
+    expect(r2.signature).toBeNull();
+    // hash chain is independently valid
+    const result = await verifyChain([r1, r2]);
+    expect(result.valid).toBe(true);
+  });
+
+  it('produces deterministic hash regardless of signingKey', async () => {
+    const withKey = await createReceipt(data, '0', privKeyHex);
+    const withoutKey = await createReceipt(data, '0', null);
+    expect(withKey.hash).toBe(withoutKey.hash);
   });
 });
 
