@@ -254,7 +254,11 @@ export class Transport {
       throw new InvarianceError('API_ERROR', `GET /v1/sessions/${encodedSessionId} returned ${res.status}`);
     }
 
-    return await res.json() as SessionInfo;
+    const data = await res.json() as Record<string, unknown>;
+    if (data.receipt_count !== undefined && data.receiptCount === undefined) {
+      data.receiptCount = data.receipt_count;
+    }
+    return data as unknown as SessionInfo;
   }
 
   async createSession(session: { id: string; name: string }): Promise<void> {
