@@ -258,3 +258,39 @@ export interface NLQueryScope {
   agent_id?: string;
   time_range?: { from: number; to: number };
 }
+
+/** Result from a trace query */
+export interface TraceQueryResult {
+  data: unknown[] | null;
+  query?: unknown;
+  error?: string;
+}
+
+/** MCP-compatible tool schema */
+export interface ToolSchema {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: 'object';
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+}
+
+/** Stats result from session or agent stats query */
+export interface StatsResult {
+  data: unknown[] | null;
+  error?: string;
+}
+
+/** Agent note */
+export interface AgentNote {
+  id: string;
+  key: string;
+  owner_id: string;
+  content: unknown;
+  session_id?: string;
+  node_id?: string;
+  expires_at?: string;
+  created_at: string;
+}

@@ -1,4 +1,4 @@
-import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler, MonitorTriggerEvent } from './types.js';
+import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler, MonitorTriggerEvent, TraceQueryResult, ToolSchema, StatsResult, AgentNote } from './types.js';
 import { InvarianceError } from './errors.js';
 import { fetchWithAuth } from './http.js';
 
@@ -534,7 +534,7 @@ export class Transport {
     }
   }
 
-  /** Get trace nodes for a session */
+/** Get trace nodes for a session */
   async getSessionNodes(sessionId: string): Promise<Record<string, unknown>[]> {
     const encodedId = encodeURIComponent(sessionId);
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/trace/sessions/${encodedId}/nodes`);
@@ -556,6 +556,94 @@ export class Transport {
       throw new InvarianceError('API_ERROR', `POST /v1/query returned ${res.status}`);
     }
     return await res.json() as Record<string, unknown>;
+  }
+
+  // -- Query endpoints --
+
+  /** Query traces using natural language */
+  async queryTraces(
+    query: string,
+    opts?: { session_id?: string; agent_id?: string; limit?: number; llm?: boolean },
+  ): Promise<TraceQueryResult> {
+    try {
+      const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/query/traces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, ...opts }),
+      });
+      if (!res.ok) {
+        throw new InvarianceError('API_ERROR', `POST /v1/query/traces returned ${res.status}`);
+      }
+      return await res.json() as TraceQueryResult;
+    } catch (error) {
+      if (error instanceof InvarianceError) throw error;
+      throw new InvarianceError('API_ERROR', `Query traces failed: ${String(error)}`);
+    }
+  }
+
+  /** Query traces with a structured AST */
+  async queryTracesStructured(ast: Record<string, unknown>): Promise<TraceQueryResult> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/query/traces/structured', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ast),
+    });
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `POST /v1/query/traces/structured returned ${res.status}`);
+    }
+    return await res.json() as TraceQueryResult;
+  }
+
+  /** Get session or agent stats */
+  async getStats(opts?: { session_id?: string; agent_id?: string }): Promise<StatsResult> {
+    const params = new URLSearchParams();
+    if (opts?.session_id) params.set('session_id', opts.session_id);
+    if (opts?.agent_id) params.set('agent_id', opts.agent_id);
+    const qs = params.toString();
+    const path = qs ? `/v1/query/stats?${qs}` : '/v1/query/stats';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    }
+    return await res.json() as StatsResult;
+  }
+
+  /** Write an agent note */
+  async writeNote(
+    key: string,
+    content: unknown,
+    opts?: { session_id?: string; node_id?: string; ttl_hours?: number },
+  ): Promise<AgentNote> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/query/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, content, ...opts }),
+    });
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `POST /v1/query/notes returned ${res.status}`);
+    }
+    return await res.json() as AgentNote;
+  }
+
+  /** Read an agent note by key */
+  async readNote(key: string): Promise<AgentNote | null> {
+    const encodedKey = encodeURIComponent(key);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/query/notes/${encodedKey}`);
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET /v1/query/notes/${encodedKey} returned ${res.status}`);
+    }
+    const result = await res.json() as { data: AgentNote | null };
+    return result.data;
+  }
+
+  /** Get MCP tool schemas */
+  async getToolSchemas(): Promise<ToolSchema[]> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/query/tools');
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET /v1/query/tools returned ${res.status}`);
+    }
+    const result = await res.json() as { tools: ToolSchema[] };
+    return result.tools;
   }
 
   /** Check if the backend is reachable. */
