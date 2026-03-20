@@ -1,3 +1,7 @@
+// ── Schema Version ──
+
+export const TRACE_SCHEMA_VERSION = '1.0.0';
+
 // ── Behavioral Primitives ──
 
 export type BehavioralPrimitive =
@@ -29,6 +33,7 @@ export interface TracerConfig {
 }
 
 export interface TraceEvent {
+  schemaVersion: string;
   nodeId: string;
   sessionId: string;
   parentNodeId?: string;

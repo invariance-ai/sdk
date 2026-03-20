@@ -27,6 +27,9 @@ export { InvarianceError } from './errors.js';
 export type { InvarianceErrorCode } from './errors.js';
 
 // Observability
+export { TRACE_SCHEMA_VERSION } from './observability/index.js';
+export { validateTraceEvent } from './observability/index.js';
+export type { ValidationResult } from './observability/index.js';
 export type {
   TracerConfig,
   TracerMode,
