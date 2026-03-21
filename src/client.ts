@@ -1,4 +1,4 @@
-import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity, MonitorTriggerEvent, NLQueryResult, NLQueryScope, TraceQueryResult, ToolSchema, StatsResult, AgentNote } from './types.js';
+import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity, MonitorTriggerEvent, NLQueryOptions, NLQueryResult, NLQueryScope, TraceQueryResult, ToolSchema, StatsResult, AgentNote } from './types.js';
 import { Session } from './session.js';
 import { Transport } from './transport.js';
 import { checkPolicies } from './policy.js';
