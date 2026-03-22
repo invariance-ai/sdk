@@ -52,7 +52,7 @@
   "license": "MIT",
   "dependencies": {
     "@noble/ed25519": "^2.2.3",
-    "@noble/hashes": "^1.7.3",
+    "@noble/hashes": "^1.8.0",
     "boxen": "^8.0.0",
     "chalk": "^5.4.0",
     "cli-table3": "^0.6.0",
