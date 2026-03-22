@@ -148,6 +148,12 @@ export class Transport {
   private batch: Receipt[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
   private flushing = false;
+  private pendingRequests = new Set<Promise<void>>();
+  private pendingSessionCloses = new Map<string, {
+    status: string;
+    closeHash: string;
+    waiters: Array<{ resolve: () => void; reject: (error: unknown) => void }>;
+  }>();
 
   constructor(
     apiUrl: string,
@@ -186,7 +192,16 @@ export class Transport {
 
   /** Force-flush all batched receipts to the API. */
   async flush(): Promise<void> {
-    if (this.batch.length === 0 || this.flushing) return;
+    if (this.flushing) {
+      await this.awaitPendingRequests();
+      return;
+    }
+
+    if (this.batch.length === 0) {
+      await this.awaitPendingRequests();
+      return;
+    }
+
     this.flushing = true;
 
     const toSend = this.batch;
@@ -214,6 +229,9 @@ export class Transport {
     } finally {
       this.flushing = false;
     }
+
+    await this.awaitPendingRequests();
+    await this.flushPendingSessionCloses();
   }
 
   /** Query receipts from the API. */
@@ -262,11 +280,15 @@ export class Transport {
     return data as unknown as SessionInfo;
   }
 
-  async createSession(session: { id: string; name: string }): Promise<void> {
+  async createSession(session: { id: string; name: string; agent: string }): Promise<void> {
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(session),
+      body: JSON.stringify({
+        id: session.id,
+        name: session.name,
+        agent_id: session.agent,
+      }),
     });
     if (!res.ok) {
       throw new InvarianceError('API_ERROR', `POST /v1/sessions returned ${res.status}`);
@@ -274,21 +296,20 @@ export class Transport {
   }
 
   async closeSession(sessionId: string, status: string, closeHash: string): Promise<void> {
-    const encodedSessionId = encodeURIComponent(sessionId);
-    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/sessions/${encodedSessionId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, close_hash: closeHash }),
+    return new Promise((resolve, reject) => {
+      const existing = this.pendingSessionCloses.get(sessionId);
+      const waiters = existing?.waiters ?? [];
+      waiters.push({ resolve, reject });
+      this.pendingSessionCloses.set(sessionId, { status, closeHash, waiters });
+      void this.flushPendingSessionClosesIfIdle();
     });
-    if (!res.ok) {
-      throw new InvarianceError('API_ERROR', `PATCH /v1/sessions/${encodedSessionId} returned ${res.status}`);
-    }
   }
 
   /** Submit a trace event to the observability API. */
   async submitTraceEvent(event: unknown): Promise<void> {
     const payload = normalizeTraceEventPayload(event);
-    try {
+    return this.trackPending((async () => {
+      try {
       const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -297,15 +318,17 @@ export class Transport {
       if (!res.ok) {
         this.onError(new InvarianceError('API_ERROR', `POST /v1/trace/events returned ${res.status}`));
       }
-    } catch (error) {
-      this.onError(error);
-    }
+      } catch (error) {
+        this.onError(error);
+      }
+    })());
   }
 
   /** Submit a behavioral primitive event. */
   async submitBehavioralEvent(payload: unknown): Promise<void> {
     const normalizedPayload = normalizeBehavioralPayload(payload);
-    try {
+    return this.trackPending((async () => {
+      try {
       const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/trace/behaviors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -314,9 +337,10 @@ export class Transport {
       if (!res.ok) {
         this.onError(new InvarianceError('API_ERROR', `POST /v1/trace/behaviors returned ${res.status}`));
       }
-    } catch (error) {
-      this.onError(error);
-    }
+      } catch (error) {
+        this.onError(error);
+      }
+    })());
   }
 
   /** Verify an execution via the hosted verification API. */
@@ -675,5 +699,54 @@ export class Transport {
       this.timer = null;
     }
     await this.flush();
+    await this.awaitPendingRequests();
+    await this.flushPendingSessionCloses();
+  }
+
+  private trackPending<T>(promise: Promise<T>): Promise<T> {
+    const tracked = promise.finally(() => {
+      this.pendingRequests.delete(settled);
+    });
+    const settled = tracked.then(() => undefined, () => undefined);
+    this.pendingRequests.add(settled);
+    return tracked;
+  }
+
+  private async awaitPendingRequests(): Promise<void> {
+    if (this.pendingRequests.size === 0) return;
+    await Promise.allSettled([...this.pendingRequests]);
+  }
+
+  private async flushPendingSessionClosesIfIdle(): Promise<void> {
+    if (this.flushing || this.batch.length > 0) return;
+    await this.flushPendingSessionCloses();
+  }
+
+  private async flushPendingSessionCloses(): Promise<void> {
+    if (this.pendingSessionCloses.size === 0) return;
+
+    const entries = [...this.pendingSessionCloses.entries()];
+    this.pendingSessionCloses.clear();
+
+    for (const [sessionId, entry] of entries) {
+      const encodedSessionId = encodeURIComponent(sessionId);
+      try {
+        const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/sessions/${encodedSessionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: entry.status, close_hash: entry.closeHash }),
+        });
+        if (!res.ok) {
+          throw new InvarianceError('API_ERROR', `PATCH /v1/sessions/${encodedSessionId} returned ${res.status}`);
+        }
+        for (const waiter of entry.waiters) {
+          waiter.resolve();
+        }
+      } catch (error) {
+        for (const waiter of entry.waiters) {
+          waiter.reject(error);
+        }
+      }
+    }
   }
 }

@@ -5,6 +5,11 @@ import { sortedStringify, sha256, ed25519Sign, hexToBytes } from './receipt.js';
 import { Session } from './session.js';
 import { fetchWithAuth } from './http.js';
 
+type BackendCompatibleReceipt = Receipt & {
+  counter_agent_id?: string;
+  counter_signature?: string;
+};
+
 /**
  * Envelope wrapping an agent-to-agent message with sender signature and trace metadata.
  */
@@ -163,20 +168,6 @@ export class A2AChannel {
     }
 
     const output: Record<string, unknown> = {};
-    let counterSignature: string | undefined;
-
-    if (verified) {
-      // Only countersign traffic that we successfully authenticated.
-      const counterSigInput = await sha256(sortedStringify({
-        payload_hash: envelope.payload_hash,
-        sender: envelope.sender,
-        receiver: this.agentIdentity,
-        timestamp: envelope.timestamp,
-        sender_signature: envelope.sender_signature,
-      }));
-      counterSignature = await ed25519Sign(counterSigInput, this.privateKey);
-      output.counter_signature = counterSignature;
-    }
 
     if (verificationError) {
       output.verification_error = verificationError;
@@ -197,11 +188,13 @@ export class A2AChannel {
 
     // Attach counter-party metadata to receipt for successful bilateral proofs.
     // Set both camelCase (SDK type) and snake_case (backend expects) fields.
-    receipt.counterAgentId = envelope.sender;
-    (receipt as unknown as Record<string, unknown>).counter_agent_id = envelope.sender;
-    if (counterSignature) {
-      receipt.counterSignature = counterSignature;
-      (receipt as unknown as Record<string, unknown>).counter_signature = counterSignature;
+    const mutableReceipt = receipt as BackendCompatibleReceipt;
+    mutableReceipt.counterAgentId = envelope.sender;
+    mutableReceipt.counter_agent_id = envelope.sender;
+    if (verified) {
+      const counterSignature = await ed25519Sign(receipt.hash, this.privateKey);
+      mutableReceipt.counterSignature = counterSignature;
+      mutableReceipt.counter_signature = counterSignature;
     }
 
     return { payload: envelope.payload, verified, verificationError, receipt };

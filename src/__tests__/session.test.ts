@@ -77,7 +77,7 @@ describe('Session', () => {
   it('constructor calls onCreateSession callback', () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     const { session } = makeSession({ onCreateSession: onCreate });
-    expect(onCreate).toHaveBeenCalledWith({ id: session.id, name: 'test-session' });
+    expect(onCreate).toHaveBeenCalledWith({ id: session.id, name: 'test-session', agent: 'test-agent' });
   });
 
   it('getReceipts() returns recorded receipts', async () => {
