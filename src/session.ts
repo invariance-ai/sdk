@@ -8,7 +8,7 @@ import { TraceQuery } from './trace-query.js';
 export type EnqueueFn = (receipt: Receipt) => void;
 
 /** Callback to create a session on the API */
-export type OnCreateSessionFn = (session: { id: string; name: string }) => Promise<void>;
+export type OnCreateSessionFn = (session: { id: string; name: string; agent: string }) => Promise<void>;
 
 /** Callback to close a session on the API */
 export type OnCloseSessionFn = (sessionId: string, status: string, closeHash: string) => Promise<void>;
@@ -58,7 +58,7 @@ export class Session {
     this.onError = onError;
 
     this.ready = onCreateSession
-      ? onCreateSession({ id: this.id, name: this.name }).catch((err) => {
+      ? onCreateSession({ id: this.id, name: this.name, agent: this.agent }).catch((err) => {
           const normalizedError = err instanceof InvarianceError
             ? err
             : new InvarianceError(

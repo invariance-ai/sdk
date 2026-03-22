@@ -99,7 +99,7 @@ describe('createInstrumentedFetch', () => {
     expect(enqueueA.mock.calls[0][0].action).toBe('a2a_send');
     expect(enqueueA.mock.calls[1][0].action).toBe('a2a_receive');
     expect(enqueueA.mock.calls[1][0].input.verified).toBe(true);
-    expect(enqueueA.mock.calls[1][0].output.counter_signature).toBeTruthy();
+    expect(enqueueA.mock.calls[1][0].counterSignature).toBeTruthy();
   });
 
   it('records unverified inbound responses when sender public key is unavailable', async () => {

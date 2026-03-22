@@ -12,7 +12,7 @@ importers:
         specifier: ^2.2.3
         version: 2.3.0
       '@noble/hashes':
-        specifier: ^1.7.3
+        specifier: ^1.8.0
         version: 1.8.0
       boxen:
         specifier: ^8.0.0

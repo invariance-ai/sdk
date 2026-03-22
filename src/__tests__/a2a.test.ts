@@ -190,7 +190,7 @@ describe('A2AChannel', () => {
     expect(receiveReceipt.signature).toBeTruthy();
 
     // Counter-signature exists on receive receipt
-    expect((receiveReceipt.output as Record<string, unknown>).counter_signature).toBeTruthy();
+    expect(receiveReceipt.counterSignature).toBeTruthy();
   });
 
   it('wrapOutgoing passes metadata into receipt input', async () => {
