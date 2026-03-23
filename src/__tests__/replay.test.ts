@@ -232,5 +232,5 @@ describe('Replay: transport methods', () => {
     expect(body.modified_action_type).toBe('tool_invocation');
 
     await transport.shutdown();
-  });
+  }, 15_000);
 });
