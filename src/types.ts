@@ -307,3 +307,366 @@ export interface AgentNote {
   expires_at?: string;
   created_at: string;
 }
+
+// ── Monitor types ──
+
+/** A monitor definition from the backend */
+export interface Monitor {
+  id: string;
+  name: string;
+  natural_language: string;
+  compiled_condition: Record<string, unknown>;
+  agent_id: string | null;
+  severity: string;
+  status: 'active' | 'paused';
+  webhook_url: string | null;
+  owner_id: string;
+  triggers_count: number;
+  last_triggered: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Body for creating a monitor */
+export interface CreateMonitorBody {
+  name: string;
+  natural_language: string;
+  agent_id?: string;
+  severity?: string;
+  webhook_url?: string;
+}
+
+/** Body for updating a monitor */
+export interface UpdateMonitorBody {
+  name?: string;
+  natural_language?: string;
+  status?: string;
+  severity?: string;
+  webhook_url?: string;
+  agent_id?: string;
+}
+
+/** Result of manually evaluating a monitor */
+export interface MonitorEvaluateResult {
+  monitor_id: string;
+  matches_found: number;
+  matched_node_ids: string[];
+}
+
+// ── Eval types (remote) ──
+
+/** An eval suite stored on the backend */
+export interface EvalSuiteRemote {
+  id: string;
+  name: string;
+  description: string | null;
+  agent_id: string | null;
+  owner_id: string;
+  config: Record<string, unknown>;
+  case_count?: number;
+  latest_pass_rate?: number | null;
+  latest_version_label?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Body for creating an eval suite */
+export interface CreateEvalSuiteBody {
+  name: string;
+  description?: string;
+  agent_id?: string;
+  config?: Record<string, unknown>;
+}
+
+/** An eval case */
+export interface EvalCase {
+  id: string;
+  suite_id: string;
+  name: string;
+  type: 'assertion' | 'judge';
+  assertion_config: Record<string, unknown> | null;
+  judge_config: Record<string, unknown> | null;
+  weight: number;
+  created_at: string;
+}
+
+/** Body for creating an eval case */
+export interface CreateEvalCaseBody {
+  name: string;
+  type: 'assertion' | 'judge';
+  assertion_config?: Record<string, unknown>;
+  judge_config?: Record<string, unknown>;
+  weight?: number;
+}
+
+/** An eval run */
+export interface EvalRun {
+  id: string;
+  suite_id: string;
+  agent_id: string;
+  version_label: string | null;
+  status: 'running' | 'completed' | 'failed';
+  pass_rate: number | null;
+  avg_score: number | null;
+  owner_id: string;
+  metadata: Record<string, unknown>;
+  results?: EvalCaseResult[];
+  created_at: string;
+  completed_at: string | null;
+}
+
+/** A single eval case result within a run */
+export interface EvalCaseResult {
+  id: string;
+  run_id: string;
+  case_id: string;
+  case_name?: string;
+  case_type?: string;
+  passed: boolean;
+  score: number | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+}
+
+/** Body for triggering an eval run */
+export interface RunEvalBody {
+  agent_id: string;
+  version_label?: string;
+  session_ids?: string[];
+}
+
+/** Result of comparing two eval runs */
+export interface EvalCompareResult {
+  run_a: EvalRun;
+  run_b: EvalRun;
+  overall_delta: {
+    pass_rate: number;
+    avg_score: number;
+  };
+  per_case: Array<{
+    case_id: string;
+    case_name: string;
+    a_passed: boolean;
+    b_passed: boolean;
+    a_score: number | null;
+    b_score: number | null;
+    delta: number | null;
+  }>;
+  regressions: number;
+  improvements: number;
+}
+
+// ── Training types ──
+
+/** A training pair linking source and student agents */
+export interface TrainingPair {
+  id: string;
+  source_agent: string;
+  student_agent: string;
+  source_sessions: string[];
+  status: 'pending' | 'training' | 'completed' | 'failed';
+  progress?: number;
+  traces_shared?: number;
+  improvements?: Record<string, unknown>;
+  completed_at: string | null;
+  created_at: string;
+}
+
+/** Body for creating a training pair */
+export interface CreateTrainingPairBody {
+  source_agent: string;
+  student_agent: string;
+  source_sessions?: string[];
+}
+
+/** A flag on a trace node for training feedback */
+export interface TraceFlag {
+  id: string;
+  trace_node_id: string;
+  session_id: string;
+  agent_id: string;
+  flag: 'good' | 'bad' | 'needs_review';
+  notes: string | null;
+  flagged_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Body for creating a trace flag */
+export interface CreateTraceFlagBody {
+  trace_node_id: string;
+  flag: 'good' | 'bad' | 'needs_review';
+  notes?: string;
+}
+
+/** Aggregated trace flag statistics */
+export interface TraceFlagStats {
+  total: number;
+  good: number;
+  bad: number;
+  needs_review: number;
+  by_agent: Record<string, { good: number; bad: number; needs_review: number }>;
+}
+
+// ── Drift types ──
+
+/** A detected drift catch between two sessions */
+export interface DriftCatch {
+  id: string;
+  session_a: string;
+  session_b: string;
+  agent: string;
+  task: string;
+  similarity_score: number;
+  divergence_reason: string;
+  caught_at: number;
+  severity: 'low' | 'medium' | 'high';
+}
+
+/** Detailed drift comparison between two sessions */
+export interface DriftComparison {
+  run_a: {
+    id: string;
+    session_id: string;
+    agent_id: string;
+    task: string;
+    timestamp: number;
+    node_count: number;
+    status: 'normal' | 'drifted';
+  };
+  run_b: {
+    id: string;
+    session_id: string;
+    agent_id: string;
+    task: string;
+    timestamp: number;
+    node_count: number;
+    status: 'normal' | 'drifted';
+  };
+  divergence_point: number | null;
+  divergence_reason: string;
+  similarity_score: number;
+  aligned_steps: Array<{
+    index: number;
+    node_a: { action: string; semantic_context: string; anomaly_score: number } | null;
+    node_b: { action: string; semantic_context: string; anomaly_score: number } | null;
+    aligned: boolean;
+    drift_type?: 'added' | 'removed' | 'changed';
+  }>;
+}
+
+// ── Template types ──
+
+/** A template pack containing preconfigured monitors */
+export interface TemplatePack {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  monitors: Array<{
+    name: string;
+    rule: string;
+    severity: string;
+    enabled_default: boolean;
+  }>;
+}
+
+/** Result of applying a template pack */
+export interface TemplateApplyResult {
+  pack_id: string;
+  monitors_created: number;
+  monitors: unknown[];
+}
+
+// ── Identity types ──
+
+/** A rich identity record from the identities endpoint */
+export interface IdentityRecord {
+  id: string;
+  name: string;
+  display_name: string;
+  org: string;
+  org_display: string;
+  public_key: string;
+  key_fingerprint: string;
+  created_at: string;
+  verified: boolean;
+  capabilities: string[];
+  description: string;
+  session_count: number;
+  last_active: string;
+  identity_type: 'org_scoped' | 'legacy';
+}
+
+// ── A2A Query types ──
+
+/** An A2A conversation summary */
+export interface A2AConversation {
+  id: string;
+  agent_a_id: string;
+  agent_a: string;
+  agent_b_id: string;
+  agent_b: string;
+  participants: Array<{ id: string; name: string }>;
+  session_ids: string[];
+  message_count: number;
+  started_at: number;
+  last_message_at: number;
+  status: 'active' | 'completed';
+  all_countersigned: boolean;
+  pending_count: number;
+  verified_count: number;
+  topic: string;
+  protocol: string;
+  root_trace_node_id: string | null;
+  parent_trace_node_id: string | null;
+  latest_message_preview: string;
+}
+
+/** An A2A message */
+export interface A2AMessage {
+  id: string;
+  conversation_id: string;
+  message_id: string;
+  parent_message_id: string | null;
+  trace_node_id: string | null;
+  parent_trace_node_id: string | null;
+  session_ids: string[];
+  from_agent_id: string;
+  to_agent_id: string;
+  from_agent_name: string;
+  to_agent_name: string;
+  timestamp: number;
+  status: 'pending' | 'verified';
+  verified: boolean;
+  sender_signature: string | null;
+  receiver_signature: string | null;
+  hash: string;
+  previous_hash: string;
+  payload_hash: string | null;
+  content: string;
+  content_preview: string;
+  message_type: string;
+  protocol: string;
+  metadata: Record<string, unknown>;
+}
+
+/** A peer agent in A2A communication */
+export interface A2APeer {
+  agent_id: string;
+  agent_name: string;
+  sent: number;
+  received: number;
+  pending: number;
+  verified: number;
+}
+
+// ── Search types ──
+
+/** A search result item */
+export interface SearchResult {
+  type: 'session' | 'agent' | 'anomaly';
+  id: string;
+  label: string;
+  subtitle?: string;
+}
