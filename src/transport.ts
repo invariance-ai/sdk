@@ -1,4 +1,16 @@
-import type { Receipt, ReceiptQuery, SessionInfo, ErrorHandler, MonitorTriggerEvent, TraceQueryResult, ToolSchema, StatsResult, AgentNote } from './types.js';
+import type {
+  Receipt, ReceiptQuery, SessionInfo, ErrorHandler, MonitorTriggerEvent,
+  TraceQueryResult, ToolSchema, StatsResult, AgentNote,
+  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult,
+  EvalSuiteRemote, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
+  EvalRun, RunEvalBody, EvalCompareResult,
+  TrainingPair, CreateTrainingPairBody, TraceFlag, CreateTraceFlagBody, TraceFlagStats,
+  DriftCatch, DriftComparison,
+  TemplatePack, TemplateApplyResult,
+  IdentityRecord,
+  A2AConversation, A2AMessage, A2APeer,
+  SearchResult,
+} from './types.js';
 import type { NLQueryRequest } from './query-types.js';
 import { InvarianceError } from './errors.js';
 import { fetchWithAuth } from './http.js';
@@ -680,6 +692,344 @@ export class Transport {
       throw new InvarianceError('API_ERROR', `GET /v1/status/live returned ${res.status}`);
     }
     return res;
+  }
+
+  // ── Monitors CRUD ──
+
+  /** List all monitors, with optional status and agent_id filters */
+  async listMonitors(opts?: { status?: string; agent_id?: string }): Promise<Monitor[]> {
+    const params = new URLSearchParams();
+    if (opts?.status) params.set('status', opts.status);
+    if (opts?.agent_id) params.set('agent_id', opts.agent_id);
+    const qs = params.toString();
+    const path = qs ? `/v1/monitors?${qs}` : '/v1/monitors';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as Monitor[];
+  }
+
+  /** Create a new monitor from natural language */
+  async createMonitor(body: CreateMonitorBody): Promise<Monitor> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/monitors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/monitors returned ${res.status}`);
+    return await res.json() as Monitor;
+  }
+
+  /** Get a single monitor by ID */
+  async getMonitor(id: string): Promise<Monitor> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/monitors/${encodedId}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/monitors/${encodedId} returned ${res.status}`);
+    return await res.json() as Monitor;
+  }
+
+  /** Update a monitor */
+  async updateMonitor(id: string, body: UpdateMonitorBody): Promise<Monitor> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/monitors/${encodedId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/monitors/${encodedId} returned ${res.status}`);
+    return await res.json() as Monitor;
+  }
+
+  /** Delete a monitor */
+  async deleteMonitor(id: string): Promise<{ ok: boolean }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/monitors/${encodedId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `DELETE /v1/monitors/${encodedId} returned ${res.status}`);
+    return await res.json() as { ok: boolean };
+  }
+
+  /** Manually evaluate a monitor against recent trace nodes */
+  async evaluateMonitor(id: string): Promise<MonitorEvaluateResult> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/monitors/${encodedId}/evaluate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/monitors/${encodedId}/evaluate returned ${res.status}`);
+    return await res.json() as MonitorEvaluateResult;
+  }
+
+  /** Acknowledge a monitor event */
+  async acknowledgeMonitorEvent(eventId: string): Promise<Record<string, unknown>> {
+    const encodedId = encodeURIComponent(eventId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/monitors/events/${encodedId}/acknowledge`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/monitors/events/${encodedId}/acknowledge returned ${res.status}`);
+    return await res.json() as Record<string, unknown>;
+  }
+
+  // ── Evals ──
+
+  /** List eval suites */
+  async listEvalSuites(opts?: { agent_id?: string }): Promise<EvalSuiteRemote[]> {
+    const params = new URLSearchParams();
+    if (opts?.agent_id) params.set('agent_id', opts.agent_id);
+    const qs = params.toString();
+    const path = qs ? `/v1/evals/suites?${qs}` : '/v1/evals/suites';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as EvalSuiteRemote[];
+  }
+
+  /** Create an eval suite */
+  async createEvalSuite(body: CreateEvalSuiteBody): Promise<EvalSuiteRemote> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/evals/suites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/evals/suites returned ${res.status}`);
+    return await res.json() as EvalSuiteRemote;
+  }
+
+  /** Get a single eval suite */
+  async getEvalSuite(id: string): Promise<EvalSuiteRemote> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/suites/${encodedId}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/evals/suites/${encodedId} returned ${res.status}`);
+    return await res.json() as EvalSuiteRemote;
+  }
+
+  /** List eval cases for a suite */
+  async listEvalCases(suiteId: string): Promise<EvalCase[]> {
+    const encodedId = encodeURIComponent(suiteId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/suites/${encodedId}/cases`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/evals/suites/${encodedId}/cases returned ${res.status}`);
+    return await res.json() as EvalCase[];
+  }
+
+  /** Create an eval case in a suite */
+  async createEvalCase(suiteId: string, body: CreateEvalCaseBody): Promise<EvalCase> {
+    const encodedId = encodeURIComponent(suiteId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/suites/${encodedId}/cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/evals/suites/${encodedId}/cases returned ${res.status}`);
+    return await res.json() as EvalCase;
+  }
+
+  /** Trigger an eval run for a suite */
+  async runEval(suiteId: string, body: RunEvalBody): Promise<EvalRun> {
+    const encodedId = encodeURIComponent(suiteId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/suites/${encodedId}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/evals/suites/${encodedId}/run returned ${res.status}`);
+    return await res.json() as EvalRun;
+  }
+
+  /** Get a single eval run with case results */
+  async getEvalRun(runId: string): Promise<EvalRun> {
+    const encodedId = encodeURIComponent(runId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/runs/${encodedId}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/evals/runs/${encodedId} returned ${res.status}`);
+    return await res.json() as EvalRun;
+  }
+
+  /** List eval runs */
+  async listEvalRuns(opts?: { suite_id?: string; agent_id?: string; status?: string; limit?: number }): Promise<EvalRun[]> {
+    const params = new URLSearchParams();
+    if (opts?.suite_id) params.set('suite_id', opts.suite_id);
+    if (opts?.agent_id) params.set('agent_id', opts.agent_id);
+    if (opts?.status) params.set('status', opts.status);
+    if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    const path = qs ? `/v1/evals/runs?${qs}` : '/v1/evals/runs';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as EvalRun[];
+  }
+
+  /** Compare two eval runs within a suite */
+  async compareEvalRuns(suiteId: string, runA: string, runB: string): Promise<EvalCompareResult> {
+    const params = new URLSearchParams({ suite_id: suiteId, run_a: runA, run_b: runB });
+    const path = `/v1/evals/compare?${params.toString()}`;
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as EvalCompareResult;
+  }
+
+  // ── Training ──
+
+  /** List training pairs */
+  async listTrainingPairs(opts?: { status?: string }): Promise<TrainingPair[]> {
+    const params = new URLSearchParams();
+    if (opts?.status) params.set('status', opts.status);
+    const qs = params.toString();
+    const path = qs ? `/v1/training/pairs?${qs}` : '/v1/training/pairs';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as TrainingPair[];
+  }
+
+  /** Create a training pair */
+  async createTrainingPair(body: CreateTrainingPairBody): Promise<TrainingPair> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/training/pairs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/training/pairs returned ${res.status}`);
+    return await res.json() as TrainingPair;
+  }
+
+  /** Create a trace flag for training feedback */
+  async createTraceFlag(body: CreateTraceFlagBody): Promise<TraceFlag> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/training/flags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/training/flags returned ${res.status}`);
+    return await res.json() as TraceFlag;
+  }
+
+  /** List trace flags */
+  async listTraceFlags(opts?: { session_id?: string; agent_id?: string; flag?: string; limit?: number; offset?: number }): Promise<TraceFlag[]> {
+    const params = new URLSearchParams();
+    if (opts?.session_id) params.set('session_id', opts.session_id);
+    if (opts?.agent_id) params.set('agent_id', opts.agent_id);
+    if (opts?.flag) params.set('flag', opts.flag);
+    if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+    if (opts?.offset !== undefined) params.set('offset', String(opts.offset));
+    const qs = params.toString();
+    const path = qs ? `/v1/training/flags?${qs}` : '/v1/training/flags';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as TraceFlag[];
+  }
+
+  /** Get aggregated trace flag statistics */
+  async getTraceFlagStats(): Promise<TraceFlagStats> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/training/flags/stats');
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/training/flags/stats returned ${res.status}`);
+    return await res.json() as TraceFlagStats;
+  }
+
+  // ── Drift ──
+
+  /** Get drift catches (detected divergences between sessions) */
+  async getDriftCatches(): Promise<DriftCatch[]> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/drift/catches');
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/drift/catches returned ${res.status}`);
+    return await res.json() as DriftCatch[];
+  }
+
+  /** Get a detailed drift comparison between two sessions */
+  async getDriftComparison(sessionA?: string, sessionB?: string): Promise<DriftComparison> {
+    const params = new URLSearchParams();
+    if (sessionA) params.set('session_a', sessionA);
+    if (sessionB) params.set('session_b', sessionB);
+    const qs = params.toString();
+    const path = qs ? `/v1/drift/comparison?${qs}` : '/v1/drift/comparison';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as DriftComparison;
+  }
+
+  // ── Templates ──
+
+  /** List available template packs */
+  async listTemplatePacks(): Promise<TemplatePack[]> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/templates');
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/templates returned ${res.status}`);
+    return await res.json() as TemplatePack[];
+  }
+
+  /** Apply a template pack, creating real monitors */
+  async applyTemplatePack(id: string, body?: { agent_id?: string }): Promise<TemplateApplyResult> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/templates/${encodedId}/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/templates/${encodedId}/apply returned ${res.status}`);
+    return await res.json() as TemplateApplyResult;
+  }
+
+  // ── Identities ──
+
+  /** List visible identity records */
+  async listIdentities(): Promise<IdentityRecord[]> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/identities');
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/identities returned ${res.status}`);
+    return await res.json() as IdentityRecord[];
+  }
+
+  /** Get a single identity record */
+  async getIdentity(id: string): Promise<IdentityRecord> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/identities/${encodedId}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/identities/${encodedId} returned ${res.status}`);
+    return await res.json() as IdentityRecord;
+  }
+
+  // ── A2A Query ──
+
+  /** List A2A conversations */
+  async listA2AConversations(opts?: { agent_id?: string }): Promise<A2AConversation[]> {
+    const params = new URLSearchParams();
+    if (opts?.agent_id) params.set('agent_id', opts.agent_id);
+    const qs = params.toString();
+    const path = qs ? `/v1/a2a/conversations?${qs}` : '/v1/a2a/conversations';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as A2AConversation[];
+  }
+
+  /** Get a single A2A conversation */
+  async getA2AConversation(conversationId: string): Promise<A2AConversation> {
+    const encodedId = encodeURIComponent(conversationId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/a2a/conversations/${encodedId}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/a2a/conversations/${encodedId} returned ${res.status}`);
+    return await res.json() as A2AConversation;
+  }
+
+  /** Get messages for an A2A conversation */
+  async getA2AConversationMessages(conversationId: string): Promise<A2AMessage[]> {
+    const encodedId = encodeURIComponent(conversationId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/a2a/conversations/${encodedId}/messages`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/a2a/conversations/${encodedId}/messages returned ${res.status}`);
+    return await res.json() as A2AMessage[];
+  }
+
+  /** Get peers for a specific agent */
+  async getAgentPeers(agentId: string): Promise<A2APeer[]> {
+    const encodedId = encodeURIComponent(agentId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/a2a/agents/${encodedId}/peers`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/a2a/agents/${encodedId}/peers returned ${res.status}`);
+    return await res.json() as A2APeer[];
+  }
+
+  // ── Search ──
+
+  /** Search across sessions, agents, and anomalies */
+  async search(query: string): Promise<SearchResult[]> {
+    const params = new URLSearchParams({ q: query });
+    const path = `/v1/search?${params.toString()}`;
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as SearchResult[];
   }
 
   /** Check if the backend is reachable. */
