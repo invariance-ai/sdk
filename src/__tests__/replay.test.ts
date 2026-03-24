@@ -47,6 +47,7 @@ async function traceN(tracer: InvarianceTracer, sessionId: string, n: number) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -155,6 +156,8 @@ describe('Replay: manual captureSnapshot', () => {
 
 describe('Replay: transport methods', () => {
   it('normalizes replay and counterfactual payload casing', async () => {
+    vi.useFakeTimers();
+
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
