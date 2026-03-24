@@ -1,24 +1,23 @@
-/** Error codes for Invariance SDK errors */
-export type InvarianceErrorCode =
+export type ErrorCode =
+  | 'INIT_FAILED'
+  | 'API_ERROR'
   | 'POLICY_DENIED'
   | 'CHAIN_BROKEN'
-  | 'API_ERROR'
-  | 'FLUSH_FAILED'
   | 'SESSION_CLOSED'
-  | 'SESSION_NOT_READY'
-  | 'INIT_FAILED'
+  | 'FLUSH_FAILED'
   | 'QUEUE_OVERFLOW'
-  | 'CRYPTO_REQUIRED';
+  | 'SESSION_NOT_READY'
+  | 'CRYPTO_ERROR'
+  | 'INVALID_KEY';
 
-/**
- * Invariance SDK error with a machine-readable code.
- */
 export class InvarianceError extends Error {
-  readonly code: InvarianceErrorCode;
-
-  constructor(code: InvarianceErrorCode, message: string) {
+  constructor(
+    public readonly code: ErrorCode,
+    message: string,
+    public readonly statusCode?: number,
+    public readonly details?: unknown,
+  ) {
     super(message);
     this.name = 'InvarianceError';
-    this.code = code;
   }
 }

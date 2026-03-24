@@ -1,102 +1,50 @@
-import type { Action, PolicyCheck, PolicyRule } from './types.js';
+import type { AgentActionPolicy } from './types/agent.js';
+import { InvarianceError } from './errors.js';
 
-type RateLimitEntry = {
-  timestamps: number[];
-  windowMs: number;
-};
-
-/** In-memory rate limit state: action pattern → timestamps and their retention window */
-const rateLimitState = new Map<string, RateLimitEntry>();
-
-/**
- * Check if an action name matches a policy pattern.
- * Supports exact match and trailing wildcard (*).
- * Examples: "swap" matches "swap", "transfer.*" matches "transfer.eth"
- */
-function matchAction(pattern: string, action: string): boolean {
-  if (pattern === '*') return true;
-  if (pattern.endsWith('.*')) {
-    const prefix = pattern.slice(0, -2);
-    return action === prefix || action.startsWith(prefix + '.');
-  }
-  return pattern === action;
+export interface PolicyCheckResult {
+  allowed: boolean;
+  reason?: string;
 }
 
-/**
- * Evaluate a single policy rule against an action.
- */
-function evaluateRule(rule: PolicyRule, action: Action): PolicyCheck {
-  if (!matchAction(rule.action, action.action)) {
+export function checkPolicies(
+  action: string,
+  policies: AgentActionPolicy[],
+): PolicyCheckResult {
+  // Find matching policies (most specific first)
+  const matching = policies.filter((p) => {
+    if (p.action === '*') return true;
+    if (p.action.endsWith('*')) {
+      return action.startsWith(p.action.slice(0, -1));
+    }
+    return p.action === action;
+  });
+
+  // Exact match takes priority, then prefix, then wildcard
+  const sorted = matching.sort((a, b) => {
+    const specificity = (p: AgentActionPolicy) => {
+      if (p.action === '*') return 0;
+      if (p.action.endsWith('*')) return 1;
+      return 2;
+    };
+    return specificity(b) - specificity(a);
+  });
+
+  if (sorted.length === 0) {
+    // No policies = allow by default
     return { allowed: true };
   }
 
-  // maxAmountUsd check
-  if (rule.maxAmountUsd !== undefined) {
-    const amount = action.input['amountUsd'];
-    if (typeof amount === 'number' && amount > rule.maxAmountUsd) {
-      return { allowed: false, reason: `Amount $${amount} exceeds max $${rule.maxAmountUsd}` };
-    }
-  }
-
-  // Allowlist check
-  if (rule.allowlist) {
-    const value = action.input[rule.allowlist.field];
-    if (typeof value === 'string' && !rule.allowlist.values.includes(value)) {
-      return { allowed: false, reason: `Value "${value}" not in allowlist for field "${rule.allowlist.field}"` };
-    }
-  }
-
-  // Rate limit check
-  if (rule.rateLimit) {
-    const rateLimit = rule.rateLimit;
-    const key = rule.action;
-    const now = Date.now();
-    const entry = rateLimitState.get(key);
-    const timestamps = (entry?.timestamps ?? []).filter((t) => t > now - rateLimit.windowMs);
-
-    if (timestamps.length === 0) {
-      rateLimitState.delete(key);
-    }
-
-    // Opportunistically prune expired entries from other keys to prevent unbounded growth
-    if (rateLimitState.size > 100) {
-      for (const [k, otherEntry] of rateLimitState) {
-        if (k === key) continue;
-        const active = otherEntry.timestamps.filter((t) => t > now - otherEntry.windowMs);
-        if (active.length === 0) rateLimitState.delete(k);
-        else rateLimitState.set(k, { ...otherEntry, timestamps: active });
-      }
-    }
-
-    if (timestamps.length >= rateLimit.max) {
-      return { allowed: false, reason: `Rate limit exceeded: ${rateLimit.max} per ${rateLimit.windowMs}ms` };
-    }
-
-    timestamps.push(now);
-    rateLimitState.set(key, { timestamps, windowMs: rateLimit.windowMs });
-  }
-
-  // Custom predicate
-  if (rule.custom && !rule.custom(action)) {
-    return { allowed: false, reason: 'Denied by custom policy' };
+  const first = sorted[0]!;
+  if (first.effect === 'deny') {
+    return { allowed: false, reason: `Action "${action}" denied by policy "${first.action}"` };
   }
 
   return { allowed: true };
 }
 
-/** Clear all in-memory rate limit state. Useful for testing or agent restarts. */
-export function clearRateLimits(): void {
-  rateLimitState.clear();
-}
-
-/**
- * Evaluate all policy rules against an action.
- * Returns denied if ANY rule denies the action.
- */
-export function checkPolicies(rules: PolicyRule[], action: Action): PolicyCheck {
-  for (const rule of rules) {
-    const result = evaluateRule(rule, action);
-    if (!result.allowed) return result;
+export function assertPolicy(action: string, policies: AgentActionPolicy[]): void {
+  const result = checkPolicies(action, policies);
+  if (!result.allowed) {
+    throw new InvarianceError('POLICY_DENIED', result.reason ?? `Action "${action}" denied`);
   }
-  return { allowed: true };
 }
