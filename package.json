@@ -34,6 +34,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "prepare": "pnpm build",
     "test": "vitest run --exclude src/__tests__/integration.test.ts",
     "test:integ": "dotenv -e .env.demo -- vitest run src/__tests__/integration.test.ts",
     "test:watch": "vitest",
