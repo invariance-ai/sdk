@@ -30,11 +30,146 @@ interface TemplateItem {
   highlights?: string[];
 }
 
+interface MonitorItem {
+  id: string;
+  name: string;
+  agent_id: string | null;
+  severity: string;
+  status: string;
+  triggers_count: number;
+  last_triggered: string | null;
+  created_at: string;
+}
+
+interface EvalSuiteItem {
+  id: string;
+  name: string;
+  description: string | null;
+  agent_id: string | null;
+  case_count?: number;
+  latest_pass_rate?: number | null;
+  created_at: string;
+}
+
+interface EvalRunItem {
+  id: string;
+  suite_id: string;
+  agent_id: string;
+  version_label: string | null;
+  status: string;
+  pass_rate: number | null;
+  avg_score: number | null;
+  created_at: string;
+}
+
+interface EvalCompareItem {
+  run_a: EvalRunItem;
+  run_b: EvalRunItem;
+  overall_delta: { pass_rate: number; avg_score: number };
+  per_case: Array<{
+    case_id: string;
+    case_name: string;
+    a_passed: boolean;
+    b_passed: boolean;
+    a_score: number | null;
+    b_score: number | null;
+    delta: number | null;
+  }>;
+  regressions: number;
+  improvements: number;
+}
+
+interface MonitorEvalItem {
+  monitor_id: string;
+  matches_found: number;
+  matched_node_ids: string[];
+}
+
+interface DriftCatchItem {
+  id: string;
+  session_a: string;
+  session_b: string;
+  agent: string;
+  task: string;
+  similarity_score: number;
+  divergence_reason: string;
+  severity: string;
+  caught_at: number;
+}
+
+interface DriftComparisonItem {
+  run_a: { session_id: string; agent_id: string; task: string; node_count: number; status: string };
+  run_b: { session_id: string; agent_id: string; task: string; node_count: number; status: string };
+  divergence_point: number | null;
+  divergence_reason: string;
+  similarity_score: number;
+  aligned_steps: Array<{
+    index: number;
+    node_a: { action: string } | null;
+    node_b: { action: string } | null;
+    aligned: boolean;
+    drift_type?: string;
+  }>;
+}
+
+interface TraceFlagItem {
+  id: string;
+  trace_node_id: string;
+  session_id: string;
+  agent_id: string;
+  flag: string;
+  notes: string | null;
+  created_at: string;
+}
+
+interface TraceFlagStatsItem {
+  total: number;
+  good: number;
+  bad: number;
+  needs_review: number;
+  by_agent: Record<string, { good: number; bad: number; needs_review: number }>;
+}
+
+interface IdentityItem {
+  id: string;
+  name: string;
+  display_name: string;
+  org: string;
+  org_display: string;
+  public_key: string;
+  verified: boolean;
+  identity_type: string;
+  session_count: number;
+  last_active: string;
+}
+
+interface SearchResultItem {
+  type: string;
+  id: string;
+  label: string;
+  subtitle?: string;
+}
+
 const statusColor = (status: string) => {
   if (status === 'open') return chalk.blue(status);
   if (status === 'closed') return chalk.green(status);
   if (status === 'tampered') return chalk.red(status);
   return status;
+};
+
+const severityColor = (severity: string) => {
+  if (severity === 'critical') return chalk.red(severity);
+  if (severity === 'high') return chalk.redBright(severity);
+  if (severity === 'medium') return chalk.yellow(severity);
+  if (severity === 'low') return chalk.green(severity);
+  return severity;
+};
+
+const flagColor = (flag: string) => {
+  if (flag === 'good') return chalk.green(flag);
+  if (flag === 'bad') return chalk.red(flag);
+  if (flag === 'needs_review') return chalk.yellow(flag);
+  return flag;
 };
 
 const categoryBadge = (cat?: string) => {
@@ -52,11 +187,22 @@ function formatTime(ts: number | string): string {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-export function renderSessionList(sessions: SessionItem[]) {
-  const table = new Table({
-    head: ['ID', 'Name', 'Status', 'Agent', 'Receipts', 'Created'].map(h => chalk.gray(h)),
+function formatPercent(n: number | null | undefined): string {
+  if (n == null) return chalk.gray('--');
+  return `${(n * 100).toFixed(1)}%`;
+}
+
+function makeTable(head: string[]) {
+  return new Table({
+    head: head.map(h => chalk.gray(h)),
     style: { head: [], border: ['gray'] },
   });
+}
+
+// ── Sessions ──
+
+export function renderSessionList(sessions: SessionItem[]) {
+  const table = makeTable(['ID', 'Name', 'Status', 'Agent', 'Receipts', 'Created']);
 
   for (const s of sessions) {
     table.push([
@@ -149,4 +295,241 @@ export async function renderVerification(
     console.log(`  ${chalk.red('✗')} Chain broken — ${receipts.length} receipts, ${errCount} error${errCount > 1 ? 's' : ''}`);
   }
   console.log();
+}
+
+// ── Monitors ──
+
+export function renderMonitorList(monitors: MonitorItem[]) {
+  if (monitors.length === 0) {
+    console.log(chalk.gray('No monitors found.'));
+    return;
+  }
+
+  const table = makeTable(['ID', 'Name', 'Agent', 'Severity', 'Status', 'Triggers', 'Created']);
+
+  for (const m of monitors) {
+    table.push([
+      m.id,
+      m.name,
+      m.agent_id ?? chalk.gray('—'),
+      severityColor(m.severity),
+      m.status === 'active' ? chalk.green(m.status) : chalk.gray(m.status),
+      String(m.triggers_count),
+      new Date(m.created_at).toLocaleDateString(),
+    ]);
+  }
+
+  console.log(table.toString());
+}
+
+export function renderMonitorCreated(monitor: MonitorItem) {
+  console.log(`${chalk.green('Created')} monitor ${chalk.bold(monitor.name)} (${monitor.id})`);
+}
+
+export function renderMonitorDeleted(id: string) {
+  console.log(`${chalk.green('Deleted')} monitor ${chalk.bold(id)}`);
+}
+
+export function renderMonitorEvaluation(result: MonitorEvalItem) {
+  console.log(`Monitor ${chalk.bold(result.monitor_id)}: ${result.matches_found} match(es)`);
+  for (const nodeId of result.matched_node_ids) {
+    console.log(`  ${chalk.yellow('>')} ${nodeId}`);
+  }
+}
+
+// ── Evals ──
+
+export function renderEvalSuites(suites: EvalSuiteItem[]) {
+  if (suites.length === 0) {
+    console.log(chalk.gray('No eval suites found.'));
+    return;
+  }
+
+  const table = makeTable(['ID', 'Name', 'Agent', 'Cases', 'Pass Rate', 'Created']);
+
+  for (const s of suites) {
+    table.push([
+      s.id,
+      s.name,
+      s.agent_id ?? chalk.gray('—'),
+      s.case_count != null ? String(s.case_count) : chalk.gray('—'),
+      formatPercent(s.latest_pass_rate),
+      new Date(s.created_at).toLocaleDateString(),
+    ]);
+  }
+
+  console.log(table.toString());
+}
+
+export function renderEvalRun(run: EvalRunItem) {
+  const statusStr = run.status === 'completed' ? chalk.green(run.status)
+    : run.status === 'failed' ? chalk.red(run.status)
+    : chalk.yellow(run.status);
+  console.log(`Run ${chalk.bold(run.id)}  ${statusStr}  pass_rate=${formatPercent(run.pass_rate)}  avg_score=${formatPercent(run.avg_score)}`);
+}
+
+export function renderEvalCompare(result: EvalCompareItem) {
+  const deltaColor = result.overall_delta.pass_rate >= 0 ? chalk.green : chalk.red;
+  console.log(`${chalk.bold('Run A:')} ${result.run_a.id}  vs  ${chalk.bold('Run B:')} ${result.run_b.id}`);
+  console.log(`Pass rate delta: ${deltaColor((result.overall_delta.pass_rate >= 0 ? '+' : '') + (result.overall_delta.pass_rate * 100).toFixed(1) + '%')}`);
+  console.log(`Regressions: ${chalk.red(String(result.regressions))}  Improvements: ${chalk.green(String(result.improvements))}`);
+  console.log();
+
+  if (result.per_case.length > 0) {
+    const table = makeTable(['Case', 'A', 'B', 'Delta']);
+    for (const c of result.per_case) {
+      const aStr = c.a_passed ? chalk.green('pass') : chalk.red('fail');
+      const bStr = c.b_passed ? chalk.green('pass') : chalk.red('fail');
+      const dStr = c.delta != null ? (c.delta >= 0 ? chalk.green(`+${c.delta.toFixed(2)}`) : chalk.red(c.delta.toFixed(2))) : chalk.gray('—');
+      table.push([c.case_name, aStr, bStr, dStr]);
+    }
+    console.log(table.toString());
+  }
+}
+
+// ── Drift ──
+
+export function renderDriftCatches(catches: DriftCatchItem[]) {
+  if (catches.length === 0) {
+    console.log(chalk.gray('No drift catches found.'));
+    return;
+  }
+
+  const table = makeTable(['ID', 'Session A', 'Session B', 'Agent', 'Similarity', 'Severity', 'Reason']);
+
+  for (const c of catches) {
+    table.push([
+      c.id,
+      c.session_a,
+      c.session_b,
+      c.agent,
+      `${(c.similarity_score * 100).toFixed(1)}%`,
+      severityColor(c.severity),
+      c.divergence_reason.slice(0, 40),
+    ]);
+  }
+
+  console.log(table.toString());
+}
+
+export function renderDriftComparison(result: DriftComparisonItem) {
+  console.log(boxen(
+    `${chalk.bold('Drift Comparison')}\n` +
+    `Session A: ${result.run_a.session_id}  (${result.run_a.node_count} nodes, ${result.run_a.status})\n` +
+    `Session B: ${result.run_b.session_id}  (${result.run_b.node_count} nodes, ${result.run_b.status})\n` +
+    `Similarity: ${(result.similarity_score * 100).toFixed(1)}%\n` +
+    `Divergence: ${result.divergence_reason}` +
+    (result.divergence_point != null ? `  at step ${result.divergence_point}` : ''),
+    { padding: 1, borderStyle: 'round', borderColor: 'gray' },
+  ));
+
+  if (result.aligned_steps.length > 0) {
+    const table = makeTable(['Step', 'Action A', 'Action B', 'Aligned', 'Drift']);
+    for (const step of result.aligned_steps) {
+      const aligned = step.aligned ? chalk.green('yes') : chalk.red('no');
+      table.push([
+        String(step.index),
+        step.node_a?.action ?? chalk.gray('—'),
+        step.node_b?.action ?? chalk.gray('—'),
+        aligned,
+        step.drift_type ?? '',
+      ]);
+    }
+    console.log(table.toString());
+  }
+}
+
+// ── Training ──
+
+export function renderTraceFlags(flags: TraceFlagItem[]) {
+  if (flags.length === 0) {
+    console.log(chalk.gray('No trace flags found.'));
+    return;
+  }
+
+  const table = makeTable(['ID', 'Node', 'Session', 'Agent', 'Flag', 'Notes', 'Created']);
+
+  for (const f of flags) {
+    table.push([
+      f.id,
+      f.trace_node_id,
+      f.session_id,
+      f.agent_id,
+      flagColor(f.flag),
+      f.notes?.slice(0, 30) ?? chalk.gray('—'),
+      new Date(f.created_at).toLocaleDateString(),
+    ]);
+  }
+
+  console.log(table.toString());
+}
+
+export function renderTraceFlagStats(stats: TraceFlagStatsItem) {
+  console.log(`${chalk.bold('Trace Flag Statistics')}`);
+  console.log(`  Total: ${stats.total}    ${chalk.green(`good: ${stats.good}`)}    ${chalk.red(`bad: ${stats.bad}`)}    ${chalk.yellow(`needs_review: ${stats.needs_review}`)}`);
+
+  const agents = Object.entries(stats.by_agent);
+  if (agents.length > 0) {
+    console.log();
+    const table = makeTable(['Agent', 'Good', 'Bad', 'Needs Review']);
+    for (const [agent, counts] of agents) {
+      table.push([
+        agent,
+        chalk.green(String(counts.good)),
+        chalk.red(String(counts.bad)),
+        chalk.yellow(String(counts.needs_review)),
+      ]);
+    }
+    console.log(table.toString());
+  }
+}
+
+// ── Identities ──
+
+export function renderIdentities(identities: IdentityItem[]) {
+  if (identities.length === 0) {
+    console.log(chalk.gray('No identities found.'));
+    return;
+  }
+
+  const table = makeTable(['ID', 'Name', 'Org', 'Type', 'Verified', 'Sessions', 'Last Active']);
+
+  for (const i of identities) {
+    table.push([
+      i.id,
+      i.display_name || i.name,
+      i.org_display || i.org,
+      i.identity_type,
+      i.verified ? chalk.green('yes') : chalk.gray('no'),
+      String(i.session_count),
+      i.last_active ? new Date(i.last_active).toLocaleDateString() : chalk.gray('—'),
+    ]);
+  }
+
+  console.log(table.toString());
+}
+
+// ── Search ──
+
+export function renderSearchResults(results: SearchResultItem[]) {
+  if (results.length === 0) {
+    console.log(chalk.gray('No results found.'));
+    return;
+  }
+
+  const table = makeTable(['Type', 'ID', 'Label', 'Details']);
+
+  for (const r of results) {
+    const typeColor = r.type === 'anomaly' ? chalk.red(r.type)
+      : r.type === 'agent' ? chalk.blue(r.type)
+      : chalk.cyan(r.type);
+    table.push([
+      typeColor,
+      r.id,
+      r.label,
+      r.subtitle ?? '',
+    ]);
+  }
+
+  console.log(table.toString());
 }
