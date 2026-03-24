@@ -93,6 +93,36 @@ describe('getEvalSuite', () => {
   });
 });
 
+describe('eval suite mutations', () => {
+  it('updates an eval suite', async () => {
+    const suite = { id: 's1', name: 'Updated Suite' };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(suite));
+    const { transport } = makeTransport();
+
+    const result = await transport.updateEvalSuite('s1', { name: 'Updated Suite' });
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/evals/suites/s1');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body)).toEqual({ name: 'Updated Suite' });
+    expect(result).toEqual(suite);
+    await transport.shutdown();
+  });
+
+  it('deletes an eval suite', async () => {
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse({ ok: true }));
+    const { transport } = makeTransport();
+
+    const result = await transport.deleteEvalSuite('s1');
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/evals/suites/s1');
+    expect(init.method).toBe('DELETE');
+    expect(result).toEqual({ ok: true });
+    await transport.shutdown();
+  });
+});
+
 // ── Cases ──
 
 describe('listEvalCases', () => {
@@ -124,6 +154,36 @@ describe('createEvalCase', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual(body);
     expect(result).toEqual(created);
+    await transport.shutdown();
+  });
+});
+
+describe('eval case mutations', () => {
+  it('updates an eval case', async () => {
+    const updated = { id: 'c1', name: 'Updated case' };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(updated));
+    const { transport } = makeTransport();
+
+    const result = await transport.updateEvalCase('c1', { name: 'Updated case' });
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/evals/cases/c1');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body)).toEqual({ name: 'Updated case' });
+    expect(result).toEqual(updated);
+    await transport.shutdown();
+  });
+
+  it('deletes an eval case', async () => {
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse({ ok: true }));
+    const { transport } = makeTransport();
+
+    const result = await transport.deleteEvalCase('c1');
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/evals/cases/c1');
+    expect(init.method).toBe('DELETE');
+    expect(result).toEqual({ ok: true });
     await transport.shutdown();
   });
 });

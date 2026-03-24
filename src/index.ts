@@ -96,6 +96,8 @@ export type {
   CreateMonitorBody,
   UpdateMonitorBody,
   MonitorEvaluateResult,
+  MonitorSignal,
+  MonitorCompilePreview,
   // Eval types (remote)
   EvalSuiteRemote,
   CreateEvalSuiteBody,
@@ -119,9 +121,14 @@ export type {
   // Training types
   TrainingPair,
   CreateTrainingPairBody,
+  UpdateTrainingPairBody,
   TraceFlag,
   CreateTraceFlagBody,
+  UpdateTraceFlagBody,
   TraceFlagStats,
+  TraceFlagInvestigation,
+  TraceFlagRerunBody,
+  TraceFlagRerunResult,
   // Drift types
   DriftCatch,
   DriftComparison,

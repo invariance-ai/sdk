@@ -2,13 +2,13 @@ import type {
   Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms,
   AgentIdentity, MonitorTriggerEvent, NLQueryOptions, NLQueryResult, NLQueryScope,
   TraceQueryResult, ToolSchema, StatsResult, AgentNote,
-  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult,
+  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult, MonitorSignal, MonitorCompilePreview,
   EvalSuiteRemote, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCompareResult,
   EvalThreshold, CreateEvalThresholdBody, UpdateEvalThresholdBody,
   FailureCluster, CreateFailureClusterBody, UpdateFailureClusterBody, FailureClusterMember, AddFailureClusterMemberBody,
   OptimizationSuggestion, CreateOptimizationSuggestionBody, UpdateOptimizationSuggestionBody,
-  TrainingPair, CreateTrainingPairBody, TraceFlag, CreateTraceFlagBody, TraceFlagStats,
+  TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody, TraceFlag, CreateTraceFlagBody, UpdateTraceFlagBody, TraceFlagStats, TraceFlagInvestigation, TraceFlagRerunBody, TraceFlagRerunResult,
   DriftCatch, DriftComparison,
   TemplatePack, TemplateApplyResult,
   IdentityRecord,
@@ -898,6 +898,26 @@ export class Invariance {
     return this.transport.acknowledgeMonitorEvent(eventId);
   }
 
+  /** List monitor events */
+  async listMonitorEvents(opts?: { monitor_id?: string; limit?: number; after_id?: string; acknowledged?: boolean }): Promise<MonitorSignal[]> {
+    return this.transport.listMonitorEvents(opts);
+  }
+
+  /** Preview monitor compilation from natural language */
+  async compileMonitorPreview(rule: string): Promise<MonitorCompilePreview> {
+    return this.transport.compileMonitorPreview(rule);
+  }
+
+  /** List signals */
+  async listSignals(opts?: { monitor_id?: string; limit?: number; after_id?: string; acknowledged?: boolean }): Promise<MonitorSignal[]> {
+    return this.transport.listSignals(opts);
+  }
+
+  /** Acknowledge a signal */
+  async acknowledgeSignal(signalId: string): Promise<Record<string, unknown>> {
+    return this.transport.acknowledgeSignal(signalId);
+  }
+
   // ── Evals (Remote) ──
 
   /** List eval suites */
@@ -915,6 +935,16 @@ export class Invariance {
     return this.transport.getEvalSuite(id);
   }
 
+  /** Update an eval suite */
+  async updateEvalSuite(id: string, body: Partial<CreateEvalSuiteBody>): Promise<EvalSuiteRemote> {
+    return this.transport.updateEvalSuite(id, body);
+  }
+
+  /** Delete an eval suite */
+  async deleteEvalSuite(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteEvalSuite(id);
+  }
+
   /** List eval cases for a suite */
   async listEvalCases(suiteId: string): Promise<EvalCase[]> {
     return this.transport.listEvalCases(suiteId);
@@ -923,6 +953,16 @@ export class Invariance {
   /** Create an eval case */
   async createEvalCase(suiteId: string, body: CreateEvalCaseBody): Promise<EvalCase> {
     return this.transport.createEvalCase(suiteId, body);
+  }
+
+  /** Update an eval case */
+  async updateEvalCase(id: string, body: Partial<CreateEvalCaseBody>): Promise<EvalCase> {
+    return this.transport.updateEvalCase(id, body);
+  }
+
+  /** Delete an eval case */
+  async deleteEvalCase(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteEvalCase(id);
   }
 
   /** Run an eval suite */
@@ -1031,9 +1071,34 @@ export class Invariance {
     return this.transport.createTrainingPair(body);
   }
 
+  /** Get a training pair */
+  async getTrainingPair(id: string): Promise<TrainingPair> {
+    return this.transport.getTrainingPair(id);
+  }
+
+  /** Update a training pair */
+  async updateTrainingPair(id: string, body: UpdateTrainingPairBody): Promise<TrainingPair> {
+    return this.transport.updateTrainingPair(id, body);
+  }
+
+  /** Delete a training pair */
+  async deleteTrainingPair(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteTrainingPair(id);
+  }
+
   /** Create a trace flag */
   async createTraceFlag(body: CreateTraceFlagBody): Promise<TraceFlag> {
     return this.transport.createTraceFlag(body);
+  }
+
+  /** Update a trace flag */
+  async updateTraceFlag(id: string, body: UpdateTraceFlagBody): Promise<TraceFlag> {
+    return this.transport.updateTraceFlag(id, body);
+  }
+
+  /** Delete a trace flag */
+  async deleteTraceFlag(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteTraceFlag(id);
   }
 
   /** List trace flags */
@@ -1044,6 +1109,16 @@ export class Invariance {
   /** Get trace flag statistics */
   async getTraceFlagStats(): Promise<TraceFlagStats> {
     return this.transport.getTraceFlagStats();
+  }
+
+  /** Investigate a trace flag */
+  async investigateTraceFlag(id: string): Promise<TraceFlagInvestigation> {
+    return this.transport.investigateTraceFlag(id);
+  }
+
+  /** Rerun a trace flag through training/evals */
+  async rerunTraceFlag(id: string, body?: TraceFlagRerunBody): Promise<TraceFlagRerunResult> {
+    return this.transport.rerunTraceFlag(id, body);
   }
 
   // ── Drift ──

@@ -232,6 +232,13 @@ export interface MonitorTriggerEvent {
   created_at: string;
 }
 
+/** A signal surfaced from monitor events for dashboard and SDK consumers */
+export interface MonitorSignal extends MonitorTriggerEvent {
+  acknowledged: boolean;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+}
+
 /** Source reference in a natural language query response */
 export interface QuerySource {
   node_id: string;
@@ -351,6 +358,11 @@ export interface MonitorEvaluateResult {
   monitor_id: string;
   matches_found: number;
   matched_node_ids: string[];
+}
+
+/** Result of compiling a monitor rule preview */
+export interface MonitorCompilePreview {
+  compiled: Record<string, unknown>;
 }
 
 // ── Eval types (remote) ──
@@ -602,6 +614,15 @@ export interface CreateTrainingPairBody {
   source_sessions?: string[];
 }
 
+/** Body for updating a training pair */
+export interface UpdateTrainingPairBody {
+  status?: 'pending' | 'training' | 'completed' | 'failed';
+  progress?: number;
+  traces_shared?: number;
+  improvements?: Record<string, unknown> | unknown[];
+  source_sessions?: string[];
+}
+
 /** A flag on a trace node for training feedback */
 export interface TraceFlag {
   id: string;
@@ -622,6 +643,12 @@ export interface CreateTraceFlagBody {
   notes?: string;
 }
 
+/** Body for updating a trace flag */
+export interface UpdateTraceFlagBody {
+  flag?: 'good' | 'bad' | 'needs_review';
+  notes?: string | null;
+}
+
 /** Aggregated trace flag statistics */
 export interface TraceFlagStats {
   total: number;
@@ -629,6 +656,40 @@ export interface TraceFlagStats {
   bad: number;
   needs_review: number;
   by_agent: Record<string, { good: number; bad: number; needs_review: number }>;
+}
+
+/** Root-cause investigation synthesized for a trace flag */
+export interface TraceFlagInvestigation {
+  flag_id: string;
+  trace_node_id: string;
+  session_id: string;
+  agent_id: string;
+  root_cause: string;
+  suggestion: string;
+  new_prompt: string;
+  recommended_suite_id: string | null;
+}
+
+/** Body for rerunning a flagged trace via training/evals */
+export interface TraceFlagRerunBody {
+  version_label?: string;
+  suite_id?: string;
+  new_prompt?: string;
+}
+
+/** Result of rerunning a flagged trace */
+export interface TraceFlagRerunResult {
+  training_pair: TrainingPair;
+  investigation: TraceFlagInvestigation;
+  run: EvalRun | null;
+  baseline_run: EvalRun | null;
+  summary: {
+    passed: boolean;
+    score: number | null;
+    version: string;
+    baseline_score?: number | null;
+    warning?: string;
+  };
 }
 
 // ── Drift types ──

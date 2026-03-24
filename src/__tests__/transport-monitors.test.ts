@@ -164,3 +164,68 @@ describe('acknowledgeMonitorEvent', () => {
     await transport.shutdown();
   });
 });
+
+describe('listMonitorEvents', () => {
+  it('sends GET /v1/monitors/events with filters and unwraps events', async () => {
+    const payload = { events: [{ event_id: 'e1', monitor_id: 'm1' }] };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(payload));
+    const { transport } = makeTransport();
+
+    const result = await transport.listMonitorEvents({ monitor_id: 'm1', limit: 10, acknowledged: false });
+
+    const [, , path] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toContain('/v1/monitors/events');
+    expect(path).toContain('monitor_id=m1');
+    expect(path).toContain('limit=10');
+    expect(path).toContain('acknowledged=false');
+    expect(result).toEqual(payload.events);
+    await transport.shutdown();
+  });
+});
+
+describe('compileMonitorPreview', () => {
+  it('sends POST /v1/monitors/compile-preview', async () => {
+    const compiled = { compiled: { type: 'simple', field: 'anomaly_score' } };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(compiled));
+    const { transport } = makeTransport();
+
+    const result = await transport.compileMonitorPreview('anomaly score above 0.7');
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/monitors/compile-preview');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ rule: 'anomaly score above 0.7' });
+    expect(result).toEqual(compiled);
+    await transport.shutdown();
+  });
+});
+
+describe('signals', () => {
+  it('lists signals through /v1/signals', async () => {
+    const payload = { signals: [{ event_id: 'e1', monitor_id: 'm1' }] };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(payload));
+    const { transport } = makeTransport();
+
+    const result = await transport.listSignals({ acknowledged: true });
+
+    const [, , path] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toContain('/v1/signals');
+    expect(path).toContain('acknowledged=true');
+    expect(result).toEqual(payload.signals);
+    await transport.shutdown();
+  });
+
+  it('acknowledges a signal through /v1/signals/:id/acknowledge', async () => {
+    const acked = { id: 'e1', acknowledged: true };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(acked));
+    const { transport } = makeTransport();
+
+    const result = await transport.acknowledgeSignal('e1');
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/signals/e1/acknowledge');
+    expect(init.method).toBe('PATCH');
+    expect(result).toEqual(acked);
+    await transport.shutdown();
+  });
+});

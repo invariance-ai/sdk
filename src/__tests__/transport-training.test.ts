@@ -87,6 +87,49 @@ describe('createTrainingPair', () => {
   });
 });
 
+describe('training pair CRUD', () => {
+  it('gets a training pair', async () => {
+    const pair = { id: 'tp1', source_agent: 'a1', student_agent: 'a2', status: 'pending' };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(pair));
+    const { transport } = makeTransport();
+
+    const result = await transport.getTrainingPair('tp1');
+
+    const [, , path] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/training/pairs/tp1');
+    expect(result).toEqual(pair);
+    await transport.shutdown();
+  });
+
+  it('updates a training pair', async () => {
+    const pair = { id: 'tp1', status: 'completed' };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(pair));
+    const { transport } = makeTransport();
+
+    const result = await transport.updateTrainingPair('tp1', { status: 'completed', progress: 100 });
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/training/pairs/tp1');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body)).toEqual({ status: 'completed', progress: 100 });
+    expect(result).toEqual(pair);
+    await transport.shutdown();
+  });
+
+  it('deletes a training pair', async () => {
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse({ ok: true }));
+    const { transport } = makeTransport();
+
+    const result = await transport.deleteTrainingPair('tp1');
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/training/pairs/tp1');
+    expect(init.method).toBe('DELETE');
+    expect(result).toEqual({ ok: true });
+    await transport.shutdown();
+  });
+});
+
 // ── Trace Flags ──
 
 describe('createTraceFlag', () => {
@@ -134,6 +177,36 @@ describe('listTraceFlags', () => {
   });
 });
 
+describe('trace flag mutations', () => {
+  it('updates a trace flag', async () => {
+    const updated = { id: 'f1', flag: 'needs_review' };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(updated));
+    const { transport } = makeTransport();
+
+    const result = await transport.updateTraceFlag('f1', { flag: 'needs_review', notes: 'double check' });
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/training/flags/f1');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body)).toEqual({ flag: 'needs_review', notes: 'double check' });
+    expect(result).toEqual(updated);
+    await transport.shutdown();
+  });
+
+  it('deletes a trace flag', async () => {
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse({ ok: true }));
+    const { transport } = makeTransport();
+
+    const result = await transport.deleteTraceFlag('f1');
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/training/flags/f1');
+    expect(init.method).toBe('DELETE');
+    expect(result).toEqual({ ok: true });
+    await transport.shutdown();
+  });
+});
+
 describe('getTraceFlagStats', () => {
   it('sends GET /v1/training/flags/stats', async () => {
     const stats = { total: 10, good: 5, bad: 3, needs_review: 2, by_agent: {} };
@@ -153,6 +226,37 @@ describe('getTraceFlagStats', () => {
     const { transport } = makeTransport();
 
     await expect(transport.getTraceFlagStats()).rejects.toThrow('500');
+    await transport.shutdown();
+  });
+});
+
+describe('trace flag training actions', () => {
+  it('investigates a trace flag', async () => {
+    const investigation = { flag_id: 'f1', root_cause: 'Drift', suggestion: 'Tighten prompt', new_prompt: '...', recommended_suite_id: 's1' };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(investigation));
+    const { transport } = makeTransport();
+
+    const result = await transport.investigateTraceFlag('f1');
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/training/flags/f1/investigate');
+    expect(init.method).toBe('POST');
+    expect(result).toEqual(investigation);
+    await transport.shutdown();
+  });
+
+  it('reruns a trace flag', async () => {
+    const rerun = { training_pair: { id: 'tp1' }, investigation: { flag_id: 'f1' }, run: { id: 'r1' }, baseline_run: null, summary: { passed: true, score: 1, version: 'prompt-v2' } };
+    mockFetchWithAuth.mockResolvedValueOnce(okResponse(rerun));
+    const { transport } = makeTransport();
+
+    const result = await transport.rerunTraceFlag('f1', { version_label: 'prompt-v2' });
+
+    const [, , path, init] = mockFetchWithAuth.mock.calls[0];
+    expect(path).toBe('/v1/training/flags/f1/rerun');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ version_label: 'prompt-v2' });
+    expect(result).toEqual(rerun);
     await transport.shutdown();
   });
 });

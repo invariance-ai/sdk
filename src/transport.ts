@@ -1,13 +1,13 @@
 import type {
   Receipt, ReceiptQuery, SessionInfo, ErrorHandler, MonitorTriggerEvent,
   TraceQueryResult, ToolSchema, StatsResult, AgentNote,
-  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult,
+  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult, MonitorSignal, MonitorCompilePreview,
   EvalSuiteRemote, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCompareResult,
   EvalThreshold, CreateEvalThresholdBody, UpdateEvalThresholdBody,
   FailureCluster, CreateFailureClusterBody, UpdateFailureClusterBody, FailureClusterMember, AddFailureClusterMemberBody,
   OptimizationSuggestion, CreateOptimizationSuggestionBody, UpdateOptimizationSuggestionBody,
-  TrainingPair, CreateTrainingPairBody, TraceFlag, CreateTraceFlagBody, TraceFlagStats,
+  TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody, TraceFlag, CreateTraceFlagBody, UpdateTraceFlagBody, TraceFlagStats, TraceFlagInvestigation, TraceFlagRerunBody, TraceFlagRerunResult,
   DriftCatch, DriftComparison,
   TemplatePack, TemplateApplyResult,
   IdentityRecord,
@@ -776,6 +776,59 @@ export class Transport {
     return await res.json() as Record<string, unknown>;
   }
 
+  /** List monitor events for dashboard and automation consumers */
+  async listMonitorEvents(opts?: { monitor_id?: string; limit?: number; after_id?: string; acknowledged?: boolean }): Promise<MonitorSignal[]> {
+    const params = new URLSearchParams();
+    if (opts?.monitor_id) params.set('monitor_id', opts.monitor_id);
+    if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+    if (opts?.after_id) params.set('after_id', opts.after_id);
+    if (opts?.acknowledged !== undefined) params.set('acknowledged', String(opts.acknowledged));
+    const qs = params.toString();
+    const path = qs ? `/v1/monitors/events?${qs}` : '/v1/monitors/events';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    const payload = await res.json() as { events?: MonitorSignal[] };
+    return payload.events ?? [];
+  }
+
+  /** Compile a monitor rule preview from natural language */
+  async compileMonitorPreview(rule: string): Promise<MonitorCompilePreview> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/monitors/compile-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rule }),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/monitors/compile-preview returned ${res.status}`);
+    return await res.json() as MonitorCompilePreview;
+  }
+
+  /** List signals through the clean dashboard-oriented alias */
+  async listSignals(opts?: { monitor_id?: string; limit?: number; after_id?: string; acknowledged?: boolean }): Promise<MonitorSignal[]> {
+    const params = new URLSearchParams();
+    if (opts?.monitor_id) params.set('monitor_id', opts.monitor_id);
+    if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+    if (opts?.after_id) params.set('after_id', opts.after_id);
+    if (opts?.acknowledged !== undefined) params.set('acknowledged', String(opts.acknowledged));
+    const qs = params.toString();
+    const path = qs ? `/v1/signals?${qs}` : '/v1/signals';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    const payload = await res.json() as { signals?: MonitorSignal[] };
+    return payload.signals ?? [];
+  }
+
+  /** Acknowledge a signal through the signal alias */
+  async acknowledgeSignal(signalId: string): Promise<Record<string, unknown>> {
+    const encodedId = encodeURIComponent(signalId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/signals/${encodedId}/acknowledge`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/signals/${encodedId}/acknowledge returned ${res.status}`);
+    return await res.json() as Record<string, unknown>;
+  }
+
   // ── Evals ──
 
   /** List eval suites */
@@ -808,6 +861,28 @@ export class Transport {
     return await res.json() as EvalSuiteRemote;
   }
 
+  /** Update an eval suite */
+  async updateEvalSuite(id: string, body: Partial<CreateEvalSuiteBody>): Promise<EvalSuiteRemote> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/suites/${encodedId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/evals/suites/${encodedId} returned ${res.status}`);
+    return await res.json() as EvalSuiteRemote;
+  }
+
+  /** Delete an eval suite */
+  async deleteEvalSuite(id: string): Promise<{ ok: boolean }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/suites/${encodedId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `DELETE /v1/evals/suites/${encodedId} returned ${res.status}`);
+    return await res.json() as { ok: boolean };
+  }
+
   /** List eval cases for a suite */
   async listEvalCases(suiteId: string): Promise<EvalCase[]> {
     const encodedId = encodeURIComponent(suiteId);
@@ -826,6 +901,28 @@ export class Transport {
     });
     if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/evals/suites/${encodedId}/cases returned ${res.status}`);
     return await res.json() as EvalCase;
+  }
+
+  /** Update an eval case */
+  async updateEvalCase(id: string, body: Partial<CreateEvalCaseBody>): Promise<EvalCase> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/cases/${encodedId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/evals/cases/${encodedId} returned ${res.status}`);
+    return await res.json() as EvalCase;
+  }
+
+  /** Delete an eval case */
+  async deleteEvalCase(id: string): Promise<{ ok: boolean }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/cases/${encodedId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `DELETE /v1/evals/cases/${encodedId} returned ${res.status}`);
+    return await res.json() as { ok: boolean };
   }
 
   /** Trigger an eval run for a suite */
@@ -1056,6 +1153,36 @@ export class Transport {
     return await res.json() as TrainingPair;
   }
 
+  /** Get a training pair */
+  async getTrainingPair(id: string): Promise<TrainingPair> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/training/pairs/${encodedId}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/training/pairs/${encodedId} returned ${res.status}`);
+    return await res.json() as TrainingPair;
+  }
+
+  /** Update a training pair */
+  async updateTrainingPair(id: string, body: UpdateTrainingPairBody): Promise<TrainingPair> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/training/pairs/${encodedId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/training/pairs/${encodedId} returned ${res.status}`);
+    return await res.json() as TrainingPair;
+  }
+
+  /** Delete a training pair */
+  async deleteTrainingPair(id: string): Promise<{ ok: boolean }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/training/pairs/${encodedId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `DELETE /v1/training/pairs/${encodedId} returned ${res.status}`);
+    return await res.json() as { ok: boolean };
+  }
+
   /** Create a trace flag for training feedback */
   async createTraceFlag(body: CreateTraceFlagBody): Promise<TraceFlag> {
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/training/flags', {
@@ -1065,6 +1192,28 @@ export class Transport {
     });
     if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/training/flags returned ${res.status}`);
     return await res.json() as TraceFlag;
+  }
+
+  /** Update a trace flag */
+  async updateTraceFlag(id: string, body: UpdateTraceFlagBody): Promise<TraceFlag> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/training/flags/${encodedId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/training/flags/${encodedId} returned ${res.status}`);
+    return await res.json() as TraceFlag;
+  }
+
+  /** Delete a trace flag */
+  async deleteTraceFlag(id: string): Promise<{ ok: boolean }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/training/flags/${encodedId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `DELETE /v1/training/flags/${encodedId} returned ${res.status}`);
+    return await res.json() as { ok: boolean };
   }
 
   /** List trace flags */
@@ -1087,6 +1236,30 @@ export class Transport {
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/training/flags/stats');
     if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/training/flags/stats returned ${res.status}`);
     return await res.json() as TraceFlagStats;
+  }
+
+  /** Investigate a trace flag and get a remediation suggestion */
+  async investigateTraceFlag(id: string): Promise<TraceFlagInvestigation> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/training/flags/${encodedId}/investigate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/training/flags/${encodedId}/investigate returned ${res.status}`);
+    return await res.json() as TraceFlagInvestigation;
+  }
+
+  /** Rerun a trace flag through the training/eval loop */
+  async rerunTraceFlag(id: string, body?: TraceFlagRerunBody): Promise<TraceFlagRerunResult> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/training/flags/${encodedId}/rerun`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/training/flags/${encodedId}/rerun returned ${res.status}`);
+    return await res.json() as TraceFlagRerunResult;
   }
 
   // ── Drift ──
