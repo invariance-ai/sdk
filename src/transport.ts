@@ -1,6 +1,8 @@
 import type {
-  Receipt, ReceiptQuery, SessionInfo, ErrorHandler, MonitorTriggerEvent,
+  Receipt, ReceiptQuery, SessionInfo, ErrorHandler, MonitorTriggerEvent, VerifyResult,
   TraceQueryResult, ToolSchema, StatsResult, AgentNote,
+  RemoteSession, AgentRecord, AgentActionTemplate, AgentActionPolicy,
+  ApiKeyRecord, CreateApiKeyBody, UsageEvent, UsageQuery, ApiDocs,
   Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult, MonitorSignal, MonitorCompilePreview,
   EvalSuiteRemote, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCompareResult,
@@ -295,6 +297,45 @@ export class Transport {
     return data as unknown as SessionInfo;
   }
 
+  /** List backend sessions visible to the current API key. */
+  async listSessions(opts?: { status?: string; limit?: number; offset?: number }): Promise<RemoteSession[]> {
+    const params = new URLSearchParams();
+    if (opts?.status) params.set('status', opts.status);
+    if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+    if (opts?.offset !== undefined) params.set('offset', String(opts.offset));
+    const qs = params.toString();
+    const path = qs ? `/v1/sessions?${qs}` : '/v1/sessions';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    }
+
+    const data = await res.json() as Array<Record<string, unknown>>;
+    return data.map((session) => {
+      const normalized = { ...session };
+      if (normalized.receipt_count !== undefined && normalized.receiptCount === undefined) {
+        normalized.receiptCount = normalized.receipt_count;
+      }
+      if (normalized.created_by !== undefined && normalized.agent === undefined) {
+        normalized.agent = normalized.created_by;
+      }
+      return normalized as unknown as RemoteSession;
+    });
+  }
+
+  /** Verify a backend session's receipt chain. */
+  async verifySession(sessionId: string): Promise<VerifyResult> {
+    const encodedSessionId = encodeURIComponent(sessionId);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/sessions/${encodedSessionId}/verify`);
+
+    if (!res.ok) {
+      throw new InvarianceError('API_ERROR', `GET /v1/sessions/${encodedSessionId}/verify returned ${res.status}`);
+    }
+
+    return await res.json() as VerifyResult;
+  }
+
   async createSession(session: { id: string; name: string; agent: string }): Promise<void> {
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/sessions', {
       method: 'POST',
@@ -507,6 +548,67 @@ export class Transport {
     return await res.json() as Record<string, unknown>[];
   }
 
+  // -- Agent admin endpoints --
+
+  async listAgents(): Promise<AgentRecord[]> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/agents');
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/agents returned ${res.status}`);
+    return await res.json() as AgentRecord[];
+  }
+
+  async createAgent(name: string): Promise<AgentRecord> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/agents returned ${res.status}`);
+    return await res.json() as AgentRecord;
+  }
+
+  async getAgent(id: string): Promise<AgentRecord> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/agents/${encodedId}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/agents/${encodedId} returned ${res.status}`);
+    return await res.json() as AgentRecord;
+  }
+
+  async getAgentTemplates(id: string): Promise<AgentActionTemplate[]> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/agents/${encodedId}/templates`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/agents/${encodedId}/templates returned ${res.status}`);
+    return await res.json() as AgentActionTemplate[];
+  }
+
+  async upsertAgentTemplates(id: string, templates: AgentActionTemplate[]): Promise<{ updated: number }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/agents/${encodedId}/templates`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templates }),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PUT /v1/agents/${encodedId}/templates returned ${res.status}`);
+    return await res.json() as { updated: number };
+  }
+
+  async getAgentPolicies(id: string): Promise<AgentActionPolicy[]> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/agents/${encodedId}/policies`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/agents/${encodedId}/policies returned ${res.status}`);
+    return await res.json() as AgentActionPolicy[];
+  }
+
+  async upsertAgentPolicies(id: string, policies: AgentActionPolicy[]): Promise<{ updated: number }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/agents/${encodedId}/policies`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policies }),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PUT /v1/agents/${encodedId}/policies returned ${res.status}`);
+    return await res.json() as { updated: number };
+  }
+
   // -- Identity endpoints --
 
   async signup(body: { email: string; name: string; handle: string }): Promise<{
@@ -551,6 +653,52 @@ export class Transport {
     const res = await fetch(`${this.apiUrl}/v1/identity/agents/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`);
     if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/agents/${owner}/${name} returned ${res.status}`);
     return res.json() as Promise<{ owner: string; name: string; public_key: string; created_at: string }>;
+  }
+
+  // -- Developer endpoints --
+
+  async getDocs(): Promise<ApiDocs> {
+    const res = await fetch(`${this.apiUrl.replace(/\/+$/, '')}/v1/docs`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/docs returned ${res.status}`);
+    return await res.json() as ApiDocs;
+  }
+
+  async listApiKeys(authToken: string): Promise<ApiKeyRecord[]> {
+    const res = await fetchWithAuth(this.apiUrl, authToken, '/v1/api-keys');
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/api-keys returned ${res.status}`);
+    return await res.json() as ApiKeyRecord[];
+  }
+
+  async createApiKey(authToken: string, body?: CreateApiKeyBody): Promise<ApiKeyRecord> {
+    const res = await fetchWithAuth(this.apiUrl, authToken, '/v1/api-keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/api-keys returned ${res.status}`);
+    return await res.json() as ApiKeyRecord;
+  }
+
+  async revokeApiKey(authToken: string, id: string): Promise<{ revoked: boolean }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, authToken, `/v1/api-keys/${encodedId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `DELETE /v1/api-keys/${encodedId} returned ${res.status}`);
+    return await res.json() as { revoked: boolean };
+  }
+
+  async getUsage(opts?: UsageQuery): Promise<UsageEvent[]> {
+    const params = new URLSearchParams();
+    if (opts?.event_type) params.set('event_type', opts.event_type);
+    if (opts?.from) params.set('from', opts.from);
+    if (opts?.to) params.set('to', opts.to);
+    if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    const path = qs ? `/v1/usage?${qs}` : '/v1/usage';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as UsageEvent[];
   }
 
   /** Poll monitor events from the backend */

@@ -1,7 +1,9 @@
 import type {
   Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms,
   AgentIdentity, MonitorTriggerEvent, NLQueryOptions, NLQueryResult, NLQueryScope,
-  TraceQueryResult, ToolSchema, StatsResult, AgentNote,
+  TraceQueryResult, ToolSchema, StatsResult, AgentNote, VerifyResult,
+  RemoteSession, AgentRecord, AgentActionTemplate, AgentActionPolicy,
+  ApiKeyRecord, CreateApiKeyBody, UsageEvent, UsageQuery, ApiDocs,
   Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult, MonitorSignal, MonitorCompilePreview,
   EvalSuiteRemote, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCompareResult,
@@ -267,6 +269,76 @@ export class Invariance {
       },
       this.config.onError,
     );
+  }
+
+  /** List backend sessions visible to the current API key. */
+  async listSessions(opts?: { status?: string; limit?: number; offset?: number }): Promise<RemoteSession[]> {
+    return this.transport.listSessions(opts);
+  }
+
+  /** Verify a backend session's receipt chain. */
+  async verifySession(sessionId: string): Promise<VerifyResult> {
+    return this.transport.verifySession(sessionId) as Promise<VerifyResult>;
+  }
+
+  /** List registered agents. Typically used with an admin key. */
+  async listAgents(): Promise<AgentRecord[]> {
+    return this.transport.listAgents();
+  }
+
+  /** Create a new backend agent. Typically used with an admin key. */
+  async createAgent(name: string): Promise<AgentRecord> {
+    return this.transport.createAgent(name);
+  }
+
+  /** Get a single agent by ID. */
+  async getAgent(id: string): Promise<AgentRecord> {
+    return this.transport.getAgent(id);
+  }
+
+  /** Get action templates for an agent. */
+  async getAgentTemplates(id: string): Promise<AgentActionTemplate[]> {
+    return this.transport.getAgentTemplates(id);
+  }
+
+  /** Upsert action templates for an agent. */
+  async upsertAgentTemplates(id: string, templates: AgentActionTemplate[]): Promise<{ updated: number }> {
+    return this.transport.upsertAgentTemplates(id, templates);
+  }
+
+  /** Get allow/deny action policies for an agent. */
+  async getAgentPolicies(id: string): Promise<AgentActionPolicy[]> {
+    return this.transport.getAgentPolicies(id);
+  }
+
+  /** Upsert allow/deny action policies for an agent. */
+  async upsertAgentPolicies(id: string, policies: AgentActionPolicy[]): Promise<{ updated: number }> {
+    return this.transport.upsertAgentPolicies(id, policies);
+  }
+
+  /** Fetch structured API docs from the backend. */
+  async getDocs(): Promise<ApiDocs> {
+    return this.transport.getDocs();
+  }
+
+  /** List scoped API keys using a Supabase Auth bearer token. */
+  async listApiKeys(authToken: string): Promise<ApiKeyRecord[]> {
+    return this.transport.listApiKeys(authToken);
+  }
+
+  /** Create a scoped API key using a Supabase Auth bearer token. */
+  async createApiKey(authToken: string, body?: CreateApiKeyBody): Promise<ApiKeyRecord> {
+    return this.transport.createApiKey(authToken, body);
+  }
+
+  /** Revoke a scoped API key using a Supabase Auth bearer token. */
+  async revokeApiKey(authToken: string, id: string): Promise<{ revoked: boolean }> {
+    return this.transport.revokeApiKey(authToken, id);
+  }
+
+  /** Query developer or org usage events with the configured API key. */
+  async getUsage(opts?: UsageQuery): Promise<UsageEvent[]> {
+    return this.transport.getUsage(opts);
   }
 
   /**

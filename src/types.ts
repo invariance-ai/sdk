@@ -57,6 +57,42 @@ export interface ActionTemplate {
   outputSchema?: Record<string, unknown>;
 }
 
+/** An agent record returned by the admin agent APIs. */
+export interface AgentRecord {
+  id: string;
+  name: string;
+  api_key?: string;
+  public_key: string;
+  private_key?: string;
+  created_at?: string;
+}
+
+/** An action template stored for a backend agent. */
+export interface AgentActionTemplate {
+  id?: string;
+  agent_id?: string;
+  action: string;
+  label: string;
+  category?: string;
+  icon?: string | null;
+  highlights?: string[];
+  input_schema?: Record<string, unknown> | null;
+  output_schema?: Record<string, unknown> | null;
+  description?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** An allow/deny action policy stored for a backend agent. */
+export interface AgentActionPolicy {
+  id?: string;
+  agent_id?: string;
+  action: string;
+  effect: 'allow' | 'deny';
+  created_at?: string;
+  updated_at?: string;
+}
+
 /** An action performed by an agent */
 export interface Action {
   /** Agent identifier (defaults to session agent if omitted) */
@@ -119,6 +155,15 @@ export interface SessionInfo {
   status: 'open' | 'closed' | 'tampered';
   /** Number of receipts in this session */
   receiptCount: number;
+}
+
+/** A session record returned by the backend session APIs. */
+export interface RemoteSession extends SessionInfo {
+  created_by: string;
+  created_at: string;
+  closed_at?: string | null;
+  close_hash?: string | null;
+  receipt_count?: number;
 }
 
 /** A policy rule that constrains agent actions */
@@ -313,6 +358,60 @@ export interface AgentNote {
   node_id?: string;
   expires_at?: string;
   created_at: string;
+}
+
+/** A scoped API key issued from /v1/api-keys. */
+export interface ApiKeyRecord {
+  id: string;
+  name: string;
+  key: string;
+  scopes: string[];
+  created_at: string;
+  revoked_at?: string | null;
+}
+
+/** Body for creating a scoped API key. */
+export interface CreateApiKeyBody {
+  name?: string;
+  scopes?: string[];
+}
+
+/** A usage event returned from /v1/usage. */
+export interface UsageEvent {
+  id: string;
+  developer_id: string;
+  org_id: string | null;
+  event_type: string;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+  agent_identity?: string | null;
+}
+
+/** Filters for querying usage events. */
+export interface UsageQuery {
+  event_type?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
+/** Minimal structured API docs payload returned by /v1/docs. */
+export interface ApiDocs {
+  version: string;
+  baseUrl: string;
+  websiteDocs: string;
+  sdkPackage: string;
+  endpoints: Array<{
+    method: string;
+    path: string;
+    auth?: string;
+    description?: string;
+  }>;
+  sdkMethods?: Array<{
+    method: string;
+    description?: string;
+  }>;
+  [key: string]: unknown;
 }
 
 // ── Monitor types ──
