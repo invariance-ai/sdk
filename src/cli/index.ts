@@ -12,6 +12,12 @@ import {
   renderEvalSuites,
   renderEvalRun,
   renderEvalCompare,
+  renderEvalThresholds,
+  renderEvalThreshold,
+  renderFailureClusters,
+  renderFailureCluster,
+  renderOptimizationSuggestions,
+  renderOptimizationSuggestion,
   renderDriftCatches,
   renderDriftComparison,
   renderTraceFlags,
@@ -190,6 +196,206 @@ evals
     const client = getClient();
     const result = await client.compareEvalRuns(suiteId, runA, runB);
     renderEvalCompare(result);
+  }));
+
+evals
+  .command('thresholds')
+  .description('List eval thresholds')
+  .option('--suite-id <id>', 'Filter by suite ID')
+  .option('--metric <metric>', 'Filter by metric (pass_rate, avg_score)')
+  .action(withErrorHandling(async (opts) => {
+    const client = getClient();
+    const thresholds = await client.listEvalThresholds({ suiteId: opts.suiteId, metric: opts.metric });
+    renderEvalThresholds(thresholds);
+  }));
+
+evals
+  .command('threshold-create')
+  .description('Create an eval threshold')
+  .requiredOption('--suite-id <id>', 'Eval suite ID')
+  .requiredOption('--min-value <value>', 'Minimum allowed metric value', parseFloat)
+  .option('--metric <metric>', 'Metric (pass_rate, avg_score)')
+  .option('--webhook-url <url>', 'Webhook to call on threshold failure')
+  .action(withErrorHandling(async (opts) => {
+    const client = getClient();
+    const threshold = await client.createEvalThreshold({
+      suite_id: opts.suiteId,
+      min_value: opts.minValue,
+      metric: opts.metric,
+      webhook_url: opts.webhookUrl,
+    });
+    renderEvalThreshold(threshold, 'Created');
+  }));
+
+evals
+  .command('threshold-update <id>')
+  .description('Update an eval threshold')
+  .option('--min-value <value>', 'New minimum value', parseFloat)
+  .option('--metric <metric>', 'Metric (pass_rate, avg_score)')
+  .option('--status <status>', 'Status (active, paused)')
+  .option('--webhook-url <url>', 'Webhook URL')
+  .action(withErrorHandling(async (id, opts) => {
+    const client = getClient();
+    const threshold = await client.updateEvalThreshold(id, {
+      min_value: opts.minValue,
+      metric: opts.metric,
+      status: opts.status,
+      webhook_url: opts.webhookUrl,
+    });
+    renderEvalThreshold(threshold, 'Updated');
+  }));
+
+evals
+  .command('threshold-delete <id>')
+  .description('Delete an eval threshold')
+  .action(withErrorHandling(async (id) => {
+    const client = getClient();
+    await client.deleteEvalThreshold(id);
+    console.log(`Deleted threshold ${id}`);
+  }));
+
+evals
+  .command('clusters')
+  .description('List failure clusters')
+  .option('--agent-id <id>', 'Filter by agent ID')
+  .option('--status <status>', 'Filter by status')
+  .option('--cluster-type <type>', 'Filter by cluster type')
+  .action(withErrorHandling(async (opts) => {
+    const client = getClient();
+    const clusters = await client.listFailureClusters({
+      agentId: opts.agentId,
+      status: opts.status,
+      clusterType: opts.clusterType,
+    });
+    renderFailureClusters(clusters);
+  }));
+
+evals
+  .command('cluster-create')
+  .description('Create a failure cluster')
+  .requiredOption('--agent-id <id>', 'Agent ID')
+  .requiredOption('--cluster-type <type>', 'Cluster type')
+  .requiredOption('--label <label>', 'Cluster label')
+  .option('--description <text>', 'Cluster description')
+  .option('--severity <sev>', 'Severity (low, medium, high, critical)')
+  .action(withErrorHandling(async (opts) => {
+    const client = getClient();
+    const cluster = await client.createFailureCluster({
+      agent_id: opts.agentId,
+      cluster_type: opts.clusterType,
+      label: opts.label,
+      description: opts.description,
+      severity: opts.severity,
+    });
+    renderFailureCluster(cluster, 'Created');
+  }));
+
+evals
+  .command('cluster-update <id>')
+  .description('Update a failure cluster')
+  .option('--status <status>', 'Status (open, acknowledged, resolved)')
+  .option('--label <label>', 'Cluster label')
+  .option('--description <text>', 'Cluster description')
+  .option('--severity <sev>', 'Severity')
+  .option('--resolution-notes <text>', 'Resolution notes')
+  .action(withErrorHandling(async (id, opts) => {
+    const client = getClient();
+    const cluster = await client.updateFailureCluster(id, {
+      status: opts.status,
+      label: opts.label,
+      description: opts.description,
+      severity: opts.severity,
+      resolution_notes: opts.resolutionNotes,
+    });
+    renderFailureCluster(cluster, 'Updated');
+  }));
+
+evals
+  .command('cluster-add-member <id>')
+  .description('Add a trace node to a failure cluster')
+  .requiredOption('--trace-node-id <id>', 'Trace node ID')
+  .requiredOption('--session-id <id>', 'Session ID')
+  .action(withErrorHandling(async (id, opts) => {
+    const client = getClient();
+    const member = await client.addFailureClusterMember(id, {
+      trace_node_id: opts.traceNodeId,
+      session_id: opts.sessionId,
+    });
+    console.log(`Added ${member.trace_node_id} to cluster ${id}`);
+  }));
+
+evals
+  .command('cluster-delete <id>')
+  .description('Delete a failure cluster')
+  .action(withErrorHandling(async (id) => {
+    const client = getClient();
+    await client.deleteFailureCluster(id);
+    console.log(`Deleted cluster ${id}`);
+  }));
+
+evals
+  .command('suggestions')
+  .description('List optimization suggestions')
+  .option('--agent-id <id>', 'Filter by agent ID')
+  .option('--status <status>', 'Filter by status')
+  .option('--suggestion-type <type>', 'Filter by suggestion type')
+  .action(withErrorHandling(async (opts) => {
+    const client = getClient();
+    const suggestions = await client.listOptimizationSuggestions({
+      agentId: opts.agentId,
+      status: opts.status,
+      suggestionType: opts.suggestionType,
+    });
+    renderOptimizationSuggestions(suggestions);
+  }));
+
+evals
+  .command('suggestion-create')
+  .description('Create an optimization suggestion')
+  .requiredOption('--agent-id <id>', 'Agent ID')
+  .requiredOption('--suggestion-type <type>', 'Suggestion type')
+  .requiredOption('--title <title>', 'Suggestion title')
+  .requiredOption('--description <text>', 'Suggestion description')
+  .option('--cluster-id <id>', 'Related cluster ID')
+  .option('--confidence <value>', 'Confidence score', parseFloat)
+  .action(withErrorHandling(async (opts) => {
+    const client = getClient();
+    const suggestion = await client.createOptimizationSuggestion({
+      agent_id: opts.agentId,
+      suggestion_type: opts.suggestionType,
+      title: opts.title,
+      description: opts.description,
+      cluster_id: opts.clusterId,
+      confidence: opts.confidence,
+    });
+    renderOptimizationSuggestion(suggestion, 'Created');
+  }));
+
+evals
+  .command('suggestion-update <id>')
+  .description('Update an optimization suggestion')
+  .option('--status <status>', 'Status (pending, accepted, rejected, implemented)')
+  .option('--title <title>', 'Suggestion title')
+  .option('--description <text>', 'Suggestion description')
+  .option('--confidence <value>', 'Confidence score', parseFloat)
+  .action(withErrorHandling(async (id, opts) => {
+    const client = getClient();
+    const suggestion = await client.updateOptimizationSuggestion(id, {
+      status: opts.status,
+      title: opts.title,
+      description: opts.description,
+      confidence: opts.confidence,
+    });
+    renderOptimizationSuggestion(suggestion, 'Updated');
+  }));
+
+evals
+  .command('suggestion-delete <id>')
+  .description('Delete an optimization suggestion')
+  .action(withErrorHandling(async (id) => {
+    const client = getClient();
+    await client.deleteOptimizationSuggestion(id);
+    console.log(`Deleted suggestion ${id}`);
   }));
 
 // ── Drift ──

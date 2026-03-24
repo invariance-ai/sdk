@@ -5,6 +5,9 @@ import type {
   Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult,
   EvalSuiteRemote, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCompareResult,
+  EvalThreshold, CreateEvalThresholdBody, UpdateEvalThresholdBody,
+  FailureCluster, CreateFailureClusterBody, UpdateFailureClusterBody, FailureClusterMember, AddFailureClusterMemberBody,
+  OptimizationSuggestion, CreateOptimizationSuggestionBody, UpdateOptimizationSuggestionBody,
   TrainingPair, CreateTrainingPairBody, TraceFlag, CreateTraceFlagBody, TraceFlagStats,
   DriftCatch, DriftComparison,
   TemplatePack, TemplateApplyResult,
@@ -940,6 +943,80 @@ export class Invariance {
   /** Compare two eval runs */
   async compareEvalRuns(suiteId: string, runA: string, runB: string): Promise<EvalCompareResult> {
     return this.transport.compareEvalRuns(suiteId, runA, runB);
+  }
+
+  /** List eval thresholds */
+  async listEvalThresholds(opts?: { suite_id?: string; metric?: string }): Promise<EvalThreshold[]> {
+    return this.transport.listEvalThresholds(opts);
+  }
+
+  /** Create an eval threshold */
+  async createEvalThreshold(body: CreateEvalThresholdBody): Promise<EvalThreshold> {
+    return this.transport.createEvalThreshold(body);
+  }
+
+  /** Update an eval threshold */
+  async updateEvalThreshold(id: string, body: UpdateEvalThresholdBody): Promise<EvalThreshold> {
+    return this.transport.updateEvalThreshold(id, body);
+  }
+
+  /** Delete an eval threshold */
+  async deleteEvalThreshold(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteEvalThreshold(id);
+  }
+
+  /** List failure clusters */
+  async listFailureClusters(opts?: { agent_id?: string; status?: string; cluster_type?: string }): Promise<FailureCluster[]> {
+    return this.transport.listFailureClusters(opts);
+  }
+
+  /** Get a failure cluster */
+  async getFailureCluster(id: string): Promise<FailureCluster> {
+    return this.transport.getFailureCluster(id);
+  }
+
+  /** Create a failure cluster */
+  async createFailureCluster(body: CreateFailureClusterBody): Promise<FailureCluster> {
+    return this.transport.createFailureCluster(body);
+  }
+
+  /** Update a failure cluster */
+  async updateFailureCluster(id: string, body: UpdateFailureClusterBody): Promise<FailureCluster> {
+    return this.transport.updateFailureCluster(id, body);
+  }
+
+  /** Add a member to a failure cluster */
+  async addFailureClusterMember(id: string, body: AddFailureClusterMemberBody): Promise<FailureClusterMember> {
+    return this.transport.addFailureClusterMember(id, body);
+  }
+
+  /** Delete a failure cluster */
+  async deleteFailureCluster(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteFailureCluster(id);
+  }
+
+  /** List optimization suggestions */
+  async listOptimizationSuggestions(opts?: {
+    agent_id?: string;
+    status?: string;
+    suggestion_type?: string;
+  }): Promise<OptimizationSuggestion[]> {
+    return this.transport.listOptimizationSuggestions(opts);
+  }
+
+  /** Create an optimization suggestion */
+  async createOptimizationSuggestion(body: CreateOptimizationSuggestionBody): Promise<OptimizationSuggestion> {
+    return this.transport.createOptimizationSuggestion(body);
+  }
+
+  /** Update an optimization suggestion */
+  async updateOptimizationSuggestion(id: string, body: UpdateOptimizationSuggestionBody): Promise<OptimizationSuggestion> {
+    return this.transport.updateOptimizationSuggestion(id, body);
+  }
+
+  /** Delete an optimization suggestion */
+  async deleteOptimizationSuggestion(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteOptimizationSuggestion(id);
   }
 
   // ── Training ──

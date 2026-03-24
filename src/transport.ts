@@ -4,6 +4,9 @@ import type {
   Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult,
   EvalSuiteRemote, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCompareResult,
+  EvalThreshold, CreateEvalThresholdBody, UpdateEvalThresholdBody,
+  FailureCluster, CreateFailureClusterBody, UpdateFailureClusterBody, FailureClusterMember, AddFailureClusterMemberBody,
+  OptimizationSuggestion, CreateOptimizationSuggestionBody, UpdateOptimizationSuggestionBody,
   TrainingPair, CreateTrainingPairBody, TraceFlag, CreateTraceFlagBody, TraceFlagStats,
   DriftCatch, DriftComparison,
   TemplatePack, TemplateApplyResult,
@@ -866,6 +869,167 @@ export class Transport {
     const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
     if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
     return await res.json() as EvalCompareResult;
+  }
+
+  /** List eval thresholds */
+  async listEvalThresholds(opts?: { suite_id?: string; metric?: string }): Promise<EvalThreshold[]> {
+    const params = new URLSearchParams();
+    if (opts?.suite_id) params.set('suite_id', opts.suite_id);
+    if (opts?.metric) params.set('metric', opts.metric);
+    const qs = params.toString();
+    const path = qs ? `/v1/evals/thresholds?${qs}` : '/v1/evals/thresholds';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as EvalThreshold[];
+  }
+
+  /** Create an eval threshold */
+  async createEvalThreshold(body: CreateEvalThresholdBody): Promise<EvalThreshold> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/evals/thresholds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/evals/thresholds returned ${res.status}`);
+    return await res.json() as EvalThreshold;
+  }
+
+  /** Update an eval threshold */
+  async updateEvalThreshold(id: string, body: UpdateEvalThresholdBody): Promise<EvalThreshold> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/thresholds/${encodedId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/evals/thresholds/${encodedId} returned ${res.status}`);
+    return await res.json() as EvalThreshold;
+  }
+
+  /** Delete an eval threshold */
+  async deleteEvalThreshold(id: string): Promise<{ ok: boolean }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/thresholds/${encodedId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `DELETE /v1/evals/thresholds/${encodedId} returned ${res.status}`);
+    return await res.json() as { ok: boolean };
+  }
+
+  /** List failure clusters */
+  async listFailureClusters(opts?: { agent_id?: string; status?: string; cluster_type?: string }): Promise<FailureCluster[]> {
+    const params = new URLSearchParams();
+    if (opts?.agent_id) params.set('agent_id', opts.agent_id);
+    if (opts?.status) params.set('status', opts.status);
+    if (opts?.cluster_type) params.set('cluster_type', opts.cluster_type);
+    const qs = params.toString();
+    const path = qs ? `/v1/evals/clusters?${qs}` : '/v1/evals/clusters';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as FailureCluster[];
+  }
+
+  /** Get a failure cluster with members */
+  async getFailureCluster(id: string): Promise<FailureCluster> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/clusters/${encodedId}`);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET /v1/evals/clusters/${encodedId} returned ${res.status}`);
+    return await res.json() as FailureCluster;
+  }
+
+  /** Create a failure cluster */
+  async createFailureCluster(body: CreateFailureClusterBody): Promise<FailureCluster> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/evals/clusters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/evals/clusters returned ${res.status}`);
+    return await res.json() as FailureCluster;
+  }
+
+  /** Update a failure cluster */
+  async updateFailureCluster(id: string, body: UpdateFailureClusterBody): Promise<FailureCluster> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/clusters/${encodedId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/evals/clusters/${encodedId} returned ${res.status}`);
+    return await res.json() as FailureCluster;
+  }
+
+  /** Add a member to a failure cluster */
+  async addFailureClusterMember(id: string, body: AddFailureClusterMemberBody): Promise<FailureClusterMember> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/clusters/${encodedId}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/evals/clusters/${encodedId}/members returned ${res.status}`);
+    return await res.json() as FailureClusterMember;
+  }
+
+  /** Delete a failure cluster */
+  async deleteFailureCluster(id: string): Promise<{ ok: boolean }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/clusters/${encodedId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `DELETE /v1/evals/clusters/${encodedId} returned ${res.status}`);
+    return await res.json() as { ok: boolean };
+  }
+
+  /** List optimization suggestions */
+  async listOptimizationSuggestions(opts?: {
+    agent_id?: string;
+    status?: string;
+    suggestion_type?: string;
+  }): Promise<OptimizationSuggestion[]> {
+    const params = new URLSearchParams();
+    if (opts?.agent_id) params.set('agent_id', opts.agent_id);
+    if (opts?.status) params.set('status', opts.status);
+    if (opts?.suggestion_type) params.set('suggestion_type', opts.suggestion_type);
+    const qs = params.toString();
+    const path = qs ? `/v1/evals/suggestions?${qs}` : '/v1/evals/suggestions';
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, path);
+    if (!res.ok) throw new InvarianceError('API_ERROR', `GET ${path} returned ${res.status}`);
+    return await res.json() as OptimizationSuggestion[];
+  }
+
+  /** Create an optimization suggestion */
+  async createOptimizationSuggestion(body: CreateOptimizationSuggestionBody): Promise<OptimizationSuggestion> {
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, '/v1/evals/suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `POST /v1/evals/suggestions returned ${res.status}`);
+    return await res.json() as OptimizationSuggestion;
+  }
+
+  /** Update an optimization suggestion */
+  async updateOptimizationSuggestion(id: string, body: UpdateOptimizationSuggestionBody): Promise<OptimizationSuggestion> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/suggestions/${encodedId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `PATCH /v1/evals/suggestions/${encodedId} returned ${res.status}`);
+    return await res.json() as OptimizationSuggestion;
+  }
+
+  /** Delete an optimization suggestion */
+  async deleteOptimizationSuggestion(id: string): Promise<{ ok: boolean }> {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetchWithAuth(this.apiUrl, this.apiKey, `/v1/evals/suggestions/${encodedId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new InvarianceError('API_ERROR', `DELETE /v1/evals/suggestions/${encodedId} returned ${res.status}`);
+    return await res.json() as { ok: boolean };
   }
 
   // ── Training ──

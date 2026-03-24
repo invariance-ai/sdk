@@ -79,6 +79,42 @@ interface EvalCompareItem {
   improvements: number;
 }
 
+interface EvalThresholdItem {
+  id: string;
+  suite_id: string;
+  metric: string;
+  min_value: number;
+  status: string;
+  webhook_url: string | null;
+}
+
+interface FailureClusterMemberItem {
+  trace_node_id: string;
+  session_id: string;
+}
+
+interface FailureClusterItem {
+  id: string;
+  agent_id: string;
+  cluster_type: string;
+  label: string;
+  severity: string;
+  status: string;
+  occurrence_count: number;
+  member_count?: number;
+  members?: FailureClusterMemberItem[];
+}
+
+interface OptimizationSuggestionItem {
+  id: string;
+  agent_id: string;
+  suggestion_type: string;
+  title: string;
+  status: string;
+  confidence: number;
+  cluster_id?: string | null;
+}
+
 interface MonitorEvalItem {
   monitor_id: string;
   matches_found: number;
@@ -385,6 +421,97 @@ export function renderEvalCompare(result: EvalCompareItem) {
     }
     console.log(table.toString());
   }
+}
+
+export function renderEvalThresholds(thresholds: EvalThresholdItem[]) {
+  if (thresholds.length === 0) {
+    console.log(chalk.gray('No eval thresholds found.'));
+    return;
+  }
+
+  const table = makeTable(['ID', 'Suite', 'Metric', 'Min', 'Status', 'Webhook']);
+  for (const threshold of thresholds) {
+    table.push([
+      threshold.id,
+      threshold.suite_id,
+      threshold.metric,
+      threshold.min_value.toFixed(3),
+      threshold.status === 'active' ? chalk.green(threshold.status) : chalk.gray(threshold.status),
+      threshold.webhook_url ?? chalk.gray('—'),
+    ]);
+  }
+  console.log(table.toString());
+}
+
+export function renderEvalThreshold(threshold: EvalThresholdItem, verb = 'Saved') {
+  console.log(
+    `${chalk.green(verb)} threshold ${chalk.bold(threshold.id)}  ${threshold.metric} >= ${threshold.min_value.toFixed(3)}  ${threshold.status}`,
+  );
+}
+
+export function renderFailureClusters(clusters: FailureClusterItem[]) {
+  if (clusters.length === 0) {
+    console.log(chalk.gray('No failure clusters found.'));
+    return;
+  }
+
+  const table = makeTable(['ID', 'Label', 'Agent', 'Type', 'Severity', 'Status', 'Occurrences']);
+  for (const cluster of clusters) {
+    table.push([
+      cluster.id,
+      cluster.label,
+      cluster.agent_id,
+      cluster.cluster_type,
+      severityColor(cluster.severity),
+      cluster.status === 'resolved' ? chalk.green(cluster.status) : cluster.status === 'acknowledged' ? chalk.yellow(cluster.status) : chalk.blue(cluster.status),
+      String(cluster.member_count ?? cluster.occurrence_count),
+    ]);
+  }
+  console.log(table.toString());
+}
+
+export function renderFailureCluster(cluster: FailureClusterItem, verb = 'Saved') {
+  console.log(
+    `${chalk.green(verb)} cluster ${chalk.bold(cluster.label)} (${cluster.id})  ${cluster.cluster_type}  ${severityColor(cluster.severity)}`,
+  );
+  if (cluster.members && cluster.members.length > 0) {
+    console.log(`Members: ${cluster.members.length}`);
+    for (const member of cluster.members.slice(0, 5)) {
+      console.log(`  ${chalk.yellow('>')} ${member.trace_node_id}  ${chalk.gray(member.session_id)}`);
+    }
+  }
+}
+
+export function renderOptimizationSuggestions(suggestions: OptimizationSuggestionItem[]) {
+  if (suggestions.length === 0) {
+    console.log(chalk.gray('No optimization suggestions found.'));
+    return;
+  }
+
+  const table = makeTable(['ID', 'Title', 'Agent', 'Type', 'Status', 'Confidence']);
+  for (const suggestion of suggestions) {
+    table.push([
+      suggestion.id,
+      suggestion.title,
+      suggestion.agent_id,
+      suggestion.suggestion_type,
+      suggestion.status === 'implemented'
+        ? chalk.green(suggestion.status)
+        : suggestion.status === 'accepted'
+          ? chalk.blue(suggestion.status)
+          : suggestion.status === 'rejected'
+            ? chalk.red(suggestion.status)
+            : chalk.yellow(suggestion.status),
+      `${(suggestion.confidence * 100).toFixed(0)}%`,
+    ]);
+  }
+  console.log(table.toString());
+}
+
+export function renderOptimizationSuggestion(suggestion: OptimizationSuggestionItem, verb = 'Saved') {
+  console.log(
+    `${chalk.green(verb)} suggestion ${chalk.bold(suggestion.title)} (${suggestion.id})  ${suggestion.suggestion_type}  ${(suggestion.confidence * 100).toFixed(0)}%`,
+  );
 }
 
 // ── Drift ──

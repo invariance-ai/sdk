@@ -456,6 +456,129 @@ export interface EvalCompareResult {
   improvements: number;
 }
 
+/** An eval threshold definition */
+export interface EvalThreshold {
+  id: string;
+  suite_id: string;
+  metric: 'pass_rate' | 'avg_score';
+  min_value: number;
+  webhook_url: string | null;
+  status: 'active' | 'paused';
+  owner_id: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+/** Body for creating an eval threshold */
+export interface CreateEvalThresholdBody {
+  suite_id: string;
+  metric?: 'pass_rate' | 'avg_score';
+  min_value: number;
+  webhook_url?: string;
+}
+
+/** Body for updating an eval threshold */
+export interface UpdateEvalThresholdBody {
+  metric?: 'pass_rate' | 'avg_score';
+  min_value?: number;
+  webhook_url?: string | null;
+  status?: 'active' | 'paused';
+}
+
+/** A failure cluster definition */
+export interface FailureCluster {
+  id: string;
+  agent_id: string;
+  cluster_type:
+    | 'wrong_tool_call'
+    | 'hallucinated_output'
+    | 'context_drift'
+    | 'loop'
+    | 'timeout'
+    | 'chain_broken'
+    | 'policy_violation'
+    | 'other';
+  label: string;
+  description: string | null;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  occurrence_count: number;
+  status: 'open' | 'acknowledged' | 'resolved';
+  owner_id: string;
+  first_seen?: string | null;
+  last_seen?: string | null;
+  updated_at?: string;
+  member_count?: number;
+  members?: FailureClusterMember[];
+}
+
+/** Body for creating a failure cluster */
+export interface CreateFailureClusterBody {
+  agent_id: string;
+  cluster_type: FailureCluster['cluster_type'];
+  label: string;
+  description?: string;
+  severity?: FailureCluster['severity'];
+}
+
+/** Body for updating a failure cluster */
+export interface UpdateFailureClusterBody {
+  status?: FailureCluster['status'];
+  resolution_notes?: string;
+  label?: string;
+  description?: string;
+  severity?: FailureCluster['severity'];
+}
+
+/** A member of a failure cluster */
+export interface FailureClusterMember {
+  id: string;
+  cluster_id: string;
+  trace_node_id: string;
+  session_id: string;
+  added_at?: string;
+}
+
+/** Body for adding a member to a failure cluster */
+export interface AddFailureClusterMemberBody {
+  trace_node_id: string;
+  session_id: string;
+}
+
+/** An optimization suggestion */
+export interface OptimizationSuggestion {
+  id: string;
+  agent_id: string;
+  suggestion_type: 'prompt_change' | 'routing_adjustment' | 'tool_selection' | 'model_swap' | 'config_change';
+  title: string;
+  description: string;
+  cluster_id: string | null;
+  confidence: number;
+  evidence: Record<string, unknown>;
+  status: 'pending' | 'accepted' | 'rejected' | 'implemented';
+  owner_id: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+/** Body for creating an optimization suggestion */
+export interface CreateOptimizationSuggestionBody {
+  agent_id: string;
+  suggestion_type: OptimizationSuggestion['suggestion_type'];
+  title: string;
+  description: string;
+  cluster_id?: string;
+  confidence?: number;
+  evidence?: Record<string, unknown>;
+}
+
+/** Body for updating an optimization suggestion */
+export interface UpdateOptimizationSuggestionBody {
+  status?: OptimizationSuggestion['status'];
+  title?: string;
+  description?: string;
+  confidence?: number;
+}
+
 // ── Training types ──
 
 /** A training pair linking source and student agents */

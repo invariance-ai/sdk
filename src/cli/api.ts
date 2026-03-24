@@ -43,6 +43,15 @@ export class ApiClient {
     return this.request<T>(path, { method: 'DELETE' });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async patch<T = any>(path: string, body: unknown): Promise<T> {
+    return this.request<T>(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
   // ── Sessions ──
 
   async listSessions(status?: string) {
@@ -108,6 +117,79 @@ export class ApiClient {
   async compareEvalRuns(suiteId: string, runA: string, runB: string) {
     const params = new URLSearchParams({ suite_id: suiteId, run_a: runA, run_b: runB });
     return this.request(`/v1/evals/compare?${params.toString()}`);
+  }
+
+  async listEvalThresholds(opts?: { suiteId?: string; metric?: string }) {
+    const params = new URLSearchParams();
+    if (opts?.suiteId) params.set('suite_id', opts.suiteId);
+    if (opts?.metric) params.set('metric', opts.metric);
+    const qs = params.toString();
+    return this.request(`/v1/evals/thresholds${qs ? `?${qs}` : ''}`);
+  }
+
+  async createEvalThreshold(body: { suite_id: string; min_value: number; metric?: string; webhook_url?: string }) {
+    return this.post('/v1/evals/thresholds', body);
+  }
+
+  async updateEvalThreshold(id: string, body: { min_value?: number; metric?: string; webhook_url?: string; status?: string }) {
+    return this.patch(`/v1/evals/thresholds/${encodeURIComponent(id)}`, body);
+  }
+
+  async deleteEvalThreshold(id: string) {
+    return this.del(`/v1/evals/thresholds/${encodeURIComponent(id)}`);
+  }
+
+  async listFailureClusters(opts?: { agentId?: string; status?: string; clusterType?: string }) {
+    const params = new URLSearchParams();
+    if (opts?.agentId) params.set('agent_id', opts.agentId);
+    if (opts?.status) params.set('status', opts.status);
+    if (opts?.clusterType) params.set('cluster_type', opts.clusterType);
+    const qs = params.toString();
+    return this.request(`/v1/evals/clusters${qs ? `?${qs}` : ''}`);
+  }
+
+  async createFailureCluster(body: { agent_id: string; cluster_type: string; label: string; description?: string; severity?: string }) {
+    return this.post('/v1/evals/clusters', body);
+  }
+
+  async updateFailureCluster(id: string, body: { status?: string; resolution_notes?: string; label?: string; description?: string; severity?: string }) {
+    return this.patch(`/v1/evals/clusters/${encodeURIComponent(id)}`, body);
+  }
+
+  async addFailureClusterMember(id: string, body: { trace_node_id: string; session_id: string }) {
+    return this.post(`/v1/evals/clusters/${encodeURIComponent(id)}/members`, body);
+  }
+
+  async deleteFailureCluster(id: string) {
+    return this.del(`/v1/evals/clusters/${encodeURIComponent(id)}`);
+  }
+
+  async listOptimizationSuggestions(opts?: { agentId?: string; status?: string; suggestionType?: string }) {
+    const params = new URLSearchParams();
+    if (opts?.agentId) params.set('agent_id', opts.agentId);
+    if (opts?.status) params.set('status', opts.status);
+    if (opts?.suggestionType) params.set('suggestion_type', opts.suggestionType);
+    const qs = params.toString();
+    return this.request(`/v1/evals/suggestions${qs ? `?${qs}` : ''}`);
+  }
+
+  async createOptimizationSuggestion(body: {
+    agent_id: string;
+    suggestion_type: string;
+    title: string;
+    description: string;
+    cluster_id?: string;
+    confidence?: number;
+  }) {
+    return this.post('/v1/evals/suggestions', body);
+  }
+
+  async updateOptimizationSuggestion(id: string, body: { status?: string; title?: string; description?: string; confidence?: number }) {
+    return this.patch(`/v1/evals/suggestions/${encodeURIComponent(id)}`, body);
+  }
+
+  async deleteOptimizationSuggestion(id: string) {
+    return this.del(`/v1/evals/suggestions/${encodeURIComponent(id)}`);
   }
 
   // ── Drift ──
