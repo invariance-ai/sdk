@@ -91,6 +91,51 @@ export type {
   ToolSchema,
   StatsResult,
   AgentNote,
+  // Monitor types
+  Monitor,
+  CreateMonitorBody,
+  UpdateMonitorBody,
+  MonitorEvaluateResult,
+  // Eval types (remote)
+  EvalSuiteRemote,
+  CreateEvalSuiteBody,
+  EvalCase,
+  CreateEvalCaseBody,
+  EvalRun,
+  EvalCaseResult,
+  RunEvalBody,
+  EvalCompareResult,
+  EvalThreshold,
+  CreateEvalThresholdBody,
+  UpdateEvalThresholdBody,
+  FailureCluster,
+  CreateFailureClusterBody,
+  UpdateFailureClusterBody,
+  FailureClusterMember,
+  AddFailureClusterMemberBody,
+  OptimizationSuggestion,
+  CreateOptimizationSuggestionBody,
+  UpdateOptimizationSuggestionBody,
+  // Training types
+  TrainingPair,
+  CreateTrainingPairBody,
+  TraceFlag,
+  CreateTraceFlagBody,
+  TraceFlagStats,
+  // Drift types
+  DriftCatch,
+  DriftComparison,
+  // Template types
+  TemplatePack,
+  TemplateApplyResult,
+  // Identity types
+  IdentityRecord,
+  // A2A Query types
+  A2AConversation,
+  A2AMessage,
+  A2APeer,
+  // Search types
+  SearchResult,
 } from './types.js';
 
 // SSE parsing

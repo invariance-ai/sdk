@@ -1,4 +1,20 @@
-import type { Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms, AgentIdentity, MonitorTriggerEvent, NLQueryOptions, NLQueryResult, NLQueryScope, TraceQueryResult, ToolSchema, StatsResult, AgentNote } from './types.js';
+import type {
+  Action, InvarianceConfig, PolicyCheck, Receipt, ReceiptQuery, ContractTerms,
+  AgentIdentity, MonitorTriggerEvent, NLQueryOptions, NLQueryResult, NLQueryScope,
+  TraceQueryResult, ToolSchema, StatsResult, AgentNote,
+  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorEvaluateResult,
+  EvalSuiteRemote, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
+  EvalRun, RunEvalBody, EvalCompareResult,
+  EvalThreshold, CreateEvalThresholdBody, UpdateEvalThresholdBody,
+  FailureCluster, CreateFailureClusterBody, UpdateFailureClusterBody, FailureClusterMember, AddFailureClusterMemberBody,
+  OptimizationSuggestion, CreateOptimizationSuggestionBody, UpdateOptimizationSuggestionBody,
+  TrainingPair, CreateTrainingPairBody, TraceFlag, CreateTraceFlagBody, TraceFlagStats,
+  DriftCatch, DriftComparison,
+  TemplatePack, TemplateApplyResult,
+  IdentityRecord,
+  A2AConversation, A2AMessage, A2APeer,
+  SearchResult,
+} from './types.js';
 import { Session } from './session.js';
 import { Transport } from './transport.js';
 import { checkPolicies } from './policy.js';
@@ -843,6 +859,256 @@ export class Invariance {
       apiKey: this.config.apiKey,
       ...opts,
     });
+  }
+
+  // ── Monitors ──
+
+  /** List all monitors */
+  async listMonitors(opts?: { status?: string; agent_id?: string }): Promise<Monitor[]> {
+    return this.transport.listMonitors(opts);
+  }
+
+  /** Create a new monitor */
+  async createMonitor(body: CreateMonitorBody): Promise<Monitor> {
+    return this.transport.createMonitor(body);
+  }
+
+  /** Get a single monitor */
+  async getMonitor(id: string): Promise<Monitor> {
+    return this.transport.getMonitor(id);
+  }
+
+  /** Update a monitor */
+  async updateMonitor(id: string, body: UpdateMonitorBody): Promise<Monitor> {
+    return this.transport.updateMonitor(id, body);
+  }
+
+  /** Delete a monitor */
+  async deleteMonitor(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteMonitor(id);
+  }
+
+  /** Manually evaluate a monitor against recent trace nodes */
+  async evaluateMonitor(id: string): Promise<MonitorEvaluateResult> {
+    return this.transport.evaluateMonitor(id);
+  }
+
+  /** Acknowledge a monitor event */
+  async acknowledgeMonitorEvent(eventId: string): Promise<Record<string, unknown>> {
+    return this.transport.acknowledgeMonitorEvent(eventId);
+  }
+
+  // ── Evals (Remote) ──
+
+  /** List eval suites */
+  async listEvalSuites(opts?: { agent_id?: string }): Promise<EvalSuiteRemote[]> {
+    return this.transport.listEvalSuites(opts);
+  }
+
+  /** Create an eval suite */
+  async createEvalSuite(body: CreateEvalSuiteBody): Promise<EvalSuiteRemote> {
+    return this.transport.createEvalSuite(body);
+  }
+
+  /** Get a single eval suite */
+  async getEvalSuite(id: string): Promise<EvalSuiteRemote> {
+    return this.transport.getEvalSuite(id);
+  }
+
+  /** List eval cases for a suite */
+  async listEvalCases(suiteId: string): Promise<EvalCase[]> {
+    return this.transport.listEvalCases(suiteId);
+  }
+
+  /** Create an eval case */
+  async createEvalCase(suiteId: string, body: CreateEvalCaseBody): Promise<EvalCase> {
+    return this.transport.createEvalCase(suiteId, body);
+  }
+
+  /** Run an eval suite */
+  async runEval(suiteId: string, body: RunEvalBody): Promise<EvalRun> {
+    return this.transport.runEval(suiteId, body);
+  }
+
+  /** Get an eval run with results */
+  async getEvalRun(runId: string): Promise<EvalRun> {
+    return this.transport.getEvalRun(runId);
+  }
+
+  /** List eval runs */
+  async listEvalRuns(opts?: { suite_id?: string; agent_id?: string; status?: string; limit?: number }): Promise<EvalRun[]> {
+    return this.transport.listEvalRuns(opts);
+  }
+
+  /** Compare two eval runs */
+  async compareEvalRuns(suiteId: string, runA: string, runB: string): Promise<EvalCompareResult> {
+    return this.transport.compareEvalRuns(suiteId, runA, runB);
+  }
+
+  /** List eval thresholds */
+  async listEvalThresholds(opts?: { suite_id?: string; metric?: string }): Promise<EvalThreshold[]> {
+    return this.transport.listEvalThresholds(opts);
+  }
+
+  /** Create an eval threshold */
+  async createEvalThreshold(body: CreateEvalThresholdBody): Promise<EvalThreshold> {
+    return this.transport.createEvalThreshold(body);
+  }
+
+  /** Update an eval threshold */
+  async updateEvalThreshold(id: string, body: UpdateEvalThresholdBody): Promise<EvalThreshold> {
+    return this.transport.updateEvalThreshold(id, body);
+  }
+
+  /** Delete an eval threshold */
+  async deleteEvalThreshold(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteEvalThreshold(id);
+  }
+
+  /** List failure clusters */
+  async listFailureClusters(opts?: { agent_id?: string; status?: string; cluster_type?: string }): Promise<FailureCluster[]> {
+    return this.transport.listFailureClusters(opts);
+  }
+
+  /** Get a failure cluster */
+  async getFailureCluster(id: string): Promise<FailureCluster> {
+    return this.transport.getFailureCluster(id);
+  }
+
+  /** Create a failure cluster */
+  async createFailureCluster(body: CreateFailureClusterBody): Promise<FailureCluster> {
+    return this.transport.createFailureCluster(body);
+  }
+
+  /** Update a failure cluster */
+  async updateFailureCluster(id: string, body: UpdateFailureClusterBody): Promise<FailureCluster> {
+    return this.transport.updateFailureCluster(id, body);
+  }
+
+  /** Add a member to a failure cluster */
+  async addFailureClusterMember(id: string, body: AddFailureClusterMemberBody): Promise<FailureClusterMember> {
+    return this.transport.addFailureClusterMember(id, body);
+  }
+
+  /** Delete a failure cluster */
+  async deleteFailureCluster(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteFailureCluster(id);
+  }
+
+  /** List optimization suggestions */
+  async listOptimizationSuggestions(opts?: {
+    agent_id?: string;
+    status?: string;
+    suggestion_type?: string;
+  }): Promise<OptimizationSuggestion[]> {
+    return this.transport.listOptimizationSuggestions(opts);
+  }
+
+  /** Create an optimization suggestion */
+  async createOptimizationSuggestion(body: CreateOptimizationSuggestionBody): Promise<OptimizationSuggestion> {
+    return this.transport.createOptimizationSuggestion(body);
+  }
+
+  /** Update an optimization suggestion */
+  async updateOptimizationSuggestion(id: string, body: UpdateOptimizationSuggestionBody): Promise<OptimizationSuggestion> {
+    return this.transport.updateOptimizationSuggestion(id, body);
+  }
+
+  /** Delete an optimization suggestion */
+  async deleteOptimizationSuggestion(id: string): Promise<{ ok: boolean }> {
+    return this.transport.deleteOptimizationSuggestion(id);
+  }
+
+  // ── Training ──
+
+  /** List training pairs */
+  async listTrainingPairs(opts?: { status?: string }): Promise<TrainingPair[]> {
+    return this.transport.listTrainingPairs(opts);
+  }
+
+  /** Create a training pair */
+  async createTrainingPair(body: CreateTrainingPairBody): Promise<TrainingPair> {
+    return this.transport.createTrainingPair(body);
+  }
+
+  /** Create a trace flag */
+  async createTraceFlag(body: CreateTraceFlagBody): Promise<TraceFlag> {
+    return this.transport.createTraceFlag(body);
+  }
+
+  /** List trace flags */
+  async listTraceFlags(opts?: { session_id?: string; agent_id?: string; flag?: string; limit?: number; offset?: number }): Promise<TraceFlag[]> {
+    return this.transport.listTraceFlags(opts);
+  }
+
+  /** Get trace flag statistics */
+  async getTraceFlagStats(): Promise<TraceFlagStats> {
+    return this.transport.getTraceFlagStats();
+  }
+
+  // ── Drift ──
+
+  /** Get drift catches */
+  async getDriftCatches(): Promise<DriftCatch[]> {
+    return this.transport.getDriftCatches();
+  }
+
+  /** Get drift comparison between two sessions */
+  async getDriftComparison(sessionA?: string, sessionB?: string): Promise<DriftComparison> {
+    return this.transport.getDriftComparison(sessionA, sessionB);
+  }
+
+  // ── Templates ──
+
+  /** List available template packs */
+  async listTemplatePacks(): Promise<TemplatePack[]> {
+    return this.transport.listTemplatePacks();
+  }
+
+  /** Apply a template pack */
+  async applyTemplatePack(id: string, body?: { agent_id?: string }): Promise<TemplateApplyResult> {
+    return this.transport.applyTemplatePack(id, body);
+  }
+
+  // ── Identities (query endpoint) ──
+
+  /** List visible identity records */
+  async listIdentities(): Promise<IdentityRecord[]> {
+    return this.transport.listIdentities();
+  }
+
+  /** Get a single identity record */
+  async getIdentityRecord(id: string): Promise<IdentityRecord> {
+    return this.transport.getIdentity(id);
+  }
+
+  // ── A2A Query ──
+
+  /** List A2A conversations */
+  async listA2AConversations(opts?: { agent_id?: string }): Promise<A2AConversation[]> {
+    return this.transport.listA2AConversations(opts);
+  }
+
+  /** Get an A2A conversation */
+  async getA2AConversation(conversationId: string): Promise<A2AConversation> {
+    return this.transport.getA2AConversation(conversationId);
+  }
+
+  /** Get messages for an A2A conversation */
+  async getA2AConversationMessages(conversationId: string): Promise<A2AMessage[]> {
+    return this.transport.getA2AConversationMessages(conversationId);
+  }
+
+  /** Get peers for an agent */
+  async getAgentPeers(agentId: string): Promise<A2APeer[]> {
+    return this.transport.getAgentPeers(agentId);
+  }
+
+  // ── Search ──
+
+  /** Search across sessions, agents, and anomalies */
+  async search(query: string): Promise<SearchResult[]> {
+    return this.transport.search(query);
   }
 
   /**
