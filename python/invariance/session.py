@@ -33,31 +33,28 @@ class Session:
         self.name = name
         self._private_key = private_key
         self._enqueue = enqueue
+        self._on_create = on_create
         self._on_close = on_close
         self._previous_hash = "0"
         self._receipts: list[Receipt] = []
         self._closed = False
-
-        loop = asyncio.get_running_loop()
-        self._ready: asyncio.Future[None] = loop.create_future()
-
-        async def _init() -> None:
-            try:
-                await on_create({"id": self.id, "name": self.name, "agent_id": agent})
-                if not self._ready.done():
-                    self._ready.set_result(None)
-            except Exception as exc:
-                if not self._ready.done():
-                    self._ready.set_exception(exc)
-
-        loop.create_task(_init())
+        self._ready_task: asyncio.Task[None] | None = None
 
     @property
-    def ready(self) -> asyncio.Future[None]:
-        return self._ready
+    def ready(self) -> Awaitable[None]:
+        return self._ensure_ready()
+
+    async def _ensure_ready(self) -> None:
+        if self._ready_task is None:
+            self._ready_task = asyncio.create_task(
+                self._on_create(
+                    {"id": self.id, "name": self.name, "agent_id": self.agent}
+                )
+            )
+        await asyncio.shield(self._ready_task)
 
     async def record(self, action: Action) -> Receipt:
-        await self._ready
+        await self._ensure_ready()
         if self._closed:
             raise InvarianceError("SESSION_CLOSED", f"Session {self.id} is closed")
 
@@ -109,6 +106,7 @@ class Session:
         return {"result": result, "receipt": receipt}
 
     async def end(self, status: str = "closed") -> SessionInfo:
+        await self._ensure_ready()
         if self._closed:
             raise InvarianceError("SESSION_CLOSED", f"Session {self.id} is already closed")
         self._closed = True
