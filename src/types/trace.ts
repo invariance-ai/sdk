@@ -133,3 +133,9 @@ export interface GraphSnapshot {
 export interface NodeDiff {
   diff: unknown;
 }
+
+export interface TraceChainVerifyResult {
+  valid: boolean;
+  brokenAt?: number;
+  error?: string;
+}

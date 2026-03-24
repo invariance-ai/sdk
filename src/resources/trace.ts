@@ -3,6 +3,7 @@ import type {
   TraceNode, TraceEventInput, ReplayTimelineEntry, ReplaySnapshot,
   CausalChain, AnomalyQuery, CounterfactualRequest, CounterfactualResult,
   AuditResult, GraphPattern, PatternQuery, GraphSnapshot, NodeDiff,
+  TraceChainVerifyResult,
 } from '../types/trace.js';
 
 export class TraceResource {
@@ -82,5 +83,9 @@ export class TraceResource {
 
   async getNarrative(sessionId: string): Promise<{ narrative: string | null }> {
     return this.http.get<{ narrative: string | null }>(`/v1/trace/sessions/${sessionId}/narrative`);
+  }
+
+  async verifyChain(sessionId: string): Promise<TraceChainVerifyResult> {
+    return this.http.get<TraceChainVerifyResult>(`/v1/trace/sessions/${sessionId}/verify`);
   }
 }

@@ -23,6 +23,8 @@ import { StatusResource } from './resources/status.js';
 import { NLQueryResource } from './resources/nl-query.js';
 import { IdentitiesResource } from './resources/identities.js';
 import { EvalsResource } from './resources/evals.js';
+import { FailureClustersResource } from './resources/failure-clusters.js';
+import { SuggestionsResource } from './resources/suggestions.js';
 
 import type { InvarianceConfig, Action } from './types/config.js';
 import type { Receipt } from './types/receipt.js';
@@ -62,6 +64,8 @@ export class Invariance {
   readonly nlQuery: NLQueryResource;
   readonly identities: IdentitiesResource;
   readonly evals: EvalsResource;
+  readonly failureClusters: FailureClustersResource;
+  readonly suggestions: SuggestionsResource;
 
   private constructor(config: InvarianceConfig) {
     if (!config.apiKey) {
@@ -110,6 +114,8 @@ export class Invariance {
     this.nlQuery = new NLQueryResource(this.http);
     this.identities = new IdentitiesResource(this.http);
     this.evals = new EvalsResource(this.http);
+    this.failureClusters = new FailureClustersResource(this.http);
+    this.suggestions = new SuggestionsResource(this.http);
   }
 
   /**

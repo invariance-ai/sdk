@@ -31,6 +31,8 @@ from .resources.status import StatusResource
 from .resources.nl_query import NLQueryResource
 from .resources.identities import IdentitiesResource
 from .resources.evals import EvalsResource
+from .resources.failure_clusters import FailureClustersResource
+from .resources.suggestions import SuggestionsResource
 
 T = TypeVar("T")
 
@@ -102,6 +104,8 @@ class Invariance:
         self.nl_query = NLQueryResource(self._http)
         self.identities = IdentitiesResource(self._http)
         self.evals = EvalsResource(self._http)
+        self.failure_clusters = FailureClustersResource(self._http)
+        self.suggestions = SuggestionsResource(self._http)
 
     @classmethod
     def init(

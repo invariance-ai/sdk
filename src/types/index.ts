@@ -11,6 +11,7 @@ export type {
   ReplayTimelineEntry, ReplaySnapshot, CausalChain, AnomalyQuery,
   CounterfactualRequest, CounterfactualResult, AuditResult,
   GraphPattern, PatternQuery, GraphSnapshot, NodeDiff,
+  TraceChainVerifyResult,
 } from './trace.js';
 export type {
   Monitor, CreateMonitorBody, UpdateMonitorBody,
@@ -30,6 +31,14 @@ export type {
   EvalRun, RunEvalBody, EvalCaseResult, EvalCompareResult,
   EvalThreshold, CreateEvalThresholdBody,
 } from './eval.js';
+export type {
+  FailureCluster, FailureClusterMember, CreateFailureClusterBody,
+  UpdateFailureClusterBody, FailureClusterListOpts, AddClusterMemberBody,
+} from './failure-cluster.js';
+export type {
+  OptimizationSuggestion, CreateSuggestionBody, UpdateSuggestionBody,
+  SuggestionListOpts,
+} from './suggestion.js';
 export type {
   DeveloperIdentity, OrgIdentity, AgentIdentity, IdentityRecord,
   SignupOpts, RegisterAgentOpts,
