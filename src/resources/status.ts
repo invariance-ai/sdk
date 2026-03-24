@@ -1,5 +1,5 @@
 import type { HttpClient } from '../http.js';
-import type { LiveStatusEvent } from '../types/misc.js';
+import type { LiveStatusEvent, LiveStatusSnapshot } from '../types/misc.js';
 
 export type StatusEventHandler = (event: LiveStatusEvent) => void;
 
@@ -9,6 +9,10 @@ export interface LiveStatusConnection {
 
 export class StatusResource {
   constructor(private http: HttpClient) {}
+
+  async snapshot(): Promise<LiveStatusSnapshot> {
+    return this.http.get<LiveStatusSnapshot>('/v1/status/live');
+  }
 
   async connect(onEvent: StatusEventHandler): Promise<LiveStatusConnection> {
     const response = await this.http.raw('/v1/status/live', {
@@ -44,10 +48,10 @@ export class StatusResource {
           } else if (line === '') {
             if (eventType && eventData) {
               try {
-                const data = JSON.parse(eventData);
-                onEvent({ type: eventType as LiveStatusEvent['type'], data });
+                const parsed = JSON.parse(eventData) as LiveStatusEvent;
+                onEvent(parsed);
               } catch {
-                onEvent({ type: eventType as LiveStatusEvent['type'], data: eventData });
+                // Skip unparseable events
               }
             }
             eventType = '';

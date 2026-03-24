@@ -21,12 +21,21 @@ export type {
   StatsResult, StatsQuery, AgentNote, WriteNoteOpts, ToolSchema, QueryScope,
 } from './query.js';
 export type { DriftCatch, DriftComparison, DriftComparisonQuery } from './drift.js';
-export type { TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody } from './training.js';
+export type {
+  TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody,
+  TraceFlag, CreateTraceFlagBody, UpdateTraceFlagBody, TraceFlagStats, TraceFlagQuery,
+} from './training.js';
+export type {
+  EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
+  EvalRun, RunEvalBody, EvalCaseResult, EvalCompareResult,
+  EvalThreshold, CreateEvalThresholdBody,
+} from './eval.js';
 export type {
   DeveloperIdentity, OrgIdentity, AgentIdentity, IdentityRecord,
   SignupOpts, RegisterAgentOpts,
 } from './identity.js';
 export type {
   SearchResult, UsageEvent, UsageQuery, ApiKeyRecord, CreateApiKeyBody,
-  TemplatePack, TemplateApplyResult, VerifyResult, HealthResponse, LiveStatusEvent,
+  TemplatePack, TemplateApplyResult, VerifyResult, HealthResponse,
+  LiveStatusEventType, LiveStatusEvent, LiveStatusAgentSummary, LiveStatusSnapshot,
 } from './misc.js';

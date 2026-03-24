@@ -1,5 +1,8 @@
 import type { HttpClient } from '../http.js';
-import type { TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody } from '../types/training.js';
+import type {
+  TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody,
+  TraceFlag, CreateTraceFlagBody, UpdateTraceFlagBody, TraceFlagStats, TraceFlagQuery,
+} from '../types/training.js';
 
 export class TrainingResource {
   constructor(private http: HttpClient) {}
@@ -24,5 +27,26 @@ export class TrainingResource {
 
   async delete(id: string): Promise<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`/v1/training/pairs/${id}`);
+  }
+
+  // Trace Flags
+  async createFlag(body: CreateTraceFlagBody): Promise<TraceFlag> {
+    return this.http.post<TraceFlag>('/v1/training/flags', body);
+  }
+
+  async listFlags(opts?: TraceFlagQuery): Promise<TraceFlag[]> {
+    return this.http.get<TraceFlag[]>('/v1/training/flags', { params: opts as Record<string, string | number | undefined> });
+  }
+
+  async updateFlag(id: string, body: UpdateTraceFlagBody): Promise<TraceFlag> {
+    return this.http.patch<TraceFlag>(`/v1/training/flags/${id}`, body);
+  }
+
+  async deleteFlag(id: string): Promise<void> {
+    await this.http.delete(`/v1/training/flags/${id}`);
+  }
+
+  async flagStats(): Promise<TraceFlagStats> {
+    return this.http.get<TraceFlagStats>('/v1/training/flags/stats');
   }
 }

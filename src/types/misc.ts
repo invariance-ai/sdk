@@ -61,7 +61,28 @@ export interface HealthResponse {
   version: string;
 }
 
+export type LiveStatusEventType = 'session_created' | 'session_closed' | 'receipt_submitted'
+  | 'anomaly_detected' | 'monitor_triggered' | 'trace_node_created';
+
 export interface LiveStatusEvent {
-  type: 'trace_node_created' | 'anomaly_detected' | 'session_created' | 'session_closed' | 'ping';
-  data: unknown;
+  id: string;
+  type: LiveStatusEventType;
+  timestamp: number;
+  session_id?: string;
+  agent_id?: string;
+  payload: Record<string, unknown>;
+}
+
+export interface LiveStatusAgentSummary {
+  agent_id: string;
+  active_sessions: number;
+  last_action_type: string;
+  last_action_at: number;
+  recent_errors: number;
+  anomaly_trend: number[];
+}
+
+export interface LiveStatusSnapshot {
+  agents: LiveStatusAgentSummary[];
+  recent_events: LiveStatusEvent[];
 }

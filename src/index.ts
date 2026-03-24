@@ -44,6 +44,7 @@ export { SearchResource } from './resources/search.js';
 export { StatusResource } from './resources/status.js';
 export { NLQueryResource } from './resources/nl-query.js';
 export { IdentitiesResource } from './resources/identities.js';
+export { EvalsResource } from './resources/evals.js';
 
 // All types
 export type * from './types/index.js';

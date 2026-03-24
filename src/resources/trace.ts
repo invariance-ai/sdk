@@ -48,6 +48,8 @@ export class TraceResource {
         offset: opts?.offset,
         agentId: opts?.agentId,
         sessionId: opts?.sessionId,
+        since: opts?.since,
+        until: opts?.until,
       },
     });
   }
@@ -65,6 +67,9 @@ export class TraceResource {
       params: {
         agentId: opts?.agentId,
         actionType: opts?.actionType,
+        limit: opts?.limit,
+        since: opts?.since,
+        until: opts?.until,
       },
     });
   }

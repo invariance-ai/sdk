@@ -30,4 +30,6 @@ export interface SessionListOpts {
   status?: string;
   limit?: number;
   offset?: number;
+  since?: number;
+  until?: number;
 }

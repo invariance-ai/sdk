@@ -71,7 +71,9 @@ export interface ReplaySnapshot {
 }
 
 export interface CausalChain {
-  chain: TraceNode[];
+  nodes: TraceNode[];
+  anomaly_flags: Array<{ node_id: string; score: number; label: string }>;
+  root_cause_node_id: string | null;
 }
 
 export interface AnomalyQuery {
@@ -80,6 +82,8 @@ export interface AnomalyQuery {
   offset?: number;
   agentId?: string;
   sessionId?: string;
+  since?: number;
+  until?: number;
 }
 
 export interface CounterfactualRequest {
@@ -116,6 +120,9 @@ export interface GraphPattern {
 export interface PatternQuery {
   agentId?: string;
   actionType?: string;
+  limit?: number;
+  since?: number;
+  until?: number;
 }
 
 export interface GraphSnapshot {
