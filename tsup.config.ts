@@ -6,10 +6,9 @@ const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 export default defineConfig({
   entry: [
     'src/index.ts',
-    'src/cli/index.ts',
-    'src/observability/adapters/langchain.ts',
-    'src/observability/adapters/crewai.ts',
-    'src/observability/adapters/autogen.ts',
+    'src/adapters/langchain.ts',
+    'src/adapters/crewai.ts',
+    'src/adapters/autogen.ts',
   ],
   format: ['cjs', 'esm'],
   dts: true,

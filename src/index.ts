@@ -1,159 +1,49 @@
-// Core
+// Main client
 export { Invariance } from './client.js';
+
+// Session & receipt
 export { Session } from './session.js';
+export { createReceipt, verifyChain } from './receipt.js';
 
-// A2A (Agent-to-Agent)
-export { A2AChannel } from './a2a.js';
-export type { A2AEnvelope, A2AVerificationError } from './a2a.js';
-export { createInstrumentedFetch } from './adapters/a2a-fetch.js';
-export { wrapLangChainTool } from './adapters/a2a-langchain.js';
-export type { A2ALangChainToolOptions } from './adapters/a2a-langchain.js';
-
-// Receipt utilities
-export { createReceipt, verifyChain, verifyChainOrThrow, sortedStringify, sha256, ed25519Sign, hexToBytes, bytesToHex } from './receipt.js';
-
-// Identity crypto
-export { deriveAgentKeypair } from './crypto.js';
-
-// Action typing templates
-export { action } from './templates.js';
-export type { ActionDefinition, ActionMap, InputOf, OutputOf } from './templates.js';
-
-// Policy engine
-export { checkPolicies } from './policy.js';
+// Crypto utilities
+export {
+  sortedStringify, sha256, computeReceiptHash,
+  ed25519Sign, ed25519Verify, generateKeypair, getPublicKey,
+  deriveAgentKeypair, bytesToHex, hexToBytes, randomHex,
+} from './crypto.js';
 
 // Errors
 export { InvarianceError } from './errors.js';
-export type { InvarianceErrorCode } from './errors.js';
+export type { ErrorCode } from './errors.js';
 
-// Observability
-export { TRACE_SCHEMA_VERSION } from './observability/index.js';
-export { validateTraceEvent } from './observability/index.js';
-export type { ValidationResult } from './observability/index.js';
-export type {
-  TracerConfig,
-  TracerMode,
-  TraceEvent,
-  TraceMetadata,
-  BehavioralPrimitive,
-  DevOutput,
-  DecisionPointPayload,
-  GoalDriftPayload,
-  SubAgentSpawnPayload,
-  ToolInvocationPayload,
-  VerificationProof,
-  TraceAction,
-  ReplaySnapshot,
-  ReplayTimelineEntry,
-  ReplayContextMode,
-  CounterfactualRequest,
-  CounterfactualResult,
-} from './observability/index.js';
+// Policy
+export { checkPolicies, assertPolicy } from './policy.js';
 
-// Trace query
-export { TraceQuery } from './trace-query.js';
-export type { TraceFilter } from './trace-query.js';
+// A2A Channel
+export { A2AChannel } from './a2a-channel.js';
 
-// Assertions
-export { assertTrace, TraceAssertions, AssertionError } from './assertions.js';
+// Normalize
+export { normalizeActionType, toSnakeCase, toCamelCase } from './normalize.js';
 
-// Eval
-export { EvalSuite } from './eval.js';
+// Resource classes (for advanced use / extending)
+export { IdentityResource } from './resources/identity.js';
+export { AgentsResource } from './resources/agents.js';
+export { SessionsResource } from './resources/sessions.js';
+export { ReceiptsResource } from './resources/receipts.js';
+export { ContractsResource } from './resources/contracts.js';
+export { A2AResource } from './resources/a2a.js';
+export { TraceResource } from './resources/trace.js';
+export { QueryResource } from './resources/query.js';
+export { MonitorsResource } from './resources/monitors.js';
+export { DriftResource } from './resources/drift.js';
+export { TrainingResource } from './resources/training.js';
+export { TemplatesResource } from './resources/templates.js';
+export { ApiKeysResource } from './resources/api-keys.js';
+export { UsageResource } from './resources/usage.js';
+export { SearchResource } from './resources/search.js';
+export { StatusResource } from './resources/status.js';
+export { NLQueryResource } from './resources/nl-query.js';
+export { IdentitiesResource } from './resources/identities.js';
 
-// Session comparison
-export { compareSessions } from './compare.js';
-
-// Eval types
-export type { EvalResult, JudgeConfig, JudgeVerdict } from './eval-types.js';
-
-// Types
-export type {
-  InvarianceConfig,
-  Action,
-  Receipt,
-  SessionInfo,
-  PolicyRule,
-  PolicyCheck,
-  ReceiptQuery,
-  ErrorHandler,
-  ActionTemplate,
-  VerifyResult,
-  ContractTerms,
-  Contract,
-  DeliveryProof,
-  SettlementProof,
-  AgentIdentity,
-  MonitorTriggerEvent,
-  QuerySource,
-  NLQueryResult,
-  NLQueryScope,
-  TraceQueryResult,
-  ToolSchema,
-  StatsResult,
-  AgentNote,
-  // Monitor types
-  Monitor,
-  CreateMonitorBody,
-  UpdateMonitorBody,
-  MonitorEvaluateResult,
-  // Eval types (remote)
-  EvalSuiteRemote,
-  CreateEvalSuiteBody,
-  EvalCase,
-  CreateEvalCaseBody,
-  EvalRun,
-  EvalCaseResult,
-  RunEvalBody,
-  EvalCompareResult,
-  EvalThreshold,
-  CreateEvalThresholdBody,
-  UpdateEvalThresholdBody,
-  FailureCluster,
-  CreateFailureClusterBody,
-  UpdateFailureClusterBody,
-  FailureClusterMember,
-  AddFailureClusterMemberBody,
-  OptimizationSuggestion,
-  CreateOptimizationSuggestionBody,
-  UpdateOptimizationSuggestionBody,
-  // Training types
-  TrainingPair,
-  CreateTrainingPairBody,
-  TraceFlag,
-  CreateTraceFlagBody,
-  TraceFlagStats,
-  // Drift types
-  DriftCatch,
-  DriftComparison,
-  // Template types
-  TemplatePack,
-  TemplateApplyResult,
-  // Identity types
-  IdentityRecord,
-  // A2A Query types
-  A2AConversation,
-  A2AMessage,
-  A2APeer,
-  // Search types
-  SearchResult,
-} from './types.js';
-
-// SSE parsing
-export { parseSSEChunk } from './sse-parser.js';
-export type { SSEFrame } from './sse-parser.js';
-
-// Live status
-export { LiveStatusClient } from './live-status.js';
-export type { LiveStatusClientConfig } from './live-status.js';
-
-// NL Query types
-export type {
-  NLQueryRequest,
-  NLQueryContext,
-  NLQueryResponse,
-  NLQueryDataSource,
-  NLStructuredResult,
-  NLTraceContext,
-  NLTraceNode,
-  LiveStatusEvent,
-} from './query-types.js';
+// All types
+export type * from './types/index.js';
