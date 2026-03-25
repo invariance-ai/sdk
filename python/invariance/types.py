@@ -816,6 +816,7 @@ LiveStatusEventType = Literal[
     "anomaly_detected",
     "monitor_triggered",
     "trace_node_created",
+    "signal_created",
 ]
 
 
@@ -946,3 +947,61 @@ class TraceChainVerifyResult(TypedDict, total=False):
     valid: bool
     brokenAt: int
     error: str
+
+
+# -- Signal ----------------------------------------------------------------
+
+SignalSource = Literal["monitor", "anomaly", "emit"]
+SignalSeverity = Literal["low", "medium", "high", "critical"]
+
+
+class Signal(TypedDict, total=False):
+    id: str
+    source: str  # SignalSource
+    severity: str  # SignalSeverity
+    owner_id: str
+    monitor_id: str | None
+    trace_node_id: str | None
+    session_id: str | None
+    agent_id: str | None
+    title: str
+    message: str
+    matched_value: Any
+    metadata: dict[str, Any]
+    acknowledged: bool
+    acknowledged_at: str | None
+    acknowledged_by: str | None
+    created_at: str
+
+
+class SignalQuery(TypedDict, total=False):
+    source: str
+    severity: str
+    agent_id: str
+    session_id: str
+    monitor_id: str
+    acknowledged: bool
+    after_id: str
+    limit: int
+
+
+class CreateSignalBody(TypedDict, total=False):
+    title: str
+    message: str
+    severity: str
+    agent_id: str
+    session_id: str
+    trace_node_id: str
+    metadata: dict[str, Any]
+
+
+class BulkAcknowledgeSignalsBody(TypedDict, total=False):
+    signal_ids: list[str]
+    filter: dict[str, Any]
+
+
+class SignalStats(TypedDict):
+    total: int
+    by_source: dict[str, int]
+    by_severity: dict[str, int]
+    unacknowledged: int

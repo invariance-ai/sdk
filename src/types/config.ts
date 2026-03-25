@@ -1,5 +1,6 @@
 import type { InvarianceError } from '../errors.js';
 import type { MonitorSignal } from './monitor.js';
+import type { Signal } from './signal.js';
 
 export interface InvarianceConfig {
   apiKey: string;
@@ -9,10 +10,20 @@ export interface InvarianceConfig {
   maxBatchSize?: number;
   maxQueueSize?: number;
   onError?: (error: InvarianceError) => void;
-  /** Callback fired when a monitor event is detected via polling. */
+  /**
+   * @deprecated Use `onSignal` instead.
+   * Callback fired when a monitor event is detected via polling.
+   */
   onMonitorTrigger?: (event: MonitorSignal) => void;
-  /** Polling interval in ms for monitor events. Set to enable polling. */
+  /**
+   * @deprecated Use `signalPollIntervalMs` instead.
+   * Polling interval in ms for monitor events. Set to enable polling.
+   */
   monitorPollIntervalMs?: number;
+  /** Callback fired when a signal is detected via polling. */
+  onSignal?: (signal: Signal) => void;
+  /** Polling interval in ms for signals. Set to enable polling. */
+  signalPollIntervalMs?: number;
 }
 
 export interface Action {
