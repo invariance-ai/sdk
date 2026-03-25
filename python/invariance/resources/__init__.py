@@ -20,6 +20,7 @@ from .usage import UsageResource
 from .failure_clusters import FailureClustersResource
 from .suggestions import SuggestionsResource
 from .docs import DocsResource
+from .signals import SignalsResource
 
 __all__ = [
     "AgentsResource",
@@ -44,4 +45,5 @@ __all__ = [
     "FailureClustersResource",
     "SuggestionsResource",
     "DocsResource",
+    "SignalsResource",
 ]

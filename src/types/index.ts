@@ -18,6 +18,10 @@ export type {
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
 } from './monitor.js';
 export type {
+  Signal, SignalSource, SignalSeverity, SignalQuery, CreateSignalBody,
+  BulkAcknowledgeSignalsBody, SignalStats,
+} from './signal.js';
+export type {
   NLQueryResult, TraceQueryOpts, StructuredTraceQuery, TraceQueryResult,
   StatsResult, StatsQuery, AgentNote, WriteNoteOpts, ToolSchema, QueryScope,
 } from './query.js';

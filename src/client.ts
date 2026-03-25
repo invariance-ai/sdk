@@ -4,6 +4,7 @@ import { Session } from './session.js';
 import { InvarianceError } from './errors.js';
 import { generateKeypair, getPublicKey, deriveAgentKeypair } from './crypto.js';
 import { MonitorPoller } from './monitor-poller.js';
+import { SignalPoller } from './signal-poller.js';
 
 import { IdentityResource } from './resources/identity.js';
 import { AgentsResource } from './resources/agents.js';
@@ -14,6 +15,7 @@ import { A2AResource } from './resources/a2a.js';
 import { TraceResource } from './resources/trace.js';
 import { QueryResource } from './resources/query.js';
 import { MonitorsResource } from './resources/monitors.js';
+import { SignalsResource } from './resources/signals.js';
 import { DriftResource } from './resources/drift.js';
 import { TrainingResource } from './resources/training.js';
 import { TemplatesResource } from './resources/templates.js';
@@ -36,6 +38,7 @@ import { AnnotationsResource } from './resources/annotations.js';
 import type { InvarianceConfig, Action } from './types/config.js';
 import type { Receipt } from './types/receipt.js';
 import type { SessionCreateOpts } from './types/session.js';
+import type { Signal, CreateSignalBody } from './types/signal.js';
 
 declare const __SDK_VERSION__: string;
 
@@ -51,6 +54,7 @@ export class Invariance {
   private privateKey?: string;
   private pendingSessionCloses: Promise<void>[] = [];
   private monitorPoller: MonitorPoller | null = null;
+  private signalPoller: SignalPoller | null = null;
 
   // Resource namespaces
   readonly identity: IdentityResource;
@@ -80,6 +84,7 @@ export class Invariance {
   readonly experiments: ExperimentsResource;
   readonly prompts: PromptsResource;
   readonly annotations: AnnotationsResource;
+  readonly signals: SignalsResource;
 
   private constructor(config: InvarianceConfig) {
     if (!config.apiKey) {
@@ -136,9 +141,18 @@ export class Invariance {
     this.experiments = new ExperimentsResource(this.http);
     this.prompts = new PromptsResource(this.http);
     this.annotations = new AnnotationsResource(this.http);
+    this.signals = new SignalsResource(this.http);
 
-    // Start monitor polling if configured
-    if (config.onMonitorTrigger && config.monitorPollIntervalMs) {
+    // Start signal or monitor polling if configured
+    if (config.onSignal && (config.signalPollIntervalMs ?? config.monitorPollIntervalMs)) {
+      this.signalPoller = new SignalPoller({
+        signals: this.signals,
+        intervalMs: config.signalPollIntervalMs ?? config.monitorPollIntervalMs!,
+        onSignal: config.onSignal,
+        onError: config.onError ? (err) => config.onError!(err as InvarianceError) : undefined,
+      });
+      this.signalPoller.start();
+    } else if (config.onMonitorTrigger && config.monitorPollIntervalMs) {
       this.monitorPoller = new MonitorPoller({
         monitors: this.monitors,
         intervalMs: config.monitorPollIntervalMs,
@@ -245,7 +259,15 @@ export class Invariance {
   /**
    * Gracefully shut down: flush receipts, await pending session closes.
    */
+  /**
+   * Create a signal with source='emit'.
+   */
+  async emitSignal(body: CreateSignalBody): Promise<Signal> {
+    return this.signals.create(body);
+  }
+
   async shutdown(): Promise<void> {
+    this.signalPoller?.stop();
     this.monitorPoller?.stop();
     await this.batcher.shutdown();
     await Promise.allSettled(this.pendingSessionCloses);
