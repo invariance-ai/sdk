@@ -8,7 +8,7 @@ import type { MonitorSignal } from './types/monitor.js';
 export class MonitorPoller {
   private readonly monitors: MonitorsResource;
   private readonly intervalMs: number;
-  private readonly onEvent: (event: MonitorSignal) => void;
+  private readonly onEvent: (event: MonitorSignal) => void | Promise<void>;
   private readonly onError?: (err: unknown) => void;
 
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -18,7 +18,7 @@ export class MonitorPoller {
   constructor(opts: {
     monitors: MonitorsResource;
     intervalMs: number;
-    onEvent: (event: MonitorSignal) => void;
+    onEvent: (event: MonitorSignal) => void | Promise<void>;
     onError?: (err: unknown) => void;
   }) {
     this.monitors = opts.monitors;
@@ -44,13 +44,15 @@ export class MonitorPoller {
     if (this.polling) return;
     this.polling = true;
     try {
-      const { events } = await this.monitors.listEvents({
+      const { events, next_cursor } = await this.monitors.listEvents({
         after_id: this.lastSeenEventId,
         acknowledged: false,
       });
       for (const event of events) {
-        this.lastSeenEventId = event.id;
-        this.onEvent(event);
+        await this.onEvent(event);
+      }
+      if (events.length > 0) {
+        this.lastSeenEventId = next_cursor ?? events[events.length - 1]?.id;
       }
     } catch (err) {
       if (this.onError) this.onError(err);

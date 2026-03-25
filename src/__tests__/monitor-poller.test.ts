@@ -58,7 +58,7 @@ describe('MonitorPoller', () => {
   it('advances cursor with after_id from last seen event', async () => {
     monitors.listEvents.mockResolvedValueOnce({
       events: [mockSignal('evt-1')],
-      next_cursor: null,
+      next_cursor: 'evt-1-cursor',
     });
 
     await poller.poll();
@@ -71,7 +71,28 @@ describe('MonitorPoller', () => {
     await poller.poll();
 
     expect(monitors.listEvents).toHaveBeenLastCalledWith({
-      after_id: 'evt-1',
+      after_id: 'evt-1-cursor',
+      acknowledged: false,
+    });
+  });
+
+  it('awaits async event handlers before advancing the cursor', async () => {
+    const handled: string[] = [];
+    onEvent.mockImplementation(async (event: MonitorSignal) => {
+      await Promise.resolve();
+      handled.push(event.id);
+    });
+
+    monitors.listEvents.mockResolvedValueOnce({
+      events: [mockSignal('evt-1')],
+      next_cursor: 'evt-1-cursor',
+    });
+
+    await poller.poll();
+
+    expect(handled).toEqual(['evt-1']);
+    expect(monitors.listEvents).toHaveBeenCalledWith({
+      after_id: undefined,
       acknowledged: false,
     });
   });
