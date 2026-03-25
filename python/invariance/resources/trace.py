@@ -104,6 +104,23 @@ class TraceResource:
         )
 
     async def verify_chain(self, session_id: str) -> dict[str, Any]:
-        return await self._http.get(
+        payload = await self._http.get(
             f"/v1/trace/sessions/{session_id}/verify"
         )
+        if isinstance(payload, dict):
+            if isinstance(payload.get("verified"), bool):
+                return {
+                    "verified": payload["verified"],
+                    "errors": [
+                        item for item in payload.get("errors", [])
+                        if isinstance(item, str)
+                    ],
+                }
+            if isinstance(payload.get("valid"), bool):
+                return {
+                    "verified": payload["valid"],
+                    "errors": [payload["error"]]
+                    if isinstance(payload.get("error"), str)
+                    else [],
+                }
+        return {"verified": False, "errors": ["Invalid verification response"]}

@@ -70,7 +70,7 @@ def test_session_can_be_created_outside_running_loop():
 
 
 @pytest.mark.asyncio
-async def test_client_convenience_methods_cover_dashboard_flows():
+async def test_resource_namespaces_cover_dashboard_flows():
     client = Invariance.init(api_key="test-key", api_url="https://api.test")
 
     with respx.mock(base_url="https://api.test") as router:
@@ -90,12 +90,34 @@ async def test_client_convenience_methods_cover_dashboard_flows():
             return_value=Response(200, json={"valid": True})
         )
 
-        anomalies = await client.get_anomaly_feed({"limit": 5, "agentId": "agent-1"})
-        status = await client.get_live_status()
-        verification = await client.verify_trace_chain("sess-1")
+        anomaly_result = await client.trace.get_anomalies({"limit": 5, "agentId": "agent-1"})
+        status_result = await client.status.snapshot()
+        verify_result = await client.trace.verify_chain("sess-1")
 
-    assert anomalies == [{"id": "node-1", "session_id": "sess-1"}]
-    assert status == {"agents": [], "recent_events": []}
-    assert verification == {"verified": True, "errors": []}
+    assert anomaly_result == {
+        "anomalies": [{"id": "node-1", "session_id": "sess-1"}],
+        "total": 1,
+    }
+    assert status_result == {"agents": [], "recent_events": []}
+    assert verify_result == {"verified": True, "errors": []}
 
     await client.shutdown()
+
+
+def test_removed_convenience_methods_do_not_exist():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    removed = [
+        "create_agent", "list_agents", "get_agent", "get_agent_metrics",
+        "get_anomaly_feed", "get_trace_nodes", "verify_trace_chain",
+        "get_live_status", "connect_live_status",
+        "ask_question", "ask_query",
+        "get_monitors", "create_monitor", "delete_monitor",
+        "get_training_pairs", "create_training_pair",
+        "get_eval_suites", "create_eval_suite",
+        "get_failure_clusters", "get_suggestions",
+        "search_global",
+        "list_sessions", "get_session", "verify_session",
+        "signup", "create_org",
+    ]
+    present = [m for m in removed if hasattr(client, m)]
+    assert present == []

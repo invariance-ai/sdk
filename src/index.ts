@@ -47,6 +47,7 @@ export { IdentitiesResource } from './resources/identities.js';
 export { EvalsResource } from './resources/evals.js';
 export { FailureClustersResource } from './resources/failure-clusters.js';
 export { SuggestionsResource } from './resources/suggestions.js';
+export { DocsResource } from './resources/docs.js';
 
 // All types
 export type * from './types/index.js';
