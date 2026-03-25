@@ -22,6 +22,9 @@ export { checkPolicies, assertPolicy } from './policy.js';
 // A2A Channel
 export { A2AChannel } from './a2a-channel.js';
 
+// Monitor Poller
+export { MonitorPoller } from './monitor-poller.js';
+
 // Normalize
 export { normalizeActionType, toSnakeCase, toCamelCase } from './normalize.js';
 
