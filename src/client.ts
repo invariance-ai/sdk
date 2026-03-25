@@ -3,6 +3,7 @@ import { Batcher } from './batcher.js';
 import { Session } from './session.js';
 import { InvarianceError } from './errors.js';
 import { generateKeypair, getPublicKey, deriveAgentKeypair } from './crypto.js';
+import { MonitorPoller } from './monitor-poller.js';
 
 import { IdentityResource } from './resources/identity.js';
 import { AgentsResource } from './resources/agents.js';
@@ -44,6 +45,7 @@ export class Invariance {
   private batcher: Batcher;
   private privateKey?: string;
   private pendingSessionCloses: Promise<void>[] = [];
+  private monitorPoller: MonitorPoller | null = null;
 
   // Resource namespaces
   readonly identity: IdentityResource;
@@ -119,6 +121,17 @@ export class Invariance {
     this.failureClusters = new FailureClustersResource(this.http);
     this.suggestions = new SuggestionsResource(this.http);
     this.docs = new DocsResource(this.http);
+
+    // Start monitor polling if configured
+    if (config.onMonitorTrigger && config.monitorPollIntervalMs) {
+      this.monitorPoller = new MonitorPoller({
+        monitors: this.monitors,
+        intervalMs: config.monitorPollIntervalMs,
+        onEvent: config.onMonitorTrigger,
+        onError: config.onError ? (err) => config.onError!(err as InvarianceError) : undefined,
+      });
+      this.monitorPoller.start();
+    }
   }
 
   /**
@@ -218,6 +231,7 @@ export class Invariance {
    * Gracefully shut down: flush receipts, await pending session closes.
    */
   async shutdown(): Promise<void> {
+    this.monitorPoller?.stop();
     await this.batcher.shutdown();
     await Promise.allSettled(this.pendingSessionCloses);
   }
