@@ -139,3 +139,8 @@ export interface TraceChainVerifyResult {
   brokenAt?: number;
   error?: string;
 }
+
+export interface TraceVerifyResult {
+  verified: boolean;
+  errors: string[];
+}

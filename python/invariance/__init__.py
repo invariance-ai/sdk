@@ -43,6 +43,7 @@ from .resources import (
     EvalsResource,
     FailureClustersResource,
     SuggestionsResource,
+    DocsResource,
 )
 
 __all__ = [
@@ -96,4 +97,5 @@ __all__ = [
     "EvalsResource",
     "FailureClustersResource",
     "SuggestionsResource",
+    "DocsResource",
 ]

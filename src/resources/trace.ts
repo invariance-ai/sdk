@@ -3,7 +3,7 @@ import type {
   TraceNode, TraceEventInput, ReplayTimelineEntry, ReplaySnapshot,
   CausalChain, AnomalyQuery, CounterfactualRequest, CounterfactualResult,
   AuditResult, GraphPattern, PatternQuery, GraphSnapshot, NodeDiff,
-  TraceChainVerifyResult,
+  TraceVerifyResult,
 } from '../types/trace.js';
 
 export class TraceResource {
@@ -85,7 +85,26 @@ export class TraceResource {
     return this.http.get<{ narrative: string | null }>(`/v1/trace/sessions/${sessionId}/narrative`);
   }
 
-  async verifyChain(sessionId: string): Promise<TraceChainVerifyResult> {
-    return this.http.get<TraceChainVerifyResult>(`/v1/trace/sessions/${sessionId}/verify`);
+  async verifyChain(sessionId: string): Promise<TraceVerifyResult> {
+    const payload = await this.http.get<Record<string, unknown>>(`/v1/trace/sessions/${sessionId}/verify`);
+
+    if (payload && typeof payload === 'object') {
+      if (typeof payload.verified === 'boolean') {
+        return {
+          verified: payload.verified,
+          errors: Array.isArray(payload.errors)
+            ? (payload.errors as unknown[]).filter((item): item is string => typeof item === 'string')
+            : [],
+        };
+      }
+      if (typeof payload.valid === 'boolean') {
+        return {
+          verified: payload.valid,
+          errors: typeof payload.error === 'string' ? [payload.error] : [],
+        };
+      }
+    }
+
+    return { verified: false, errors: ['Invalid verification response'] };
   }
 }
