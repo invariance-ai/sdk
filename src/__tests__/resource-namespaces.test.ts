@@ -30,6 +30,11 @@ describe('resource namespace surface', () => {
     expect(inv.search).toBeTruthy();
     expect(inv.status).toBeTruthy();
     expect(inv.templates).toBeTruthy();
+    expect(inv.datasets).toBeTruthy();
+    expect(inv.scorers).toBeTruthy();
+    expect(inv.experiments).toBeTruthy();
+    expect(inv.prompts).toBeTruthy();
+    expect(inv.annotations).toBeTruthy();
   });
 
   it('calls resource namespace methods with the expected wire contract', async () => {
@@ -52,6 +57,18 @@ describe('resource namespace surface', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ valid: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'exp-1', name: 'Experiment', dataset_id: 'ds-1', dataset_version: 1, suite_id: 'suite-1', prompt_version_id: null, config: {}, status: 'pending', run_id: null, owner_id: 'agent-1', created_at: '2026-01-01T00:00:00.000Z', completed_at: null }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
       });
 
     const anomalyResult = await inv.trace.getAnomalies({ limit: 5, agentId: 'agent-1' });
@@ -63,9 +80,27 @@ describe('resource namespace surface', () => {
     const verifyResult = await inv.trace.verifyChain('sess-1');
     expect(verifyResult).toEqual({ verified: true, errors: [] });
 
+    const datasetsResult = await inv.datasets.list({ agent_id: 'agent-1' });
+    expect(datasetsResult).toEqual([]);
+
+    const experimentResult = await inv.experiments.create({
+      name: 'Experiment',
+      dataset_id: 'ds-1',
+      dataset_version: 1,
+      suite_id: 'suite-1',
+    });
+    expect(experimentResult).toMatchObject({ id: 'exp-1', dataset_id: 'ds-1' });
+
+    const promptsResult = await inv.prompts.list();
+    expect(promptsResult).toEqual([]);
+
     expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/trace/anomalies?limit=5&agentId=agent-1');
     expect((fetch as any).mock.calls[1][0]).toBe('https://api.invariance.dev/v1/status/live');
     expect((fetch as any).mock.calls[2][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/verify');
+    expect((fetch as any).mock.calls[3][0]).toBe('https://api.invariance.dev/v1/datasets?agent_id=agent-1');
+    expect((fetch as any).mock.calls[4][0]).toBe('https://api.invariance.dev/v1/experiments');
+    expect((fetch as any).mock.calls[4][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[5][0]).toBe('https://api.invariance.dev/v1/prompts');
 
     await inv.shutdown();
   });

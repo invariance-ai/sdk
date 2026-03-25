@@ -32,6 +32,20 @@ export type {
   EvalThreshold, CreateEvalThresholdBody,
 } from './eval.js';
 export type {
+  Dataset, DatasetRow, DatasetVersion, CreateDatasetBody, UpdateDatasetBody,
+  CreateDatasetRowBody, UpdateDatasetRowBody, DatasetFromTracesBody, ImportDatasetRowsFromTracesBody,
+} from './dataset.js';
+export type { Scorer, CreateScorerBody, UpdateScorerBody } from './scorer.js';
+export type { Experiment, CreateExperimentBody, ExperimentCompareResult } from './experiment.js';
+export type {
+  Prompt, PromptVersion, ToolStrategy, StopCondition, CreatePromptBody,
+  UpdatePromptBody, CreatePromptVersionBody, PromptDiffResult,
+} from './prompt.js';
+export type {
+  AnnotationQueueItem, CreateAnnotationBody, UpdateAnnotationBody,
+  HumanScore, SubmitAnnotationScoreBody, HumanScoreStats,
+} from './annotation.js';
+export type {
   FailureCluster, FailureClusterMember, CreateFailureClusterBody,
   UpdateFailureClusterBody, FailureClusterListOpts, AddClusterMemberBody,
 } from './failure-cluster.js';
