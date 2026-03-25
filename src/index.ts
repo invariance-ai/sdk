@@ -25,6 +25,9 @@ export { A2AChannel } from './a2a-channel.js';
 // Monitor Poller
 export { MonitorPoller } from './monitor-poller.js';
 
+// Signal Poller
+export { SignalPoller } from './signal-poller.js';
+
 // Normalize
 export { normalizeActionType, toSnakeCase, toCamelCase } from './normalize.js';
 
@@ -38,6 +41,7 @@ export { A2AResource } from './resources/a2a.js';
 export { TraceResource } from './resources/trace.js';
 export { QueryResource } from './resources/query.js';
 export { MonitorsResource } from './resources/monitors.js';
+export { SignalsResource } from './resources/signals.js';
 export { DriftResource } from './resources/drift.js';
 export { TrainingResource } from './resources/training.js';
 export { TemplatesResource } from './resources/templates.js';

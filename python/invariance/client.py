@@ -34,6 +34,7 @@ from .resources.evals import EvalsResource
 from .resources.failure_clusters import FailureClustersResource
 from .resources.suggestions import SuggestionsResource
 from .resources.docs import DocsResource
+from .resources.signals import SignalsResource
 
 T = TypeVar("T")
 
@@ -108,6 +109,7 @@ class Invariance:
         self.failure_clusters = FailureClustersResource(self._http)
         self.suggestions = SuggestionsResource(self._http)
         self.docs = DocsResource(self._http)
+        self.signals = SignalsResource(self._http)
 
     @classmethod
     def init(
@@ -217,6 +219,10 @@ class Invariance:
         result = await s.wrap({"action": action, "input": input}, fn)
         await s.end()
         return result
+
+    async def emit_signal(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Create a signal with source='emit'."""
+        return await self.signals.create(body)
 
     async def flush(self) -> None:
         """Flush all pending receipts to the backend."""

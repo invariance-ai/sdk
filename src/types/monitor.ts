@@ -35,6 +35,7 @@ export interface MonitorEvaluateResult {
   matched_node_ids: string[];
 }
 
+/** @deprecated Use `Signal` from `./signal.js` instead. */
 export interface MonitorSignal {
   id: string;
   monitor_id: string;
@@ -48,6 +49,7 @@ export interface MonitorSignal {
   created_at: string;
 }
 
+/** @deprecated Use `SignalQuery` from `./signal.js` instead. */
 export interface MonitorEventsQuery {
   monitor_id?: string;
   after_id?: string;

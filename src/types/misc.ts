@@ -62,7 +62,7 @@ export interface HealthResponse {
 }
 
 export type LiveStatusEventType = 'session_created' | 'session_closed' | 'receipt_submitted'
-  | 'anomaly_detected' | 'monitor_triggered' | 'trace_node_created';
+  | 'anomaly_detected' | 'monitor_triggered' | 'trace_node_created' | 'signal_created';
 
 export interface LiveStatusEvent {
   id: string;
