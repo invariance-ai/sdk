@@ -102,3 +102,8 @@ class TraceResource:
         return await self._http.get(
             f"/v1/trace/sessions/{session_id}/narrative"
         )
+
+    async def verify_chain(self, session_id: str) -> dict[str, Any]:
+        return await self._http.get(
+            f"/v1/trace/sessions/{session_id}/verify"
+        )

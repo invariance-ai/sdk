@@ -41,6 +41,8 @@ from .resources import (
     NLQueryResource,
     IdentitiesResource,
     EvalsResource,
+    FailureClustersResource,
+    SuggestionsResource,
 )
 
 __all__ = [
@@ -92,4 +94,6 @@ __all__ = [
     "NLQueryResource",
     "IdentitiesResource",
     "EvalsResource",
+    "FailureClustersResource",
+    "SuggestionsResource",
 ]

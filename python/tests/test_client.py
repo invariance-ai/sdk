@@ -67,3 +67,35 @@ def test_session_can_be_created_outside_running_loop():
         await client.shutdown()
 
     asyncio.run(run())
+
+
+@pytest.mark.asyncio
+async def test_client_convenience_methods_cover_dashboard_flows():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+
+    with respx.mock(base_url="https://api.test") as router:
+        router.get("/v1/trace/anomalies").mock(
+            return_value=Response(
+                200,
+                json={
+                    "anomalies": [{"id": "node-1", "session_id": "sess-1"}],
+                    "total": 1,
+                },
+            )
+        )
+        router.get("/v1/status/live").mock(
+            return_value=Response(200, json={"agents": [], "recent_events": []})
+        )
+        router.get("/v1/trace/sessions/sess-1/verify").mock(
+            return_value=Response(200, json={"valid": True})
+        )
+
+        anomalies = await client.get_anomaly_feed({"limit": 5, "agentId": "agent-1"})
+        status = await client.get_live_status()
+        verification = await client.verify_trace_chain("sess-1")
+
+    assert anomalies == [{"id": "node-1", "session_id": "sess-1"}]
+    assert status == {"agents": [], "recent_events": []}
+    assert verification == {"verified": True, "errors": []}
+
+    await client.shutdown()

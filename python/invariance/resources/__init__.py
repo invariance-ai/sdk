@@ -17,6 +17,8 @@ from .templates import TemplatesResource
 from .trace import TraceResource
 from .training import TrainingResource
 from .usage import UsageResource
+from .failure_clusters import FailureClustersResource
+from .suggestions import SuggestionsResource
 
 __all__ = [
     "AgentsResource",
@@ -38,4 +40,6 @@ __all__ = [
     "TraceResource",
     "TrainingResource",
     "UsageResource",
+    "FailureClustersResource",
+    "SuggestionsResource",
 ]

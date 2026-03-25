@@ -97,22 +97,14 @@ export class HttpClient {
       }
 
       if (response.ok) {
-        const text = await response.text();
-        if (!text) return undefined as T;
-        try {
-          return JSON.parse(text) as T;
-        } catch {
-          return text as T;
-        }
+        const payload = await this.readResponseBody(response);
+        return payload as T;
       }
 
-      const errorBody = await response.text().catch(() => '');
+      const errorPayload = await this.readResponseBody(response);
+      const errorBody = typeof errorPayload === 'string' ? errorPayload : JSON.stringify(errorPayload);
       let details: unknown;
-      try {
-        details = JSON.parse(errorBody);
-      } catch {
-        details = errorBody;
-      }
+      details = errorPayload;
 
       const error = new InvarianceError(
         'API_ERROR',
@@ -136,6 +128,26 @@ export class HttpClient {
     }
 
     throw new InvarianceError('API_ERROR', 'Request failed after all retries');
+  }
+
+  private async readResponseBody(response: Response): Promise<unknown> {
+    const textFn = response.text;
+    if (typeof textFn === 'function') {
+      const text = await textFn.call(response);
+      if (!text) return undefined;
+      try {
+        return JSON.parse(text) as unknown;
+      } catch {
+        return text;
+      }
+    }
+
+    const jsonFn = (response as Response & { json?: () => Promise<unknown> }).json;
+    if (typeof jsonFn === 'function') {
+      return jsonFn.call(response);
+    }
+
+    return undefined;
   }
 }
 

@@ -840,3 +840,109 @@ class LiveStatusAgentSummary(TypedDict):
 class LiveStatusSnapshot(TypedDict):
     agents: list[LiveStatusAgentSummary]
     recent_events: list[LiveStatusEvent]
+
+
+# ── Failure Clusters ─────────────────────────────────────────────────────────
+
+
+class FailureClusterMember(TypedDict, total=False):
+    id: str
+    cluster_id: str
+    trace_node_id: str
+    session_id: str
+    added_at: str
+
+
+class FailureCluster(TypedDict, total=False):
+    id: str
+    agent_id: str
+    cluster_type: str
+    label: str
+    description: str | None
+    severity: str
+    occurrence_count: int
+    status: str
+    resolution_notes: str | None
+    first_seen: str | None
+    last_seen: str | None
+    owner_id: str
+    created_at: str
+    updated_at: str
+    member_count: int
+    members: list[FailureClusterMember]
+
+
+class CreateFailureClusterBody(TypedDict, total=False):
+    agent_id: str
+    cluster_type: str
+    label: str
+    description: str
+    severity: str
+
+
+class UpdateFailureClusterBody(TypedDict, total=False):
+    status: str
+    resolution_notes: str
+    label: str
+    description: str
+    severity: str
+
+
+class FailureClusterListOpts(TypedDict, total=False):
+    agent_id: str
+    status: str
+    cluster_type: str
+
+
+class AddClusterMemberBody(TypedDict, total=False):
+    trace_node_id: str
+    session_id: str
+
+
+# ── Optimization Suggestions ─────────────────────────────────────────────────
+
+
+class OptimizationSuggestion(TypedDict, total=False):
+    id: str
+    agent_id: str
+    suggestion_type: str
+    title: str
+    description: str
+    cluster_id: str | None
+    confidence: float
+    evidence: dict[str, Any]
+    status: str
+    owner_id: str
+    created_at: str
+
+
+class CreateSuggestionBody(TypedDict, total=False):
+    agent_id: str
+    suggestion_type: str
+    title: str
+    description: str
+    cluster_id: str
+    confidence: float
+    evidence: dict[str, Any]
+
+
+class UpdateSuggestionBody(TypedDict, total=False):
+    status: str
+    title: str
+    description: str
+    confidence: float
+
+
+class SuggestionListOpts(TypedDict, total=False):
+    agent_id: str
+    status: str
+    suggestion_type: str
+
+
+# ── Trace Chain Verification ─────────────────────────────────────────────────
+
+
+class TraceChainVerifyResult(TypedDict, total=False):
+    valid: bool
+    brokenAt: int
+    error: str
