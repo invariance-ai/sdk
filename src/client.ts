@@ -75,7 +75,6 @@ export class Invariance {
   readonly suggestions: SuggestionsResource;
   readonly docs: DocsResource;
   readonly signals: SignalsResource;
-  readonly signals: SignalsResource;
 
   private constructor(config: InvarianceConfig) {
     if (!config.apiKey) {
