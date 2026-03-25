@@ -27,6 +27,11 @@ import { EvalsResource } from './resources/evals.js';
 import { FailureClustersResource } from './resources/failure-clusters.js';
 import { SuggestionsResource } from './resources/suggestions.js';
 import { DocsResource } from './resources/docs.js';
+import { DatasetsResource } from './resources/datasets.js';
+import { ScorersResource } from './resources/scorers.js';
+import { ExperimentsResource } from './resources/experiments.js';
+import { PromptsResource } from './resources/prompts.js';
+import { AnnotationsResource } from './resources/annotations.js';
 
 import type { InvarianceConfig, Action } from './types/config.js';
 import type { Receipt } from './types/receipt.js';
@@ -70,6 +75,11 @@ export class Invariance {
   readonly failureClusters: FailureClustersResource;
   readonly suggestions: SuggestionsResource;
   readonly docs: DocsResource;
+  readonly datasets: DatasetsResource;
+  readonly scorers: ScorersResource;
+  readonly experiments: ExperimentsResource;
+  readonly prompts: PromptsResource;
+  readonly annotations: AnnotationsResource;
 
   private constructor(config: InvarianceConfig) {
     if (!config.apiKey) {
@@ -121,6 +131,11 @@ export class Invariance {
     this.failureClusters = new FailureClustersResource(this.http);
     this.suggestions = new SuggestionsResource(this.http);
     this.docs = new DocsResource(this.http);
+    this.datasets = new DatasetsResource(this.http);
+    this.scorers = new ScorersResource(this.http);
+    this.experiments = new ExperimentsResource(this.http);
+    this.prompts = new PromptsResource(this.http);
+    this.annotations = new AnnotationsResource(this.http);
 
     // Start monitor polling if configured
     if (config.onMonitorTrigger && config.monitorPollIntervalMs) {

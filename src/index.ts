@@ -51,6 +51,11 @@ export { EvalsResource } from './resources/evals.js';
 export { FailureClustersResource } from './resources/failure-clusters.js';
 export { SuggestionsResource } from './resources/suggestions.js';
 export { DocsResource } from './resources/docs.js';
+export { DatasetsResource } from './resources/datasets.js';
+export { ScorersResource } from './resources/scorers.js';
+export { ExperimentsResource } from './resources/experiments.js';
+export { PromptsResource } from './resources/prompts.js';
+export { AnnotationsResource } from './resources/annotations.js';
 
 // All types
 export type * from './types/index.js';
