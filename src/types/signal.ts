@@ -47,6 +47,8 @@ export interface BulkAcknowledgeSignalsBody {
     source?: SignalSource;
     severity?: SignalSeverity;
     agent_id?: string;
+    session_id?: string;
+    monitor_id?: string;
   };
 }
 
