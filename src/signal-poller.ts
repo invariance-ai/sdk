@@ -38,7 +38,7 @@ export class SignalPoller {
     if (this.polling) return;
     this.polling = true;
     try {
-      const { signals, next_cursor } = await this.signals.list({
+      const { signals } = await this.signals.list({
         after_id: this.lastSeenSignalId,
         acknowledged: false,
       });
@@ -46,7 +46,11 @@ export class SignalPoller {
         await this.onSignal(signal);
       }
       if (signals.length > 0) {
-        this.lastSeenSignalId = next_cursor ?? signals[signals.length - 1]!.id;
+        // Always advance cursor to the newest signal (ULID lexicographic max)
+        this.lastSeenSignalId = signals.reduce(
+          (max, s) => (s.id > max ? s.id : max),
+          signals[0]!.id,
+        );
       }
     } catch (err) {
       if (this.onError) this.onError(err);
