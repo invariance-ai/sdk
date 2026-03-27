@@ -1,7 +1,7 @@
 import type { HttpClient } from '../http.js';
 import type {
   TraceNode, TraceEventInput, ReplayTimelineEntry, ReplaySnapshot,
-  CausalChain, AnomalyQuery, CounterfactualRequest, CounterfactualResult,
+  CausalChain, CounterfactualRequest, CounterfactualResult,
   AuditResult, GraphPattern, PatternQuery, GraphSnapshot, NodeDiff,
   TraceVerifyResult,
 } from '../types/trace.js';
@@ -39,20 +39,6 @@ export class TraceResource {
 
   async getDependencyContext(nodeId: string): Promise<unknown> {
     return this.http.get(`/v1/trace/nodes/${nodeId}/dependency-context`);
-  }
-
-  async getAnomalies(opts?: AnomalyQuery): Promise<{ anomalies: TraceNode[]; total: number }> {
-    return this.http.get<{ anomalies: TraceNode[]; total: number }>('/v1/trace/anomalies', {
-      params: {
-        minScore: opts?.minScore,
-        limit: opts?.limit,
-        offset: opts?.offset,
-        agentId: opts?.agentId,
-        sessionId: opts?.sessionId,
-        since: opts?.since,
-        until: opts?.until,
-      },
-    });
   }
 
   async generateReplay(sessionId: string, opts: CounterfactualRequest): Promise<CounterfactualResult> {

@@ -8,7 +8,7 @@ export type {
 export type { A2AConversation, A2AMessage, A2APeer, A2AConversationListOpts } from './a2a.js';
 export type {
   BehavioralPrimitive, TraceNode, NodeMetadata, TraceEventInput,
-  ReplayTimelineEntry, ReplaySnapshot, CausalChain, AnomalyQuery,
+  ReplayTimelineEntry, ReplaySnapshot, CausalChain,
   CounterfactualRequest, CounterfactualResult, AuditResult,
   GraphPattern, PatternQuery, GraphSnapshot, NodeDiff,
   TraceChainVerifyResult,

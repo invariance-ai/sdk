@@ -76,16 +76,6 @@ export interface CausalChain {
   root_cause_node_id: string | null;
 }
 
-export interface AnomalyQuery {
-  minScore?: number;
-  limit?: number;
-  offset?: number;
-  agentId?: string;
-  sessionId?: string;
-  since?: number;
-  until?: number;
-}
-
 export interface CounterfactualRequest {
   branch_from_node_id: string;
   modified_input: unknown;
