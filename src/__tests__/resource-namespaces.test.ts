@@ -43,13 +43,6 @@ describe('resource namespace surface', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          anomalies: [{ id: 'node-1', session_id: 'sess-1', agent_id: 'agent-1' }],
-          total: 1,
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
           agents: [{ agent_id: 'agent-1', active_sessions: 1, last_action_type: 'tool_invocation', last_action_at: 1, recent_errors: 0, anomaly_trend: [] }],
           recent_events: [],
         }),
@@ -71,9 +64,6 @@ describe('resource namespace surface', () => {
         json: async () => [],
       });
 
-    const anomalyResult = await inv.trace.getAnomalies({ limit: 5, agentId: 'agent-1' });
-    expect(anomalyResult).toMatchObject({ anomalies: expect.any(Array), total: 1 });
-
     const statusResult = await inv.status.snapshot();
     expect(statusResult).toMatchObject({ agents: expect.any(Array) });
 
@@ -94,13 +84,12 @@ describe('resource namespace surface', () => {
     const promptsResult = await inv.prompts.list();
     expect(promptsResult).toEqual([]);
 
-    expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/trace/anomalies?limit=5&agentId=agent-1');
-    expect((fetch as any).mock.calls[1][0]).toBe('https://api.invariance.dev/v1/status/live');
-    expect((fetch as any).mock.calls[2][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/verify');
-    expect((fetch as any).mock.calls[3][0]).toBe('https://api.invariance.dev/v1/datasets?agent_id=agent-1');
-    expect((fetch as any).mock.calls[4][0]).toBe('https://api.invariance.dev/v1/experiments');
-    expect((fetch as any).mock.calls[4][1]).toMatchObject({ method: 'POST' });
-    expect((fetch as any).mock.calls[5][0]).toBe('https://api.invariance.dev/v1/prompts');
+    expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/status/live');
+    expect((fetch as any).mock.calls[1][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/verify');
+    expect((fetch as any).mock.calls[2][0]).toBe('https://api.invariance.dev/v1/datasets?agent_id=agent-1');
+    expect((fetch as any).mock.calls[3][0]).toBe('https://api.invariance.dev/v1/experiments');
+    expect((fetch as any).mock.calls[3][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[4][0]).toBe('https://api.invariance.dev/v1/prompts');
 
     await inv.shutdown();
   });
