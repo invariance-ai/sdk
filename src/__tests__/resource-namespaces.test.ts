@@ -62,6 +62,10 @@ describe('resource namespace surface', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
       });
 
     const statusResult = await inv.status.snapshot();
@@ -84,12 +88,22 @@ describe('resource namespace surface', () => {
     const promptsResult = await inv.prompts.list();
     expect(promptsResult).toEqual([]);
 
+    const promoteResult = await inv.datasets.promoteFromCompare('ds-1', {
+      suite_id: 'suite-1',
+      run_a: 'run-a',
+      run_b: 'run-b',
+      include: 'regressions',
+    });
+    expect(promoteResult).toEqual([]);
+
     expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/status/live');
     expect((fetch as any).mock.calls[1][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/verify');
     expect((fetch as any).mock.calls[2][0]).toBe('https://api.invariance.dev/v1/datasets?agent_id=agent-1');
     expect((fetch as any).mock.calls[3][0]).toBe('https://api.invariance.dev/v1/experiments');
     expect((fetch as any).mock.calls[3][1]).toMatchObject({ method: 'POST' });
     expect((fetch as any).mock.calls[4][0]).toBe('https://api.invariance.dev/v1/prompts');
+    expect((fetch as any).mock.calls[5][0]).toBe('https://api.invariance.dev/v1/datasets/ds-1/from-compare');
+    expect((fetch as any).mock.calls[5][1]).toMatchObject({ method: 'POST' });
 
     await inv.shutdown();
   });

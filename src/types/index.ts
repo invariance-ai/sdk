@@ -31,7 +31,7 @@ export type {
   TraceFlag, CreateTraceFlagBody, UpdateTraceFlagBody, TraceFlagStats, TraceFlagQuery,
 } from './training.js';
 export type {
-  EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
+  ProviderTarget, EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCaseResult, EvalCompareResult,
   EvalThreshold, CreateEvalThresholdBody,
 } from './eval.js';
