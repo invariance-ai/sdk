@@ -75,4 +75,14 @@ export class DatasetsResource {
   async importTraces(id: string, body: ImportDatasetRowsFromTracesBody): Promise<DatasetRow[]> {
     return this.http.post<DatasetRow[]>(`/v1/datasets/${id}/import-traces`, body);
   }
+
+  async promoteFromCompare(id: string, body: {
+    suite_id: string;
+    run_a: string;
+    run_b: string;
+    case_ids?: string[];
+    include?: 'regressions' | 'improvements' | 'all';
+  }): Promise<DatasetRow[]> {
+    return this.http.post<DatasetRow[]>(`/v1/datasets/${id}/from-compare`, body);
+  }
 }
