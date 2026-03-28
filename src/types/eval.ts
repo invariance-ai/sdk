@@ -1,3 +1,10 @@
+export interface ProviderTarget {
+  provider: 'anthropic' | 'openai';
+  model: string;
+  api_key_env?: string;
+  base_url_env?: string;
+}
+
 export interface EvalSuite {
   id: string;
   name: string;
@@ -62,6 +69,7 @@ export interface RunEvalBody {
   agent_id: string;
   version_label?: string;
   session_ids?: string[];
+  target?: ProviderTarget;
 }
 
 export interface EvalCaseResult {
