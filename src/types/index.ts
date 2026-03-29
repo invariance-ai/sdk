@@ -29,11 +29,14 @@ export type { DriftCatch, DriftComparison, DriftComparisonQuery } from './drift.
 export type {
   TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody,
   TraceFlag, CreateTraceFlagBody, UpdateTraceFlagBody, TraceFlagStats, TraceFlagQuery,
+  CreateCandidatesFromCompareBody, CreateCandidatesResult, ImprovementCandidateQuery,
 } from './training.js';
 export type {
   ProviderTarget, EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCaseResult, EvalCompareResult,
   EvalThreshold, CreateEvalThresholdBody,
+  EvalLaunchBody, EvalLaunchResult, ImprovementCandidate,
+  EvalRegressionEntry, EvalLineageEntry,
 } from './eval.js';
 export type {
   Dataset, DatasetRow, DatasetVersion, CreateDatasetBody, UpdateDatasetBody,

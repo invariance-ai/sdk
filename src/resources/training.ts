@@ -2,7 +2,9 @@ import type { HttpClient } from '../http.js';
 import type {
   TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody,
   TraceFlag, CreateTraceFlagBody, UpdateTraceFlagBody, TraceFlagStats, TraceFlagQuery,
+  CreateCandidatesFromCompareBody, CreateCandidatesResult, ImprovementCandidateQuery,
 } from '../types/training.js';
+import type { ImprovementCandidate } from '../types/eval.js';
 
 export class TrainingResource {
   constructor(private http: HttpClient) {}
@@ -48,5 +50,16 @@ export class TrainingResource {
 
   async flagStats(): Promise<TraceFlagStats> {
     return this.http.get<TraceFlagStats>('/v1/training/flags/stats');
+  }
+
+  // Improvement Candidates
+  async createCandidatesFromEvalCompare(body: CreateCandidatesFromCompareBody): Promise<CreateCandidatesResult> {
+    return this.http.post<CreateCandidatesResult>('/v1/training/candidates/from-eval-compare', body);
+  }
+
+  async listImprovementCandidates(opts?: ImprovementCandidateQuery): Promise<ImprovementCandidate[]> {
+    return this.http.get<ImprovementCandidate[]>('/v1/training/improvement-candidates', {
+      params: opts as Record<string, string | number | undefined>,
+    });
   }
 }
