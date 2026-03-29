@@ -128,3 +128,73 @@ export interface CreateEvalThresholdBody {
   min_value: number;
   webhook_url?: string;
 }
+
+// ── Orchestration Types ──
+
+export interface EvalLaunchBody {
+  mode: 'session' | 'dataset';
+  suite_id: string;
+  agent_id: string;
+  session_ids?: string[];
+  dataset_id?: string;
+  dataset_version?: number;
+  target?: ProviderTarget;
+  version_label?: string;
+}
+
+export interface EvalLaunchResult {
+  eval_run: EvalRun;
+  experiment_id: string | null;
+}
+
+export interface ImprovementCandidate {
+  id: string;
+  suite_id: string;
+  run_a: string;
+  run_b: string;
+  case_id: string;
+  case_name: string;
+  type: 'regression' | 'improvement';
+  a_passed: boolean;
+  b_passed: boolean;
+  a_score: number | null;
+  b_score: number | null;
+  delta: number | null;
+  dataset_row_id: string | null;
+  dataset_version: number | null;
+  session_id: string | null;
+  trace_node_id: string | null;
+  status: 'pending' | 'accepted' | 'rejected' | 'applied';
+  owner_id: string;
+  created_at: string;
+}
+
+export interface EvalRegressionEntry {
+  case_id: string;
+  case_name: string;
+  run_a: string;
+  run_b: string;
+  suite_id: string;
+  a_passed: boolean;
+  b_passed: boolean;
+  a_score: number | null;
+  b_score: number | null;
+  delta: number | null;
+  session_id: string | null;
+  dataset_row_id: string | null;
+}
+
+export interface EvalLineageEntry {
+  run_id: string;
+  suite_id: string;
+  suite_name: string;
+  agent_id: string;
+  version_label: string | null;
+  status: string;
+  pass_rate: number | null;
+  avg_score: number | null;
+  dataset_id: string | null;
+  dataset_version: number | null;
+  experiment_id: string | null;
+  created_at: string;
+}
