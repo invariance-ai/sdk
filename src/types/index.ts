@@ -29,7 +29,7 @@ export type { DriftCatch, DriftComparison, DriftComparisonQuery } from './drift.
 export type {
   TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody,
   TraceFlag, CreateTraceFlagBody, UpdateTraceFlagBody, TraceFlagStats, TraceFlagQuery,
-  CreateCandidatesFromCompareBody, CreateCandidatesResult, ImprovementCandidateQuery,
+  CreateCandidatesFromCompareBody, CreateCandidatesResult,
 } from './training.js';
 export type {
   ProviderTarget, EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
