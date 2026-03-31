@@ -747,7 +747,7 @@ class CreateEvalThresholdBody(TypedDict):
 # ── Misc ────────────────────────────────────────────────────────────────────
 
 class SearchResult(TypedDict):
-    type: Literal["session", "agent", "anomaly"]
+    type: Literal["session", "agent"]
     id: str
     label: str
     subtitle: str
@@ -813,7 +813,6 @@ LiveStatusEventType = Literal[
     "session_created",
     "session_closed",
     "receipt_submitted",
-    "anomaly_detected",
     "monitor_triggered",
     "trace_node_created",
     "signal_created",
@@ -835,7 +834,6 @@ class LiveStatusAgentSummary(TypedDict):
     last_action_type: str
     last_action_at: int
     recent_errors: int
-    anomaly_trend: list[float]
 
 
 class LiveStatusSnapshot(TypedDict):
