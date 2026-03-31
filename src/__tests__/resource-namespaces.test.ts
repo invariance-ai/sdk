@@ -147,7 +147,6 @@ describe('resource namespace surface', () => {
       include: 'regressions',
     });
     expect(createCandidatesResult).toEqual({ candidates: [{ id: 'cand-2' }], count: 1 });
-
     expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/status/live');
     expect((fetch as any).mock.calls[1][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/verify');
     expect((fetch as any).mock.calls[2][0]).toBe('https://api.invariance.dev/v1/datasets?agent_id=agent-1');
