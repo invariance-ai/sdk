@@ -1,13 +1,14 @@
 import type { HttpClient } from '../http.js';
 import type {
-  Monitor, CreateMonitorBody, UpdateMonitorBody,
+  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorValidateResult,
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
+  MonitorDefinition, MonitorListOpts,
 } from '../types/monitor.js';
 
 export class MonitorsResource {
   constructor(private http: HttpClient) {}
 
-  async list(opts?: { status?: string; agent_id?: string }): Promise<Monitor[]> {
+  async list(opts?: MonitorListOpts): Promise<Monitor[]> {
     return this.http.get<Monitor[]>('/v1/monitors', { params: opts as Record<string, string | undefined> });
   }
 
@@ -33,6 +34,10 @@ export class MonitorsResource {
 
   async evaluateAll(): Promise<unknown> {
     return this.http.post('/v1/monitors/evaluate-all');
+  }
+
+  async validate(definition: MonitorDefinition): Promise<MonitorValidateResult> {
+    return this.http.post<MonitorValidateResult>('/v1/monitors/validate', { definition });
   }
 
   async compilePreview(rule: string): Promise<MonitorCompilePreview> {

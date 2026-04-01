@@ -14,9 +14,11 @@ export type {
   TraceChainVerifyResult,
 } from './trace.js';
 export type {
-  Monitor, CreateMonitorBody, UpdateMonitorBody,
+  MonitorTarget, MonitorSeverity, MonitorDefinitionRule, MonitorDefinition,
+  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorValidateResult, MonitorListOpts,
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
 } from './monitor.js';
+export { AGGREGATE_RULE_KINDS } from './monitor.js';
 export type {
   Signal, SignalSource, SignalSeverity, SignalQuery, CreateSignalBody,
   BulkAcknowledgeSignalsBody, SignalStats,

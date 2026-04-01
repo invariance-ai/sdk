@@ -388,11 +388,14 @@ class Monitor(TypedDict, total=False):
     name: str
     natural_language: str
     compiled_condition: Any
+    definition: dict[str, Any] | None
     agent_id: str | None
     owner_id: str
     status: Literal["active", "paused", "disabled"]
     severity: Literal["low", "medium", "high", "critical"]
     webhook_url: str | None
+    triggers_count: int
+    last_triggered: str | None
     created_at: str
     updated_at: str
 
@@ -400,6 +403,7 @@ class Monitor(TypedDict, total=False):
 class CreateMonitorBody(TypedDict, total=False):
     name: str
     natural_language: str
+    definition: dict[str, Any]
     agent_id: str
     severity: Literal["low", "medium", "high", "critical"]
     webhook_url: str
@@ -408,15 +412,30 @@ class CreateMonitorBody(TypedDict, total=False):
 class UpdateMonitorBody(TypedDict, total=False):
     name: str
     natural_language: str
+    definition: dict[str, Any] | None
     status: Literal["active", "paused", "disabled"]
     severity: Literal["low", "medium", "high", "critical"]
     webhook_url: str
     agent_id: str
 
 
+class MonitorListOpts(TypedDict, total=False):
+    status: str
+    agent_id: str
+    target: Literal["trace_node", "session", "signal"]
+    mode: Literal["structured", "natural_language"]
+
+
+class MonitorValidateResult(TypedDict, total=False):
+    valid: bool
+    errors: list[str]
+
+
 class MonitorEvaluateResult(TypedDict):
     monitor_id: str
+    target: Literal["trace_node", "session", "signal"]
     matches_found: int
+    matched_ids: list[str]
     matched_node_ids: list[str]
 
 
