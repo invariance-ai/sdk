@@ -4,6 +4,9 @@
   "description": "Client SDK for the Invariance platform — instrument agents, manage sessions, query traces, and monitor AI agent behavior",
   "type": "module",
   "sideEffects": false,
+  "bin": {
+    "invariance": "./dist/cli/index.js"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

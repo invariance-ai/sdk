@@ -9,6 +9,7 @@ export default defineConfig({
     'src/adapters/langchain.ts',
     'src/adapters/crewai.ts',
     'src/adapters/autogen.ts',
+    'src/cli/index.ts',
   ],
   format: ['cjs', 'esm'],
   dts: true,
