@@ -43,7 +43,7 @@ describe('resource namespace surface', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          agents: [{ agent_id: 'agent-1', active_sessions: 1, last_action_type: 'tool_invocation', last_action_at: 1, recent_errors: 0, anomaly_trend: [] }],
+          agents: [{ agent_id: 'agent-1', active_sessions: 1, last_action_type: 'tool_invocation', last_action_at: 1, recent_errors: 0 }],
           recent_events: [],
         }),
       })
@@ -66,6 +66,38 @@ describe('resource namespace surface', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ eval_run: { id: 'run-1' }, experiment_id: null }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'run-2', status: 'completed' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ case_id: 'case-1' }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ run_id: 'run-1' }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 'cand-1', status: 'pending' }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'cand-1', status: 'accepted' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ candidates: [{ id: 'cand-2' }], count: 1 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 'cand-2', status: 'pending' }],
       });
 
     const statusResult = await inv.status.snapshot();
@@ -96,6 +128,40 @@ describe('resource namespace surface', () => {
     });
     expect(promoteResult).toEqual([]);
 
+    const launchResult = await inv.evals.launch({
+      mode: 'session',
+      suite_id: 'suite-1',
+      agent_id: 'agent-1',
+      session_ids: ['sess-1'],
+    });
+    expect(launchResult).toMatchObject({ eval_run: { id: 'run-1' } });
+
+    const rerunResult = await inv.evals.rerun('run-1');
+    expect(rerunResult).toEqual({ id: 'run-2', status: 'completed' });
+
+    const regressionsResult = await inv.evals.listRegressions({ suite_id: 'suite-1', run_a: 'run-a', run_b: 'run-b' });
+    expect(regressionsResult).toEqual([{ case_id: 'case-1' }]);
+
+    const lineageResult = await inv.evals.getLineage({ suite_id: 'suite-1', limit: 10 });
+    expect(lineageResult).toEqual([{ run_id: 'run-1' }]);
+
+    const improvementCandidates = await inv.evals.listImprovementCandidates({ suite_id: 'suite-1', status: 'pending' });
+    expect(improvementCandidates).toEqual([{ id: 'cand-1', status: 'pending' }]);
+
+    const updatedCandidate = await inv.evals.updateImprovementCandidate('cand-1', { status: 'accepted' });
+    expect(updatedCandidate).toEqual({ id: 'cand-1', status: 'accepted' });
+
+    const createCandidatesResult = await inv.training.createCandidatesFromEvalCompare({
+      suite_id: 'suite-1',
+      run_a: 'run-a',
+      run_b: 'run-b',
+      include: 'regressions',
+    });
+    expect(createCandidatesResult).toEqual({ candidates: [{ id: 'cand-2' }], count: 1 });
+
+    const trainingCandidates = await inv.training.listImprovementCandidates({ suite_id: 'suite-1', type: 'regression' });
+    expect(trainingCandidates).toEqual([{ id: 'cand-2', status: 'pending' }]);
+
     expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/status/live');
     expect((fetch as any).mock.calls[1][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/verify');
     expect((fetch as any).mock.calls[2][0]).toBe('https://api.invariance.dev/v1/datasets?agent_id=agent-1');
@@ -104,6 +170,18 @@ describe('resource namespace surface', () => {
     expect((fetch as any).mock.calls[4][0]).toBe('https://api.invariance.dev/v1/prompts');
     expect((fetch as any).mock.calls[5][0]).toBe('https://api.invariance.dev/v1/datasets/ds-1/from-compare');
     expect((fetch as any).mock.calls[5][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[6][0]).toBe('https://api.invariance.dev/v1/evals/launch');
+    expect((fetch as any).mock.calls[6][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[7][0]).toBe('https://api.invariance.dev/v1/evals/runs/run-1/rerun');
+    expect((fetch as any).mock.calls[7][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[8][0]).toBe('https://api.invariance.dev/v1/evals/regressions?suite_id=suite-1&run_a=run-a&run_b=run-b');
+    expect((fetch as any).mock.calls[9][0]).toBe('https://api.invariance.dev/v1/evals/lineage?suite_id=suite-1&limit=10');
+    expect((fetch as any).mock.calls[10][0]).toBe('https://api.invariance.dev/v1/evals/improvement-candidates?suite_id=suite-1&status=pending');
+    expect((fetch as any).mock.calls[11][0]).toBe('https://api.invariance.dev/v1/evals/improvement-candidates/cand-1');
+    expect((fetch as any).mock.calls[11][1]).toMatchObject({ method: 'PATCH' });
+    expect((fetch as any).mock.calls[12][0]).toBe('https://api.invariance.dev/v1/training/candidates/from-eval-compare');
+    expect((fetch as any).mock.calls[12][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[13][0]).toBe('https://api.invariance.dev/v1/training/improvement-candidates?suite_id=suite-1&type=regression');
 
     await inv.shutdown();
   });

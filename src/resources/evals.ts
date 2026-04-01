@@ -3,6 +3,8 @@ import type {
   EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCaseResult, EvalCompareResult,
   EvalThreshold, CreateEvalThresholdBody,
+  EvalLaunchBody, EvalLaunchResult, ImprovementCandidate,
+  EvalRegressionEntry, EvalLineageEntry,
 } from '../types/eval.js';
 
 export class EvalsResource {
@@ -55,6 +57,10 @@ export class EvalsResource {
     return this.http.get<EvalRun & { results: EvalCaseResult[] }>(`/v1/evals/runs/${id}`);
   }
 
+  async rerun(id: string): Promise<EvalRun> {
+    return this.http.post<EvalRun>(`/v1/evals/runs/${id}/rerun`, {});
+  }
+
   async triggerRun(suiteId: string, body: RunEvalBody): Promise<EvalRun> {
     return this.http.post<EvalRun>(`/v1/evals/suites/${suiteId}/run`, body);
   }
@@ -81,5 +87,26 @@ export class EvalsResource {
 
   async deleteThreshold(id: string): Promise<void> {
     await this.http.delete(`/v1/evals/thresholds/${id}`);
+  }
+
+  // Orchestration
+  async launch(body: EvalLaunchBody): Promise<EvalLaunchResult> {
+    return this.http.post<EvalLaunchResult>('/v1/evals/launch', body);
+  }
+
+  async listRegressions(opts: { suite_id?: string; agent_id?: string; run_a?: string; run_b?: string }): Promise<EvalRegressionEntry[]> {
+    return this.http.get<EvalRegressionEntry[]>('/v1/evals/regressions', { params: opts as Record<string, string | undefined> });
+  }
+
+  async getLineage(opts: { agent_id?: string; suite_id?: string; dataset_id?: string; limit?: number }): Promise<EvalLineageEntry[]> {
+    return this.http.get<EvalLineageEntry[]>('/v1/evals/lineage', { params: opts as Record<string, string | number | undefined> });
+  }
+
+  async listImprovementCandidates(opts?: { suite_id?: string; status?: string; type?: string; limit?: number; offset?: number }): Promise<ImprovementCandidate[]> {
+    return this.http.get<ImprovementCandidate[]>('/v1/evals/improvement-candidates', { params: opts as Record<string, string | number | undefined> });
+  }
+
+  async updateImprovementCandidate(id: string, body: { status: string }): Promise<ImprovementCandidate> {
+    return this.http.patch<ImprovementCandidate>(`/v1/evals/improvement-candidates/${id}`, body);
   }
 }

@@ -1,5 +1,5 @@
 export interface SearchResult {
-  type: 'session' | 'agent' | 'anomaly';
+  type: 'session' | 'agent';
   id: string;
   label: string;
   subtitle?: string;
@@ -62,7 +62,7 @@ export interface HealthResponse {
 }
 
 export type LiveStatusEventType = 'session_created' | 'session_closed' | 'receipt_submitted'
-  | 'anomaly_detected' | 'monitor_triggered' | 'trace_node_created' | 'signal_created';
+  | 'monitor_triggered' | 'trace_node_created' | 'signal_created';
 
 export interface LiveStatusEvent {
   id: string;
@@ -79,7 +79,6 @@ export interface LiveStatusAgentSummary {
   last_action_type: string;
   last_action_at: number;
   recent_errors: number;
-  anomaly_trend: number[];
 }
 
 export interface LiveStatusSnapshot {
