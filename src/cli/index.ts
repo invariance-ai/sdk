@@ -109,7 +109,7 @@ async function main() {
             const agentId = getFlag('--agent');
             const runA = getFlag('--run-a');
             const runB = getFlag('--run-b');
-            if (!suiteId && !agentId) {
+            if (!suiteId && !(runA && runB)) {
               console.error('Usage: evals regressions --suite <id> [--agent <id>] [--run-a <id> --run-b <id>]');
               process.exit(1);
             }
@@ -228,6 +228,7 @@ Commands:
     launch --suite <id> --agent <id> [--mode <session|dataset>] [--dataset <id> --dataset-version <n>] [--label <label>]
     compare --suite <id> --run-a <id> --run-b <id>
     regressions --suite <id> [--agent <id>] [--run-a <id> --run-b <id>]
+               or --run-a <id> --run-b <id>
     lineage --suite <id> [--agent <id>] [--dataset <id>] [--limit <n>]
 
   candidates    Improvement candidate management
