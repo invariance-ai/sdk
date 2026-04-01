@@ -57,6 +57,10 @@ export class EvalsResource {
     return this.http.get<EvalRun & { results: EvalCaseResult[] }>(`/v1/evals/runs/${id}`);
   }
 
+  async rerun(id: string): Promise<EvalRun> {
+    return this.http.post<EvalRun>(`/v1/evals/runs/${id}/rerun`, {});
+  }
+
   async triggerRun(suiteId: string, body: RunEvalBody): Promise<EvalRun> {
     return this.http.post<EvalRun>(`/v1/evals/suites/${suiteId}/run`, body);
   }

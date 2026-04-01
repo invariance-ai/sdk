@@ -11,6 +11,7 @@ function createStubClient() {
         { id: 'run-1', suite_id: 'suite-1', status: 'completed', pass_rate: 1, version_label: 'v1', created_at: '2026-01-01' },
       ]),
       getRun: vi.fn().mockResolvedValue({ id: 'run-1', status: 'completed', results: [] }),
+      rerun: vi.fn().mockResolvedValue({ id: 'run-2', status: 'completed' }),
       launch: vi.fn().mockResolvedValue({ eval_run: { id: 'run-1', status: 'completed' }, experiment_id: 'exp-1' }),
       compare: vi.fn().mockResolvedValue({ per_case: [], regressions: 0, improvements: 0 }),
       listRegressions: vi.fn().mockResolvedValue([]),
@@ -112,6 +113,23 @@ describe('CLI evals', () => {
     const client = createStubClient();
     const { deps, stderr } = makeDeps(client);
     const exitCode = await runCli(['evals', 'get-run'], deps);
+    expect(exitCode).toBe(1);
+    expect(stderr.join('\n')).toContain('Usage');
+  });
+
+  it('rerun calls evals.rerun and prints the rerun', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli(['evals', 'rerun', 'run-1'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.evals.rerun).toHaveBeenCalledWith('run-1');
+    expect(stdout[0]).toContain('Run run-2 created');
+  });
+
+  it('rerun errors without run id', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli(['evals', 'rerun'], deps);
     expect(exitCode).toBe(1);
     expect(stderr.join('\n')).toContain('Usage');
   });

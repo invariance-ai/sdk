@@ -8,6 +8,7 @@ export interface CliClient {
     listSuites(opts?: { agent_id?: string }): Promise<unknown[]>;
     listRuns(opts?: { suite_id?: string; agent_id?: string; status?: string }): Promise<unknown[]>;
     getRun(id: string): Promise<unknown>;
+    rerun(id: string): Promise<{ id: string; status: string }>;
     launch(body: EvalLaunchBody): Promise<{ eval_run: { id: string; status: string }; experiment_id: string | null }>;
     compare(suiteId: string, runA: string, runB: string): Promise<unknown>;
     listRegressions(opts: { suite_id?: string; agent_id?: string; run_a?: string; run_b?: string }): Promise<unknown[]>;
@@ -108,6 +109,7 @@ Commands:
     list-suites [--agent <id>]      List eval suites
     list-runs [--suite <id>] [--agent <id>] [--status <s>]
     get-run <id>                    Get run details
+    rerun <id>                      Rerun an existing eval run
     launch --suite <id> --agent <id> [--mode <session|dataset>] [--sessions <id1,id2>] [--dataset <id> --dataset-version <n>] [--label <label>] [--provider <anthropic|openai> --model <name> --api-key-env <ENV> --base-url-env <ENV>]
     compare --suite <id> --run-a <id> --run-b <id>
     regressions --suite <id> [--agent <id>] [--run-a <id> --run-b <id>]
@@ -170,6 +172,16 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
               return 1;
             }
             const run = await client.evals.getRun(positional);
+            printJson(stdout, run);
+            return 0;
+          }
+          case 'rerun': {
+            if (!positional) {
+              stderr('Usage: evals rerun <run-id>');
+              return 1;
+            }
+            const run = await client.evals.rerun(positional);
+            stdout(`Run ${run.id} created (status: ${run.status})`);
             printJson(stdout, run);
             return 0;
           }
@@ -238,7 +250,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
           }
           default:
             stderr(`Unknown evals subcommand: ${subcommand}`);
-            stderr('Available: list-suites, list-runs, get-run, launch, compare, regressions, lineage');
+            stderr('Available: list-suites, list-runs, get-run, rerun, launch, compare, regressions, lineage');
             return 1;
         }
       }
