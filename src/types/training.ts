@@ -1,3 +1,5 @@
+import type { ImprovementCandidate } from './eval.js';
+
 export interface TrainingPair {
   id: string;
   source_agent: string;
@@ -60,6 +62,28 @@ export interface TraceFlagQuery {
   session_id?: string;
   agent_id?: string;
   flag?: string;
+  limit?: number;
+  offset?: number;
+}
+
+// ── Improvement Candidates ──
+
+export interface CreateCandidatesFromCompareBody {
+  suite_id: string;
+  run_a: string;
+  run_b: string;
+  include?: 'regressions' | 'improvements' | 'all';
+}
+
+export interface CreateCandidatesResult {
+  candidates: ImprovementCandidate[];
+  count: number;
+}
+
+export interface ImprovementCandidateQuery {
+  suite_id?: string;
+  status?: string;
+  type?: string;
   limit?: number;
   offset?: number;
 }
