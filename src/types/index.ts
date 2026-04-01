@@ -15,7 +15,7 @@ export type {
 } from './trace.js';
 export type {
   MonitorTarget, MonitorSeverity, MonitorDefinitionRule, MonitorDefinition,
-  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorValidateResult,
+  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorValidateResult, MonitorListOpts,
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
 } from './monitor.js';
 export { AGGREGATE_RULE_KINDS } from './monitor.js';

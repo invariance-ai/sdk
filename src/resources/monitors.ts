@@ -2,13 +2,13 @@ import type { HttpClient } from '../http.js';
 import type {
   Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorValidateResult,
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
-  MonitorDefinition,
+  MonitorDefinition, MonitorListOpts,
 } from '../types/monitor.js';
 
 export class MonitorsResource {
   constructor(private http: HttpClient) {}
 
-  async list(opts?: { status?: string; agent_id?: string }): Promise<Monitor[]> {
+  async list(opts?: MonitorListOpts): Promise<Monitor[]> {
     return this.http.get<Monitor[]>('/v1/monitors', { params: opts as Record<string, string | undefined> });
   }
 

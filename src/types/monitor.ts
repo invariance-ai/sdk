@@ -75,8 +75,17 @@ export interface MonitorValidateResult {
 
 export interface MonitorEvaluateResult {
   monitor_id: string;
+  target: MonitorTarget;
   matches_found: number;
+  matched_ids: string[];
   matched_node_ids: string[];
+}
+
+export interface MonitorListOpts {
+  status?: string;
+  agent_id?: string;
+  target?: MonitorTarget;
+  mode?: 'structured' | 'natural_language';
 }
 
 /** @deprecated Use `Signal` from `./signal.js` instead. */
