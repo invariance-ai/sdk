@@ -90,12 +90,6 @@ describe('resource namespace surface', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ candidates: [{ id: 'cand-2' }], count: 1 }),
-<<<<<<< HEAD
-=======
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [{ id: 'cand-2', status: 'pending' }],
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -108,7 +102,6 @@ describe('resource namespace surface', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ monitor_id: 'mon-1', target: 'signal', matches_found: 1, matched_ids: ['sig-1'], matched_node_ids: [] }),
->>>>>>> d4453cf (fix: align monitor sdk contract with backend)
       });
 
     const statusResult = await inv.status.snapshot();
@@ -167,9 +160,6 @@ describe('resource namespace surface', () => {
     });
     expect(createCandidatesResult).toEqual({ candidates: [{ id: 'cand-2' }], count: 1 });
 
-    const trainingCandidates = await inv.training.listImprovementCandidates({ suite_id: 'suite-1', type: 'regression' });
-    expect(trainingCandidates).toEqual([{ id: 'cand-2', status: 'pending' }]);
-
     const monitors = await inv.monitors.list({ target: 'signal', mode: 'structured' });
     expect(monitors[0]).toMatchObject({ id: 'mon-1', definition: { target: 'signal' } });
 
@@ -201,12 +191,11 @@ describe('resource namespace surface', () => {
     expect((fetch as any).mock.calls[10][1]).toMatchObject({ method: 'PATCH' });
     expect((fetch as any).mock.calls[11][0]).toBe('https://api.invariance.dev/v1/training/candidates/from-eval-compare');
     expect((fetch as any).mock.calls[11][1]).toMatchObject({ method: 'POST' });
-    expect((fetch as any).mock.calls[12][0]).toBe('https://api.invariance.dev/v1/training/improvement-candidates?suite_id=suite-1&type=regression');
-    expect((fetch as any).mock.calls[13][0]).toBe('https://api.invariance.dev/v1/monitors?target=signal&mode=structured');
-    expect((fetch as any).mock.calls[14][0]).toBe('https://api.invariance.dev/v1/monitors/validate');
+    expect((fetch as any).mock.calls[12][0]).toBe('https://api.invariance.dev/v1/monitors?target=signal&mode=structured');
+    expect((fetch as any).mock.calls[13][0]).toBe('https://api.invariance.dev/v1/monitors/validate');
+    expect((fetch as any).mock.calls[13][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[14][0]).toBe('https://api.invariance.dev/v1/monitors/mon-1/evaluate');
     expect((fetch as any).mock.calls[14][1]).toMatchObject({ method: 'POST' });
-    expect((fetch as any).mock.calls[15][0]).toBe('https://api.invariance.dev/v1/monitors/mon-1/evaluate');
-    expect((fetch as any).mock.calls[15][1]).toMatchObject({ method: 'POST' });
 
     await inv.shutdown();
   });
