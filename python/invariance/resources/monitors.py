@@ -6,6 +6,7 @@ from ..http_client import HttpClient
 from ..types import (
     Monitor, CreateMonitorBody, UpdateMonitorBody,
     MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
+    MonitorListOpts, MonitorValidateResult,
 )
 
 
@@ -14,7 +15,7 @@ class MonitorsResource:
         self._http = http
 
     async def list(
-        self, opts: dict[str, str] | None = None
+        self, opts: MonitorListOpts | None = None
     ) -> list[Monitor]:
         return await self._http.get("/v1/monitors", params=opts)
 
@@ -35,6 +36,9 @@ class MonitorsResource:
 
     async def evaluate_all(self) -> Any:
         return await self._http.post("/v1/monitors/evaluate-all")
+
+    async def validate(self, definition: dict[str, Any]) -> MonitorValidateResult:
+        return await self._http.post("/v1/monitors/validate", {"definition": definition})
 
     async def compile_preview(self, rule: str) -> MonitorCompilePreview:
         return await self._http.post("/v1/monitors/compile-preview", {"rule": rule})

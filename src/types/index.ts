@@ -14,9 +14,11 @@ export type {
   TraceChainVerifyResult,
 } from './trace.js';
 export type {
-  Monitor, CreateMonitorBody, UpdateMonitorBody,
+  MonitorTarget, MonitorSeverity, MonitorDefinitionRule, MonitorDefinition,
+  Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorValidateResult, MonitorListOpts,
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
 } from './monitor.js';
+export { AGGREGATE_RULE_KINDS } from './monitor.js';
 export type {
   Signal, SignalSource, SignalSeverity, SignalQuery, CreateSignalBody,
   BulkAcknowledgeSignalsBody, SignalStats,
@@ -29,7 +31,7 @@ export type { DriftCatch, DriftComparison, DriftComparisonQuery } from './drift.
 export type {
   TrainingPair, CreateTrainingPairBody, UpdateTrainingPairBody,
   TraceFlag, CreateTraceFlagBody, UpdateTraceFlagBody, TraceFlagStats, TraceFlagQuery,
-  CreateCandidatesFromCompareBody, CreateCandidatesResult, ImprovementCandidateQuery,
+  CreateCandidatesFromCompareBody, CreateCandidatesResult,
 } from './training.js';
 export type {
   ProviderTarget, EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
