@@ -16,6 +16,23 @@ export type {
 export type {
   Monitor, CreateMonitorBody, UpdateMonitorBody,
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
+  MonitorDefinition, MonitorDefinitionBase, MonitorDefinitionRule,
+  CronMonitorDefinition, NodeMonitorDefinition, BackendRuleMonitorDefinition,
+  MonitorSeverity, MonitorFamily, MonitorScope,
+  MonitorTarget, MonitorCheckType,
+  MonitorTargetMatch, MonitorTargetFilter,
+  MonitorTriggerType, MonitorTriggerMatch, MonitorTrigger,
+  MonitorEventTrigger, MonitorScheduleTrigger, MonitorManualTrigger,
+  MonitorFieldConditionTrigger, MonitorAnomalyTrigger, MonitorDependencyTrigger,
+  MonitorCompositeTrigger, MonitorHumanEscalationTrigger, MonitorRuleTrigger,
+  MonitorEvaluatorType, MonitorEvaluator,
+  MonitorThresholdEvaluator, MonitorRuleEvaluator,
+  MonitorJudgeLLMEvaluator, MonitorJudgeHumanEvaluator, MonitorCodeEvaluator,
+  MonitorActionType, MonitorAction,
+  MonitorCreateFindingAction, MonitorEmitSignalAction, MonitorNotifyAction,
+  MonitorMarkObjectAction, MonitorWebhookAction,
+  MonitorBackendEventName, MonitorBackendEvent,
+  MonitorExecutionStatus, MonitorFindingStatus,
 } from './monitor.js';
 export type {
   Signal, SignalSource, SignalSeverity, SignalQuery, CreateSignalBody,
