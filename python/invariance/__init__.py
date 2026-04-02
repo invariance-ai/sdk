@@ -1,5 +1,9 @@
 """Invariance SDK for Python — record, sign, and verify AI agent actions."""
 
+from __future__ import annotations
+
+from typing import Callable
+
 from .client import Invariance
 from .session import Session
 from .a2a_channel import A2AChannel
@@ -20,6 +24,10 @@ from .crypto import (
 from .errors import InvarianceError
 from .policy import check_policies, assert_policy
 from .normalize import normalize_action_type, to_snake_case, to_camel_case
+from .traced import traced
+from ._trace_session import trace_session
+from .types import BehavioralPrimitive
+from . import _state
 
 from .resources import (
     IdentityResource,
@@ -45,6 +53,31 @@ from .resources import (
     SuggestionsResource,
     DocsResource,
 )
+
+def init(
+    *,
+    api_key: str,
+    agent: str,
+    api_url: str | None = None,
+    private_key: str | None = None,
+    flush_interval_ms: int | None = None,
+    max_batch_size: int | None = None,
+    max_queue_size: int | None = None,
+    on_error: Callable[[InvarianceError], None] | None = None,
+) -> Invariance:
+    """Initialize a default Invariance client and store it for use by @traced."""
+    client = Invariance.init(
+        api_key=api_key,
+        api_url=api_url,
+        private_key=private_key,
+        flush_interval_ms=flush_interval_ms,
+        max_batch_size=max_batch_size,
+        max_queue_size=max_queue_size,
+        on_error=on_error,
+    )
+    _state.configure(client, agent)
+    return client
+
 
 __all__ = [
     # Client
@@ -98,4 +131,9 @@ __all__ = [
     "FailureClustersResource",
     "SuggestionsResource",
     "DocsResource",
+    # Tracing decorator
+    "init",
+    "traced",
+    "trace_session",
+    "BehavioralPrimitive",
 ]

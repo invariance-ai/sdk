@@ -13,6 +13,8 @@ ErrorCode = Literal[
     "SESSION_NOT_READY",
     "CRYPTO_ERROR",
     "INVALID_KEY",
+    "NOT_INITIALIZED",
+    "SYNC_TRACE_UNSUPPORTED",
 ]
 
 
