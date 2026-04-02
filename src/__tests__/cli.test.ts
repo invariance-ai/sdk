@@ -455,6 +455,24 @@ describe('CLI review', () => {
     });
   });
 
+  it('submit rejects invalid decisions before making a request', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli(['review', 'submit', 'aq-1', '--decision', 'maybe'], deps);
+    expect(exitCode).toBe(1);
+    expect(client.annotations.submitScore).not.toHaveBeenCalled();
+    expect(stderr.at(-1)).toContain('Decision must be one of');
+  });
+
+  it('submit rejects scores outside the accepted range', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli(['review', 'submit', 'aq-1', '--decision', 'pass', '--score', '1.7'], deps);
+    expect(exitCode).toBe(1);
+    expect(client.annotations.submitScore).not.toHaveBeenCalled();
+    expect(stderr.at(-1)).toContain('Score must be a number between 0 and 1');
+  });
+
   it('submit errors without decision', async () => {
     const client = createStubClient();
     const { deps, stderr } = makeDeps(client);

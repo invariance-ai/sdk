@@ -21,7 +21,7 @@ export interface CliClient {
     get(id: string): Promise<unknown>;
     claim(opts?: { scorer_id?: string; run_id?: string }): Promise<unknown>;
     release(id: string): Promise<unknown>;
-    submitScore(id: string, body: { score: number; decision?: string; notes?: string }): Promise<unknown>;
+    submitScore(id: string, body: { score: number; decision?: string; notes?: string; criteria_scores?: Record<string, number> }): Promise<unknown>;
     queueStats(): Promise<unknown>;
   };
   datasets: {
@@ -105,6 +105,19 @@ function buildTarget(args: string[]): ProviderTarget | undefined {
     ...(apiKeyEnv ? { api_key_env: apiKeyEnv } : {}),
     ...(baseUrlEnv ? { base_url_env: baseUrlEnv } : {}),
   };
+}
+
+function parseReviewDecision(value: string): 'pass' | 'fail' | 'needs_fix' {
+  if (value === 'pass' || value === 'fail' || value === 'needs_fix') return value;
+  throw new Error('Decision must be one of: pass, fail, needs_fix');
+}
+
+function parseScoreValue(value: string): number {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    throw new Error('Score must be a number between 0 and 1');
+  }
+  return parsed;
 }
 
 function helpText() {
@@ -323,10 +336,12 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
               stderr('Usage: review submit <id> --decision <pass|fail|needs_fix> [--score <0-1>] [--notes <text>]');
               return 1;
             }
-            const decision = requireFlag(argv, stderr, '--decision', 'Usage: review submit <id> --decision <pass|fail|needs_fix> [--score <0-1>] [--notes <text>]');
+            const decision = parseReviewDecision(
+              requireFlag(argv, stderr, '--decision', 'Usage: review submit <id> --decision <pass|fail|needs_fix> [--score <0-1>] [--notes <text>]'),
+            );
             const scoreStr = getFlag(argv, '--score');
             const decisionScoreMap: Record<string, number> = { pass: 1.0, fail: 0.0, needs_fix: 0.3 };
-            const score = scoreStr ? parseFloat(scoreStr) : (decisionScoreMap[decision] ?? 0.5);
+            const score = scoreStr ? parseScoreValue(scoreStr) : (decisionScoreMap[decision] ?? 0.5);
             const notes = getFlag(argv, '--notes');
             const result = await client.annotations.submitScore(positional, {
               score,

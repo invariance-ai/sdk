@@ -98,6 +98,22 @@ describe('resource namespace surface', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [{ id: 'cand-2', status: 'pending' }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 'aq-1', status: 'pending' }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'aq-1', status: 'in_progress' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'hs-1', decision: 'pass', score: 1 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ total: 1, pending: 0, in_progress: 0, completed: 1, skipped: 0, by_run: {} }),
       });
 
     const statusResult = await inv.status.snapshot();
@@ -162,6 +178,18 @@ describe('resource namespace surface', () => {
     const trainingCandidates = await inv.training.listImprovementCandidates({ suite_id: 'suite-1', type: 'regression' });
     expect(trainingCandidates).toEqual([{ id: 'cand-2', status: 'pending' }]);
 
+    const annotations = await inv.annotations.list({ status: 'pending', run_id: 'run-1', limit: 5 });
+    expect(annotations).toEqual([{ id: 'aq-1', status: 'pending' }]);
+
+    const claimedAnnotation = await inv.annotations.claim({ run_id: 'run-1' });
+    expect(claimedAnnotation).toEqual({ id: 'aq-1', status: 'in_progress' });
+
+    const submittedScore = await inv.annotations.submitScore('aq-1', { score: 1, decision: 'pass' });
+    expect(submittedScore).toEqual({ id: 'hs-1', decision: 'pass', score: 1 });
+
+    const annotationStats = await inv.annotations.queueStats();
+    expect(annotationStats).toEqual({ total: 1, pending: 0, in_progress: 0, completed: 1, skipped: 0, by_run: {} });
+
     expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/status/live');
     expect((fetch as any).mock.calls[1][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/verify');
     expect((fetch as any).mock.calls[2][0]).toBe('https://api.invariance.dev/v1/datasets?agent_id=agent-1');
@@ -182,6 +210,12 @@ describe('resource namespace surface', () => {
     expect((fetch as any).mock.calls[12][0]).toBe('https://api.invariance.dev/v1/training/candidates/from-eval-compare');
     expect((fetch as any).mock.calls[12][1]).toMatchObject({ method: 'POST' });
     expect((fetch as any).mock.calls[13][0]).toBe('https://api.invariance.dev/v1/training/improvement-candidates?suite_id=suite-1&type=regression');
+    expect((fetch as any).mock.calls[14][0]).toBe('https://api.invariance.dev/v1/training/annotations?status=pending&run_id=run-1&limit=5');
+    expect((fetch as any).mock.calls[15][0]).toBe('https://api.invariance.dev/v1/training/annotations/claim');
+    expect((fetch as any).mock.calls[15][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[16][0]).toBe('https://api.invariance.dev/v1/training/annotations/aq-1/score');
+    expect((fetch as any).mock.calls[16][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[17][0]).toBe('https://api.invariance.dev/v1/training/annotations/stats');
 
     await inv.shutdown();
   });
