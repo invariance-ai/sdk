@@ -16,6 +16,14 @@ export interface CliClient {
     listImprovementCandidates(opts?: { suite_id?: string; status?: string; type?: string; limit?: number; offset?: number }): Promise<unknown[]>;
     updateImprovementCandidate(id: string, body: { status: string }): Promise<unknown>;
   };
+  annotations: {
+    list(opts?: { status?: string; target_type?: string; run_id?: string; scorer_id?: string; limit?: number }): Promise<unknown[]>;
+    get(id: string): Promise<unknown>;
+    claim(opts?: { scorer_id?: string; run_id?: string }): Promise<unknown>;
+    release(id: string): Promise<unknown>;
+    submitScore(id: string, body: { score: number; decision?: string; notes?: string; criteria_scores?: Record<string, number> }): Promise<unknown>;
+    queueStats(): Promise<unknown>;
+  };
   datasets: {
     list(opts?: { agent_id?: string }): Promise<unknown[]>;
   };
@@ -99,6 +107,19 @@ function buildTarget(args: string[]): ProviderTarget | undefined {
   };
 }
 
+function parseReviewDecision(value: string): 'pass' | 'fail' | 'needs_fix' {
+  if (value === 'pass' || value === 'fail' || value === 'needs_fix') return value;
+  throw new Error('Decision must be one of: pass, fail, needs_fix');
+}
+
+function parseScoreValue(value: string): number {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    throw new Error('Score must be a number between 0 and 1');
+  }
+  return parsed;
+}
+
 function helpText() {
   return `Invariance CLI
 
@@ -115,6 +136,14 @@ Commands:
     regressions --suite <id> [--agent <id>] [--run-a <id> --run-b <id>]
                or --run-a <id> --run-b <id>
     lineage --suite <id> [--agent <id>] [--dataset <id>] [--limit <n>]
+
+  review        Human review queue management
+    list [--status <s>] [--run <id>] [--scorer <id>] [--limit <n>]
+    inspect <id>                    Get enriched review item with eval context
+    claim [--run <id>] [--scorer <id>]   Claim next pending item
+    release <id>                    Release a claimed item
+    submit <id> --decision <pass|fail|needs_fix> [--score <0-1>] [--notes <text>]
+    stats                           Queue statistics
 
   candidates    Improvement candidate management
     list [--suite <id>] [--type <type>] [--status <status>] [--limit <n>] [--offset <n>]
@@ -251,6 +280,86 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
           default:
             stderr(`Unknown evals subcommand: ${subcommand}`);
             stderr('Available: list-suites, list-runs, get-run, rerun, launch, compare, regressions, lineage');
+            return 1;
+        }
+      }
+      case 'review': {
+        if (!client) return 1;
+        switch (subcommand) {
+          case 'list': {
+            const status = getFlag(argv, '--status');
+            const runId = getFlag(argv, '--run');
+            const scorerId = getFlag(argv, '--scorer');
+            const limit = getFlag(argv, '--limit');
+            const data = await client.annotations.list({
+              ...(status ? { status } : {}),
+              target_type: 'eval_result',
+              ...(runId ? { run_id: runId } : {}),
+              ...(scorerId ? { scorer_id: scorerId } : {}),
+              ...(limit ? { limit: parseInt(limit, 10) } : {}),
+            });
+            printTable(stdout, data as Array<Record<string, unknown>>, ['id', 'target_id', 'status', 'assigned_to', 'run_id', 'created_at']);
+            return 0;
+          }
+          case 'inspect': {
+            if (!positional) {
+              stderr('Usage: review inspect <id>');
+              return 1;
+            }
+            const item = await client.annotations.get(positional);
+            printJson(stdout, item);
+            return 0;
+          }
+          case 'claim': {
+            const runId = getFlag(argv, '--run');
+            const scorerId = getFlag(argv, '--scorer');
+            const claimed = await client.annotations.claim({
+              ...(runId ? { run_id: runId } : {}),
+              ...(scorerId ? { scorer_id: scorerId } : {}),
+            });
+            const cl = claimed as Record<string, unknown>;
+            stdout(`Claimed item ${cl.id} (target: ${cl.target_id})`);
+            printJson(stdout, claimed);
+            return 0;
+          }
+          case 'release': {
+            if (!positional) {
+              stderr('Usage: review release <id>');
+              return 1;
+            }
+            await client.annotations.release(positional);
+            stdout(`Released item ${positional}`);
+            return 0;
+          }
+          case 'submit': {
+            if (!positional) {
+              stderr('Usage: review submit <id> --decision <pass|fail|needs_fix> [--score <0-1>] [--notes <text>]');
+              return 1;
+            }
+            const decision = parseReviewDecision(
+              requireFlag(argv, stderr, '--decision', 'Usage: review submit <id> --decision <pass|fail|needs_fix> [--score <0-1>] [--notes <text>]'),
+            );
+            const scoreStr = getFlag(argv, '--score');
+            const decisionScoreMap: Record<string, number> = { pass: 1.0, fail: 0.0, needs_fix: 0.3 };
+            const score = scoreStr ? parseScoreValue(scoreStr) : (decisionScoreMap[decision] ?? 0.5);
+            const notes = getFlag(argv, '--notes');
+            const result = await client.annotations.submitScore(positional, {
+              score,
+              decision,
+              ...(notes ? { notes } : {}),
+            });
+            stdout(`Judgment submitted for ${positional}`);
+            printJson(stdout, result);
+            return 0;
+          }
+          case 'stats': {
+            const data = await client.annotations.queueStats();
+            printJson(stdout, data);
+            return 0;
+          }
+          default:
+            stderr(`Unknown review subcommand: ${subcommand}`);
+            stderr('Available: list, inspect, claim, release, submit, stats');
             return 1;
         }
       }
