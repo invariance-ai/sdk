@@ -23,6 +23,16 @@ function createStubClient() {
       ]),
       updateImprovementCandidate: vi.fn().mockResolvedValue({ id: 'cand-1', status: 'accepted' }),
     },
+    annotations: {
+      list: vi.fn().mockResolvedValue([
+        { id: 'aq-1', target_id: 'ecr-1', status: 'pending', assigned_to: null, run_id: 'run-1', created_at: '2026-01-01' },
+      ]),
+      get: vi.fn().mockResolvedValue({ id: 'aq-1', target_type: 'eval_result', status: 'pending', eval_result: {} }),
+      claim: vi.fn().mockResolvedValue({ id: 'aq-2', target_id: 'ecr-2', status: 'in_progress' }),
+      release: vi.fn().mockResolvedValue({ id: 'aq-2', status: 'pending' }),
+      submitScore: vi.fn().mockResolvedValue({ id: 'hs-1', score: 1, decision: 'pass' }),
+      queueStats: vi.fn().mockResolvedValue({ total: 5, pending: 3, completed: 2 }),
+    },
     datasets: { list: vi.fn().mockResolvedValue([{ id: 'ds-1', name: 'DS', row_count: 10, latest_published_version: 1 }]) },
     scorers: { list: vi.fn().mockResolvedValue([{ id: 'sc-1', name: 'Quality', type: 'llm' }]) },
     shutdown: vi.fn().mockResolvedValue(undefined),
@@ -370,6 +380,103 @@ describe('CLI scorers', () => {
     const exitCode = await runCli(['scorers', 'bogus'], deps);
     expect(exitCode).toBe(1);
     expect(stderr.join('\n')).toContain('Unknown scorers subcommand');
+  });
+});
+
+// ── Review commands ─────────────────────────────────────────────
+
+describe('CLI review', () => {
+  it('list calls annotations.list with eval_result target type', async () => {
+    const client = createStubClient();
+    const { deps } = makeDeps(client);
+    const exitCode = await runCli(['review', 'list', '--status', 'pending'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.annotations.list).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'pending', target_type: 'eval_result' }),
+    );
+  });
+
+  it('inspect calls annotations.get', async () => {
+    const client = createStubClient();
+    const { deps } = makeDeps(client);
+    const exitCode = await runCli(['review', 'inspect', 'aq-1'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.annotations.get).toHaveBeenCalledWith('aq-1');
+  });
+
+  it('inspect errors without id', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli(['review', 'inspect'], deps);
+    expect(exitCode).toBe(1);
+    expect(stderr.join('\n')).toContain('Usage');
+  });
+
+  it('claim calls annotations.claim', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli(['review', 'claim', '--run', 'run-1'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.annotations.claim).toHaveBeenCalledWith(
+      expect.objectContaining({ run_id: 'run-1' }),
+    );
+    expect(stdout.join('\n')).toContain('Claimed');
+  });
+
+  it('release calls annotations.release', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli(['review', 'release', 'aq-2'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.annotations.release).toHaveBeenCalledWith('aq-2');
+    expect(stdout.join('\n')).toContain('Released');
+  });
+
+  it('submit calls annotations.submitScore with decision and derived score', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli(['review', 'submit', 'aq-1', '--decision', 'pass'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.annotations.submitScore).toHaveBeenCalledWith('aq-1', {
+      score: 1.0,
+      decision: 'pass',
+    });
+    expect(stdout.join('\n')).toContain('Judgment submitted');
+  });
+
+  it('submit with explicit score overrides default', async () => {
+    const client = createStubClient();
+    const { deps } = makeDeps(client);
+    await runCli(['review', 'submit', 'aq-1', '--decision', 'fail', '--score', '0.2', '--notes', 'bad output'], deps);
+    expect(client.annotations.submitScore).toHaveBeenCalledWith('aq-1', {
+      score: 0.2,
+      decision: 'fail',
+      notes: 'bad output',
+    });
+  });
+
+  it('submit errors without decision', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli(['review', 'submit', 'aq-1'], deps);
+    expect(exitCode).toBe(1);
+    expect(stderr.join('\n')).toContain('Usage');
+  });
+
+  it('stats calls annotations.queueStats', async () => {
+    const client = createStubClient();
+    const { deps } = makeDeps(client);
+    const exitCode = await runCli(['review', 'stats'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.annotations.queueStats).toHaveBeenCalled();
+  });
+
+  it('unknown subcommand returns error', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli(['review', 'bogus'], deps);
+    expect(exitCode).toBe(1);
+    expect(stderr.join('\n')).toContain('Unknown review subcommand');
   });
 });
 
