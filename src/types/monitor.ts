@@ -213,12 +213,10 @@ export interface MonitorWebhookAction {
 // ── Rules ──
 
 export type MonitorDefinitionRule =
-  // Per-record rules
   | { kind: 'field_match'; field: string; operator: 'eq' | 'neq' | 'contains' | 'in'; value: unknown }
   | { kind: 'numeric_threshold'; field: string; operator: 'gt' | 'gte' | 'lt' | 'lte'; value: number }
   | { kind: 'exists'; field: string; exists: boolean }
   | { kind: 'tag_match'; tag: string }
-  // Aggregate rules
   | { kind: 'count_threshold'; field: string; operator: 'eq' | 'neq' | 'contains' | 'in' | 'gt' | 'gte' | 'lt' | 'lte'; value: unknown; count: { operator: 'gt' | 'gte' | 'lt' | 'lte'; value: number }; window_minutes: number; group_by?: string }
   | { kind: 'frequency'; field: string; operator: 'eq' | 'neq' | 'contains' | 'in' | 'gt' | 'gte' | 'lt' | 'lte'; value: unknown; rate: { per_minutes: number; operator: 'gt' | 'gte' | 'lt' | 'lte'; value: number }; window_minutes: number }
   | { kind: 'repeated_occurrence'; field: string; min_count: number; window_minutes: number }
@@ -334,7 +332,7 @@ export type MonitorDefinition =
   | NodeMonitorDefinition
   | BackendRuleMonitorDefinition;
 
-// ── Monitor Entity & API Types ──
+// ── Monitor API Types ──
 
 export interface Monitor {
   id: string;
@@ -347,6 +345,8 @@ export interface Monitor {
   status: 'active' | 'paused' | 'disabled';
   severity: MonitorSeverity;
   webhook_url: string | null;
+  triggers_count: number;
+  last_triggered?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -370,10 +370,24 @@ export interface UpdateMonitorBody {
   agent_id?: string;
 }
 
+export interface MonitorValidateResult {
+  valid: boolean;
+  errors?: string[];
+}
+
 export interface MonitorEvaluateResult {
   monitor_id: string;
+  target: MonitorTarget;
   matches_found: number;
+  matched_ids: string[];
   matched_node_ids: string[];
+}
+
+export interface MonitorListOpts {
+  status?: string;
+  agent_id?: string;
+  target?: MonitorTarget;
+  mode?: 'structured' | 'natural_language';
 }
 
 /** @deprecated Use `Signal` from `./signal.js` instead. */

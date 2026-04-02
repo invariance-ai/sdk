@@ -79,11 +79,3 @@ export interface CreateCandidatesResult {
   candidates: ImprovementCandidate[];
   count: number;
 }
-
-export interface ImprovementCandidateQuery {
-  suite_id?: string;
-  status?: string;
-  type?: string;
-  limit?: number;
-  offset?: number;
-}
