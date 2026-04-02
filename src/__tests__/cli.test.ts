@@ -23,6 +23,16 @@ function createStubClient() {
       ]),
       updateImprovementCandidate: vi.fn().mockResolvedValue({ id: 'cand-1', status: 'accepted' }),
     },
+    trace: {
+      getSessionSemanticFacts: vi.fn().mockResolvedValue({ session_id: 'sess-1', facts: [], extracted_at: 1 }),
+      getNodeSemanticFacts: vi.fn().mockResolvedValue({ node_id: 'node-1', facts: [], extracted_at: 1 }),
+      getSemanticFacts: vi.fn().mockResolvedValue({ facts: [{ id: 'fact-1', kind: 'tool_usage' }], total: 1 }),
+      rebuildSessionSemanticFacts: vi.fn().mockResolvedValue({ session_id: 'sess-1', facts: [], extracted_at: 2 }),
+      getSemanticFactAggregates: vi.fn().mockResolvedValue({ aggregates: [{ id: 'agg-1', count: 3 }], total: 1 }),
+      getOntologyCandidates: vi.fn().mockResolvedValue({ candidates: [{ id: 'cand-1', kind: 'concept' }], total: 1 }),
+      getOntologyCandidate: vi.fn().mockResolvedValue({ id: 'cand-1', kind: 'concept' }),
+      mineOntologyCandidates: vi.fn().mockResolvedValue({ concepts: 2, relations: 1 }),
+    },
     datasets: { list: vi.fn().mockResolvedValue([{ id: 'ds-1', name: 'DS', row_count: 10, latest_published_version: 1 }]) },
     scorers: { list: vi.fn().mockResolvedValue([{ id: 'sc-1', name: 'Quality', type: 'llm' }]) },
     shutdown: vi.fn().mockResolvedValue(undefined),
@@ -370,6 +380,141 @@ describe('CLI scorers', () => {
     const exitCode = await runCli(['scorers', 'bogus'], deps);
     expect(exitCode).toBe(1);
     expect(stderr.join('\n')).toContain('Unknown scorers subcommand');
+  });
+});
+
+// ── Semantic facts & ontology commands ──────────────────────────
+
+describe('CLI semantic-facts', () => {
+  it('list passes filters to trace.getSemanticFacts', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli([
+      'semantic-facts', 'list',
+      '--session', 'sess-1',
+      '--kind', 'tool_usage',
+      '--agent', 'agent-1',
+      '--min-confidence', '0.7',
+      '--limit', '5',
+      '--offset', '10',
+    ], deps);
+    expect(exitCode).toBe(0);
+    expect(client.trace.getSemanticFacts).toHaveBeenCalledWith({
+      session_id: 'sess-1',
+      kind: 'tool_usage',
+      agent_id: 'agent-1',
+      min_confidence: 0.7,
+      limit: 5,
+      offset: 10,
+    });
+    expect(stdout.join('\n')).toContain('fact-1');
+  });
+
+  it('session fetches facts for a session id', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli(['semantic-facts', 'session', 'sess-1'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.trace.getSessionSemanticFacts).toHaveBeenCalledWith('sess-1');
+    expect(stdout.join('\n')).toContain('sess-1');
+  });
+
+  it('node fetches facts for a node id', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli(['semantic-facts', 'node', 'node-1'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.trace.getNodeSemanticFacts).toHaveBeenCalledWith('node-1');
+    expect(stdout.join('\n')).toContain('node-1');
+  });
+
+  it('rebuild triggers semantic fact extraction', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli(['semantic-facts', 'rebuild', 'sess-1'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.trace.rebuildSessionSemanticFacts).toHaveBeenCalledWith('sess-1');
+    expect(stdout.join('\n')).toContain('"extracted_at": 2');
+  });
+
+  it('aggregates passes filters to trace.getSemanticFactAggregates', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli([
+      'semantic-facts', 'aggregates',
+      '--kind', 'tool_usage',
+      '--agent', 'agent-1',
+      '--min-count', '3',
+      '--limit', '5',
+      '--offset', '2',
+    ], deps);
+    expect(exitCode).toBe(0);
+    expect(client.trace.getSemanticFactAggregates).toHaveBeenCalledWith({
+      kind: 'tool_usage',
+      agent_id: 'agent-1',
+      min_count: 3,
+      limit: 5,
+      offset: 2,
+    });
+    expect(stdout.join('\n')).toContain('agg-1');
+  });
+
+  it('unknown semantic-facts subcommand returns error', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli(['semantic-facts', 'bogus'], deps);
+    expect(exitCode).toBe(1);
+    expect(stderr.join('\n')).toContain('Unknown semantic-facts subcommand');
+  });
+});
+
+describe('CLI ontology', () => {
+  it('list passes filters to trace.getOntologyCandidates', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli([
+      'ontology', 'list',
+      '--kind', 'concept',
+      '--min-score', '0.6',
+      '--entity-type', 'tool',
+      '--limit', '4',
+      '--offset', '1',
+    ], deps);
+    expect(exitCode).toBe(0);
+    expect(client.trace.getOntologyCandidates).toHaveBeenCalledWith({
+      kind: 'concept',
+      min_score: 0.6,
+      entity_type: 'tool',
+      limit: 4,
+      offset: 1,
+    });
+    expect(stdout.join('\n')).toContain('cand-1');
+  });
+
+  it('get fetches a single ontology candidate', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli(['ontology', 'get', 'cand-1'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.trace.getOntologyCandidate).toHaveBeenCalledWith('cand-1');
+    expect(stdout.join('\n')).toContain('cand-1');
+  });
+
+  it('mine triggers ontology candidate mining', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+    const exitCode = await runCli(['ontology', 'mine'], deps);
+    expect(exitCode).toBe(0);
+    expect(client.trace.mineOntologyCandidates).toHaveBeenCalled();
+    expect(stdout.join('\n')).toContain('"concepts": 2');
+  });
+
+  it('unknown ontology subcommand returns error', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli(['ontology', 'bogus'], deps);
+    expect(exitCode).toBe(1);
+    expect(stderr.join('\n')).toContain('Unknown ontology subcommand');
   });
 });
 
