@@ -46,9 +46,6 @@ async def _do_record(
     agent: str | None,
     client: Any | None,
 ) -> None:
-    resolved_client = _state.get_client(client)
-    resolved_agent = _state.get_agent(agent)
-
     action: Action = {
         "action": primitive,
         "input": input_dict,
@@ -62,6 +59,8 @@ async def _do_record(
     if active_session is not None:
         await active_session.record(action)
     else:
+        resolved_client = _state.get_client(client)
+        resolved_agent = _state.get_agent(agent)
         session = resolved_client.session(agent=resolved_agent, name=action_name)
         await session.record(action)
         await session.end()

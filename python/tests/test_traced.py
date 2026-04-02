@@ -174,7 +174,35 @@ async def test_trace_session_groups_calls():
     await client.shutdown()
 
 
-# ── 7. No init and no explicit client raises NOT_INITIALIZED ────────────────
+# ── 7. trace_session explicit client/agent works without global init ────────
+
+
+@pytest.mark.asyncio
+async def test_trace_session_with_explicit_client_and_agent_without_init():
+    client = _make_client()
+
+    @traced(primitive="tool_invocation")
+    async def step() -> dict:
+        return {"step": "ok"}
+
+    with respx.mock(base_url=API) as router:
+        _mock_routes(router)
+
+        async with trace_session(
+            name="grouped-run",
+            client=client,
+            agent="explicit-agent",
+        ) as session:
+            await step()
+            receipts = session.get_receipts()
+            assert len(receipts) == 1
+            assert receipts[0]["action"] == "tool_invocation"
+            assert receipts[0]["agent"] == "explicit-agent"
+
+    await client.shutdown()
+
+
+# ── 8. No init and no explicit client raises NOT_INITIALIZED ────────────────
 
 
 @pytest.mark.asyncio
@@ -188,7 +216,7 @@ async def test_not_initialized_error():
     assert exc_info.value.code == "NOT_INITIALIZED"
 
 
-# ── 8. Invalid primitive raises ValueError at decoration time ────────────────
+# ── 9. Invalid primitive raises ValueError at decoration time ────────────────
 
 
 def test_invalid_primitive_raises():
@@ -198,7 +226,7 @@ def test_invalid_primitive_raises():
             return {}
 
 
-# ── 9. functools.wraps preserves metadata ────────────────────────────────────
+# ── 10. functools.wraps preserves metadata ───────────────────────────────────
 
 
 def test_wraps_preserves_metadata():
@@ -211,7 +239,7 @@ def test_wraps_preserves_metadata():
     assert my_function.__doc__ == "My docstring."
 
 
-# ── 10. Sync decorated function works outside a running event loop ───────────
+# ── 11. Sync decorated function works outside a running event loop ───────────
 
 
 def test_sync_traced_no_loop():
@@ -230,7 +258,7 @@ def test_sync_traced_no_loop():
     asyncio.run(client.shutdown())
 
 
-# ── 11. Sync decorated function inside running loop raises ───────────────────
+# ── 12. Sync decorated function inside running loop raises ───────────────────
 
 
 @pytest.mark.asyncio
@@ -249,7 +277,7 @@ async def test_sync_traced_in_running_loop_raises():
     await client.shutdown()
 
 
-# ── 12. Nested trace_session raises ──────────────────────────────────────────
+# ── 13. Nested trace_session raises ──────────────────────────────────────────
 
 
 @pytest.mark.asyncio
