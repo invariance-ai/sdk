@@ -14,9 +14,27 @@ export type {
   TraceChainVerifyResult,
 } from './trace.js';
 export type {
-  MonitorTarget, MonitorSeverity, MonitorDefinitionRule, MonitorDefinition,
   Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorValidateResult, MonitorListOpts,
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
+  MonitorExecution, MonitorExecutionListResponse, MonitorRunListResponse,
+  MonitorFinding, MonitorFindingListResponse, MonitorHistoryListParams,
+  MonitorDefinition, MonitorDefinitionBase, MonitorDefinitionRule,
+  CronMonitorDefinition, NodeMonitorDefinition, BackendRuleMonitorDefinition,
+  MonitorSeverity, MonitorFamily, MonitorScope,
+  MonitorTarget, MonitorCheckType,
+  MonitorTargetMatch, MonitorTargetFilter,
+  MonitorTriggerType, MonitorTriggerMatch, MonitorTrigger,
+  MonitorEventTrigger, MonitorScheduleTrigger, MonitorManualTrigger,
+  MonitorFieldConditionTrigger, MonitorAnomalyTrigger, MonitorDependencyTrigger,
+  MonitorCompositeTrigger, MonitorHumanEscalationTrigger, MonitorRuleTrigger,
+  MonitorEvaluatorType, MonitorEvaluator,
+  MonitorThresholdEvaluator, MonitorRuleEvaluator,
+  MonitorJudgeLLMEvaluator, MonitorJudgeHumanEvaluator, MonitorCodeEvaluator,
+  MonitorActionType, MonitorAction,
+  MonitorCreateFindingAction, MonitorEmitSignalAction, MonitorNotifyAction,
+  MonitorMarkObjectAction, MonitorWebhookAction,
+  MonitorBackendEventName, MonitorBackendEvent,
+  MonitorExecutionStatus, MonitorFindingStatus,
 } from './monitor.js';
 export { AGGREGATE_RULE_KINDS } from './monitor.js';
 export type {
