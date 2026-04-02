@@ -16,6 +16,16 @@ export interface CliClient {
     listImprovementCandidates(opts?: { suite_id?: string; status?: string; type?: string; limit?: number; offset?: number }): Promise<unknown[]>;
     updateImprovementCandidate(id: string, body: { status: string }): Promise<unknown>;
   };
+  trace: {
+    getSessionSemanticFacts(sessionId: string): Promise<unknown>;
+    getNodeSemanticFacts(nodeId: string): Promise<unknown>;
+    getSemanticFacts(query?: Record<string, unknown>): Promise<unknown>;
+    rebuildSessionSemanticFacts(sessionId: string): Promise<unknown>;
+    getSemanticFactAggregates(query?: Record<string, unknown>): Promise<unknown>;
+    getOntologyCandidates(query?: Record<string, unknown>): Promise<unknown>;
+    getOntologyCandidate(id: string): Promise<unknown>;
+    mineOntologyCandidates(): Promise<unknown>;
+  };
   datasets: {
     list(opts?: { agent_id?: string }): Promise<unknown[]>;
   };
@@ -126,6 +136,18 @@ Commands:
 
   scorers       Scorer management
     list                            List scorers
+
+  semantic-facts  Semantic fact extraction and aggregation
+    list [--session <id>] [--kind <kind>] [--agent <id>] [--min-confidence <n>] [--limit <n>] [--offset <n>]
+    session <session-id>              Get facts for a session
+    node <node-id>                    Get facts for a node
+    rebuild <session-id>              Force re-extraction
+    aggregates [--kind <kind>] [--agent <id>] [--min-count <n>] [--limit <n>] [--offset <n>]
+
+  ontology        Ontology candidate management
+    list [--kind <concept|relation>] [--min-score <n>] [--entity-type <type>] [--limit <n>] [--offset <n>]
+    get <id>                          Get a single candidate
+    mine                              Trigger ontology mining
 
 Environment:
   INVARIANCE_API_KEY    API key (required)
@@ -323,6 +345,115 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
           default:
             stderr(`Unknown scorers subcommand: ${subcommand}`);
             stderr('Available: list');
+            return 1;
+        }
+      }
+      case 'semantic-facts': {
+        if (!client) return 1;
+        switch (subcommand) {
+          case 'list': {
+            const sessionId = getFlag(argv, '--session');
+            const kind = getFlag(argv, '--kind');
+            const agentId = getFlag(argv, '--agent');
+            const minConfidence = getFlag(argv, '--min-confidence');
+            const limit = getFlag(argv, '--limit');
+            const offset = getFlag(argv, '--offset');
+            const data = await client.trace.getSemanticFacts({
+              ...(sessionId ? { session_id: sessionId } : {}),
+              ...(kind ? { kind } : {}),
+              ...(agentId ? { agent_id: agentId } : {}),
+              ...(minConfidence ? { min_confidence: Number(minConfidence) } : {}),
+              ...(limit ? { limit: Number(limit) } : {}),
+              ...(offset ? { offset: Number(offset) } : {}),
+            });
+            printJson(stdout, data);
+            return 0;
+          }
+          case 'session': {
+            if (!positional) {
+              stderr('Usage: semantic-facts session <session-id>');
+              return 1;
+            }
+            const data = await client.trace.getSessionSemanticFacts(positional);
+            printJson(stdout, data);
+            return 0;
+          }
+          case 'node': {
+            if (!positional) {
+              stderr('Usage: semantic-facts node <node-id>');
+              return 1;
+            }
+            const data = await client.trace.getNodeSemanticFacts(positional);
+            printJson(stdout, data);
+            return 0;
+          }
+          case 'rebuild': {
+            if (!positional) {
+              stderr('Usage: semantic-facts rebuild <session-id>');
+              return 1;
+            }
+            const data = await client.trace.rebuildSessionSemanticFacts(positional);
+            printJson(stdout, data);
+            return 0;
+          }
+          case 'aggregates': {
+            const kind = getFlag(argv, '--kind');
+            const agentId = getFlag(argv, '--agent');
+            const minCount = getFlag(argv, '--min-count');
+            const limit = getFlag(argv, '--limit');
+            const offset = getFlag(argv, '--offset');
+            const data = await client.trace.getSemanticFactAggregates({
+              ...(kind ? { kind } : {}),
+              ...(agentId ? { agent_id: agentId } : {}),
+              ...(minCount ? { min_count: Number(minCount) } : {}),
+              ...(limit ? { limit: Number(limit) } : {}),
+              ...(offset ? { offset: Number(offset) } : {}),
+            });
+            printJson(stdout, data);
+            return 0;
+          }
+          default:
+            stderr(`Unknown semantic-facts subcommand: ${subcommand}`);
+            stderr('Available: list, session, node, rebuild, aggregates');
+            return 1;
+        }
+      }
+      case 'ontology': {
+        if (!client) return 1;
+        switch (subcommand) {
+          case 'list': {
+            const kind = getFlag(argv, '--kind');
+            const minScore = getFlag(argv, '--min-score');
+            const entityType = getFlag(argv, '--entity-type');
+            const limit = getFlag(argv, '--limit');
+            const offset = getFlag(argv, '--offset');
+            const data = await client.trace.getOntologyCandidates({
+              ...(kind ? { kind } : {}),
+              ...(minScore ? { min_score: Number(minScore) } : {}),
+              ...(entityType ? { entity_type: entityType } : {}),
+              ...(limit ? { limit: Number(limit) } : {}),
+              ...(offset ? { offset: Number(offset) } : {}),
+            });
+            printJson(stdout, data);
+            return 0;
+          }
+          case 'get': {
+            if (!positional) {
+              stderr('Usage: ontology get <id>');
+              return 1;
+            }
+            const data = await client.trace.getOntologyCandidate(positional);
+            printJson(stdout, data);
+            return 0;
+          }
+          case 'mine': {
+            const data = await client.trace.mineOntologyCandidates();
+            printJson(stdout, data);
+            return 0;
+          }
+          default:
+            stderr(`Unknown ontology subcommand: ${subcommand}`);
+            stderr('Available: list, get, mine');
             return 1;
         }
       }

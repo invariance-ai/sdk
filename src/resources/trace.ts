@@ -5,6 +5,13 @@ import type {
   AuditResult, GraphPattern, PatternQuery, GraphSnapshot, NodeDiff,
   TraceVerifyResult,
 } from '../types/trace.js';
+import type {
+  SemanticFactsResponse, NodeSemanticFactsResponse,
+  SemanticFactQuery, SemanticFactListResponse,
+  SemanticFactAggregateQuery, SemanticFactAggregateListResponse,
+  OntologyCandidateQuery, OntologyCandidateListResponse,
+  OntologyCandidate, OntologyMineResult,
+} from '../types/semantic-facts.js';
 
 export class TraceResource {
   constructor(private http: HttpClient) {}
@@ -92,5 +99,49 @@ export class TraceResource {
     }
 
     return { verified: false, errors: ['Invalid verification response'] };
+  }
+
+  // ── Semantic Facts ──
+
+  async getSessionSemanticFacts(sessionId: string): Promise<SemanticFactsResponse> {
+    return this.http.get<SemanticFactsResponse>(`/v1/trace/sessions/${sessionId}/semantic-facts`);
+  }
+
+  async getNodeSemanticFacts(nodeId: string): Promise<NodeSemanticFactsResponse> {
+    return this.http.get<NodeSemanticFactsResponse>(`/v1/trace/nodes/${nodeId}/semantic-facts`);
+  }
+
+  async getSemanticFacts(query?: SemanticFactQuery): Promise<SemanticFactListResponse> {
+    return this.http.get<SemanticFactListResponse>('/v1/trace/semantic-facts', {
+      params: query as Record<string, string | number | boolean | undefined> | undefined,
+    });
+  }
+
+  async rebuildSessionSemanticFacts(sessionId: string): Promise<SemanticFactsResponse> {
+    return this.http.post<SemanticFactsResponse>(`/v1/trace/sessions/${sessionId}/semantic-facts/rebuild`, {});
+  }
+
+  // ── Aggregates ──
+
+  async getSemanticFactAggregates(query?: SemanticFactAggregateQuery): Promise<SemanticFactAggregateListResponse> {
+    return this.http.get<SemanticFactAggregateListResponse>('/v1/trace/semantic-fact-aggregates', {
+      params: query as Record<string, string | number | boolean | undefined> | undefined,
+    });
+  }
+
+  // ── Ontology Candidates ──
+
+  async getOntologyCandidates(query?: OntologyCandidateQuery): Promise<OntologyCandidateListResponse> {
+    return this.http.get<OntologyCandidateListResponse>('/v1/trace/ontology-candidates', {
+      params: query as Record<string, string | number | boolean | undefined> | undefined,
+    });
+  }
+
+  async getOntologyCandidate(id: string): Promise<OntologyCandidate> {
+    return this.http.get<OntologyCandidate>(`/v1/trace/ontology-candidates/${id}`);
+  }
+
+  async mineOntologyCandidates(): Promise<OntologyMineResult> {
+    return this.http.post<OntologyMineResult>('/v1/trace/ontology-candidates/mine', {});
   }
 }

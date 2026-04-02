@@ -89,3 +89,12 @@ export type {
   TemplatePack, TemplateApplyResult, VerifyResult, HealthResponse,
   LiveStatusEventType, LiveStatusEvent, LiveStatusAgentSummary, LiveStatusSnapshot,
 } from './misc.js';
+export type {
+  SemanticFactKind, SemanticEntity, SemanticProvenance, SemanticPredicate,
+  SemanticFact, SemanticFactsResponse, NodeSemanticFactsResponse,
+  SemanticFactContradiction, SemanticFactAggregate,
+  OntologyCandidateKind, OntologyConcept, OntologyRelation, OntologyCandidate,
+  SemanticFactQuery, SemanticFactAggregateQuery, OntologyCandidateQuery,
+  SemanticFactListResponse, SemanticFactAggregateListResponse,
+  OntologyCandidateListResponse, OntologyMineResult,
+} from './semantic-facts.js';
