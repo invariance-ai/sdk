@@ -401,3 +401,57 @@ export interface MonitorEventsQuery {
 export interface MonitorCompilePreview {
   compiled: unknown;
 }
+
+export interface MonitorExecution {
+  id: string;
+  monitor_id: string;
+  monitor_version: number;
+  owner_id: string;
+  executor_type: string;
+  trigger_type: string;
+  trigger_source: string | null;
+  status: string;
+  input_ref: Record<string, unknown> | null;
+  output: Record<string, unknown> | null;
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+  created_at: string;
+}
+
+export interface MonitorExecutionListResponse {
+  executions: MonitorExecution[];
+  next_cursor: string | null;
+}
+
+export interface MonitorRunListResponse {
+  runs: MonitorExecution[];
+  next_cursor: string | null;
+}
+
+export interface MonitorFinding {
+  id: string;
+  monitor_execution_id: string;
+  monitor_id: string;
+  owner_id: string;
+  severity: string;
+  title: string;
+  summary: string;
+  evidence: Record<string, unknown>;
+  status: string;
+  dedupe_key: string | null;
+  trace_node_id: string | null;
+  session_id: string | null;
+  agent_id: string | null;
+  created_at: string;
+}
+
+export interface MonitorFindingListResponse {
+  findings: MonitorFinding[];
+  next_cursor: string | null;
+}
+
+export interface MonitorHistoryListParams {
+  after_id?: string;
+  limit?: number;
+}
