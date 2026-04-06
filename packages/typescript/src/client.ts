@@ -6,34 +6,14 @@ import { generateKeypair, getPublicKey, deriveAgentKeypair } from './crypto.js';
 import { MonitorPoller } from './monitor-poller.js';
 import { SignalPoller } from './signal-poller.js';
 
-import { IdentityResource } from './resources/identity.js';
-import { AgentsResource } from './resources/agents.js';
-import { SessionsResource } from './resources/sessions.js';
-import { ReceiptsResource } from './resources/receipts.js';
-import { ContractsResource } from './resources/contracts.js';
-import { A2AResource } from './resources/a2a.js';
-import { TraceResource } from './resources/trace.js';
-import { QueryResource } from './resources/query.js';
-import { MonitorsResource } from './resources/monitors.js';
-import { SignalsResource } from './resources/signals.js';
-import { DriftResource } from './resources/drift.js';
-import { TrainingResource } from './resources/training.js';
-import { TemplatesResource } from './resources/templates.js';
-import { ApiKeysResource } from './resources/api-keys.js';
-import { UsageResource } from './resources/usage.js';
-import { SearchResource } from './resources/search.js';
-import { StatusResource } from './resources/status.js';
-import { NLQueryResource } from './resources/nl-query.js';
-import { IdentitiesResource } from './resources/identities.js';
-import { EvalsResource } from './resources/evals.js';
-import { FailureClustersResource } from './resources/failure-clusters.js';
-import { SuggestionsResource } from './resources/suggestions.js';
-import { DocsResource } from './resources/docs.js';
-import { DatasetsResource } from './resources/datasets.js';
-import { ScorersResource } from './resources/scorers.js';
-import { ExperimentsResource } from './resources/experiments.js';
-import { PromptsResource } from './resources/prompts.js';
-import { AnnotationsResource } from './resources/annotations.js';
+import { ResourcesModule } from './modules/resources.js';
+import { AdminModule } from './modules/admin.js';
+import { ProvenanceModule } from './modules/provenance.js';
+import { TracingModule } from './modules/tracing.js';
+import { MonitorsModule } from './modules/monitors-module.js';
+import { AnalysisModule } from './modules/analysis.js';
+import { ImprovementModule } from './modules/improvement.js';
+import { RunModule } from './modules/run.js';
 
 import type { InvarianceConfig, Action } from './types/config.js';
 import type { Receipt } from './types/receipt.js';
@@ -56,35 +36,15 @@ export class Invariance {
   private monitorPoller: MonitorPoller | null = null;
   private signalPoller: SignalPoller | null = null;
 
-  // Resource namespaces
-  readonly identity: IdentityResource;
-  readonly agents: AgentsResource;
-  readonly sessions: SessionsResource;
-  readonly receipts: ReceiptsResource;
-  readonly contracts: ContractsResource;
-  readonly a2a: A2AResource;
-  readonly trace: TraceResource;
-  readonly query: QueryResource;
-  readonly monitors: MonitorsResource;
-  readonly drift: DriftResource;
-  readonly training: TrainingResource;
-  readonly templates: TemplatesResource;
-  readonly apiKeys: ApiKeysResource;
-  readonly usage: UsageResource;
-  readonly search: SearchResource;
-  readonly status: StatusResource;
-  readonly nlQuery: NLQueryResource;
-  readonly identities: IdentitiesResource;
-  readonly evals: EvalsResource;
-  readonly failureClusters: FailureClustersResource;
-  readonly suggestions: SuggestionsResource;
-  readonly docs: DocsResource;
-  readonly datasets: DatasetsResource;
-  readonly scorers: ScorersResource;
-  readonly experiments: ExperimentsResource;
-  readonly prompts: PromptsResource;
-  readonly annotations: AnnotationsResource;
-  readonly signals: SignalsResource;
+  // ── Workflow modules ──
+  readonly run: RunModule;
+  readonly provenance: ProvenanceModule;
+  readonly tracing: TracingModule;
+  readonly monitoring: MonitorsModule;
+  readonly analysis: AnalysisModule;
+  readonly improvement: ImprovementModule;
+  readonly admin: AdminModule;
+  readonly resources: ResourcesModule;
 
   private constructor(config: InvarianceConfig) {
     if (!config.apiKey) {
@@ -113,40 +73,28 @@ export class Invariance {
       onError: config.onError,
     });
 
-    // Initialize all resource modules
-    this.identity = new IdentityResource(this.http);
-    this.agents = new AgentsResource(this.http);
-    this.sessions = new SessionsResource(this.http);
-    this.receipts = new ReceiptsResource(this.http);
-    this.contracts = new ContractsResource(this.http);
-    this.a2a = new A2AResource(this.http);
-    this.trace = new TraceResource(this.http);
-    this.query = new QueryResource(this.http);
-    this.monitors = new MonitorsResource(this.http);
-    this.drift = new DriftResource(this.http);
-    this.training = new TrainingResource(this.http);
-    this.templates = new TemplatesResource(this.http);
-    this.apiKeys = new ApiKeysResource(this.http);
-    this.usage = new UsageResource(this.http);
-    this.search = new SearchResource(this.http);
-    this.status = new StatusResource(this.http);
-    this.nlQuery = new NLQueryResource(this.http);
-    this.identities = new IdentitiesResource(this.http);
-    this.evals = new EvalsResource(this.http);
-    this.failureClusters = new FailureClustersResource(this.http);
-    this.suggestions = new SuggestionsResource(this.http);
-    this.docs = new DocsResource(this.http);
-    this.datasets = new DatasetsResource(this.http);
-    this.scorers = new ScorersResource(this.http);
-    this.experiments = new ExperimentsResource(this.http);
-    this.prompts = new PromptsResource(this.http);
-    this.annotations = new AnnotationsResource(this.http);
-    this.signals = new SignalsResource(this.http);
+    // Initialize all resources
+    this.resources = new ResourcesModule(this.http);
+
+    // Initialize workflow modules
+    this.run = new RunModule(this.resources, {
+      agent: config.agent,
+      privateKey: this.privateKey,
+      instrumentation: config.instrumentation,
+      sessionFactory: (opts) => this.session(opts),
+      batcherEnqueue: (receipt) => this.batcher.enqueue(receipt),
+    });
+    this.provenance = new ProvenanceModule(this.resources, (opts) => this.session(opts));
+    this.tracing = new TracingModule(this.resources, { agent: config.agent });
+    this.monitoring = new MonitorsModule(this.resources);
+    this.analysis = new AnalysisModule(this.resources);
+    this.improvement = new ImprovementModule(this.resources);
+    this.admin = new AdminModule(this.resources);
 
     // Start signal or monitor polling if configured
     if (config.onSignal && (config.signalPollIntervalMs ?? config.monitorPollIntervalMs)) {
       this.signalPoller = new SignalPoller({
-        signals: this.signals,
+        signals: this.resources.signals,
         intervalMs: config.signalPollIntervalMs ?? config.monitorPollIntervalMs!,
         onSignal: config.onSignal,
         onError: config.onError ? (err) => config.onError!(err as InvarianceError) : undefined,
@@ -154,7 +102,7 @@ export class Invariance {
       this.signalPoller.start();
     } else if (config.onMonitorTrigger && config.monitorPollIntervalMs) {
       this.monitorPoller = new MonitorPoller({
-        monitors: this.monitors,
+        monitors: this.resources.monitors,
         intervalMs: config.monitorPollIntervalMs,
         onEvent: config.onMonitorTrigger,
         onError: config.onError ? (err) => config.onError!(err as InvarianceError) : undefined,
@@ -202,10 +150,10 @@ export class Invariance {
       id: opts.id,
       privateKey: this.privateKey,
       enqueue: (receipt) => this.batcher.enqueue(receipt),
-      onCreate: (createOpts) => this.sessions.create(createOpts).then(() => {}),
+      onCreate: (createOpts) => this.resources.sessions.create(createOpts).then(() => {}),
       onClose: (id, status, closeHash) => {
         const promise = this.batcher.flush().then(() =>
-          this.sessions.close(id, status, closeHash).then(() => {}),
+          this.resources.sessions.close(id, status, closeHash).then(() => {}),
         );
         this.pendingSessionCloses.push(promise);
         promise.finally(() => {
@@ -257,15 +205,15 @@ export class Invariance {
   }
 
   /**
-   * Gracefully shut down: flush receipts, await pending session closes.
-   */
-  /**
    * Create a signal with source='emit'.
    */
   async emitSignal(body: CreateSignalBody): Promise<Signal> {
-    return this.signals.create(body);
+    return this.resources.signals.create(body);
   }
 
+  /**
+   * Gracefully shut down: flush receipts, await pending session closes.
+   */
   async shutdown(): Promise<void> {
     this.signalPoller?.stop();
     this.monitorPoller?.stop();

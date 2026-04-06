@@ -2,10 +2,23 @@ import type { InvarianceError } from '../errors.js';
 import type { MonitorSignal } from './monitor.js';
 import type { Signal } from './signal.js';
 
+export interface InstrumentationConfig {
+  /** Enable trace event emission. Default: true */
+  traces?: boolean;
+  /** Enable provenance (receipts, hash chains, signatures). Default: false */
+  provenance?: boolean;
+  /** Auto-flush buffered events. Default: true */
+  autoFlush?: boolean;
+}
+
 export interface InvarianceConfig {
   apiKey: string;
   apiUrl?: string;
   privateKey?: string;
+  /** Default agent name for runs and traces */
+  agent?: string;
+  /** Instrumentation configuration */
+  instrumentation?: InstrumentationConfig;
   flushIntervalMs?: number;
   maxBatchSize?: number;
   maxQueueSize?: number;

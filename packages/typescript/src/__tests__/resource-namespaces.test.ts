@@ -8,33 +8,33 @@ describe('resource namespace surface', () => {
 
   it('exposes all resource namespaces', () => {
     const inv = Invariance.init({ apiKey: 'inv_test' });
-    expect(inv.trace).toBeTruthy();
-    expect(inv.training).toBeTruthy();
-    expect(inv.evals).toBeTruthy();
-    expect(inv.failureClusters).toBeTruthy();
-    expect(inv.suggestions).toBeTruthy();
-    expect(inv.docs).toBeTruthy();
-    expect(inv.agents).toBeTruthy();
-    expect(inv.sessions).toBeTruthy();
-    expect(inv.monitors).toBeTruthy();
-    expect(inv.contracts).toBeTruthy();
-    expect(inv.a2a).toBeTruthy();
-    expect(inv.query).toBeTruthy();
-    expect(inv.nlQuery).toBeTruthy();
-    expect(inv.identity).toBeTruthy();
-    expect(inv.identities).toBeTruthy();
-    expect(inv.drift).toBeTruthy();
-    expect(inv.receipts).toBeTruthy();
-    expect(inv.apiKeys).toBeTruthy();
-    expect(inv.usage).toBeTruthy();
-    expect(inv.search).toBeTruthy();
-    expect(inv.status).toBeTruthy();
-    expect(inv.templates).toBeTruthy();
-    expect(inv.datasets).toBeTruthy();
-    expect(inv.scorers).toBeTruthy();
-    expect(inv.experiments).toBeTruthy();
-    expect(inv.prompts).toBeTruthy();
-    expect(inv.annotations).toBeTruthy();
+    expect(inv.resources.trace).toBeTruthy();
+    expect(inv.resources.training).toBeTruthy();
+    expect(inv.resources.evals).toBeTruthy();
+    expect(inv.resources.failureClusters).toBeTruthy();
+    expect(inv.resources.suggestions).toBeTruthy();
+    expect(inv.resources.docs).toBeTruthy();
+    expect(inv.resources.agents).toBeTruthy();
+    expect(inv.resources.sessions).toBeTruthy();
+    expect(inv.resources.monitors).toBeTruthy();
+    expect(inv.resources.contracts).toBeTruthy();
+    expect(inv.resources.a2a).toBeTruthy();
+    expect(inv.resources.query).toBeTruthy();
+    expect(inv.resources.nlQuery).toBeTruthy();
+    expect(inv.resources.identity).toBeTruthy();
+    expect(inv.resources.identities).toBeTruthy();
+    expect(inv.resources.drift).toBeTruthy();
+    expect(inv.resources.receipts).toBeTruthy();
+    expect(inv.resources.apiKeys).toBeTruthy();
+    expect(inv.resources.usage).toBeTruthy();
+    expect(inv.resources.search).toBeTruthy();
+    expect(inv.resources.status).toBeTruthy();
+    expect(inv.resources.templates).toBeTruthy();
+    expect(inv.resources.datasets).toBeTruthy();
+    expect(inv.resources.scorers).toBeTruthy();
+    expect(inv.resources.experiments).toBeTruthy();
+    expect(inv.resources.prompts).toBeTruthy();
+    expect(inv.resources.annotations).toBeTruthy();
   });
 
   it('calls resource namespace methods with the expected wire contract', async () => {
@@ -108,16 +108,16 @@ describe('resource namespace surface', () => {
         json: async () => ({ monitor_id: 'mon-1', target: 'signal', matches_found: 1, matched_ids: ['sig-1'], matched_node_ids: [] }),
       });
 
-    const statusResult = await inv.status.snapshot();
+    const statusResult = await inv.resources.status.snapshot();
     expect(statusResult).toMatchObject({ agents: expect.any(Array) });
 
-    const verifyResult = await inv.trace.verifyChain('sess-1');
+    const verifyResult = await inv.resources.trace.verifyChain('sess-1');
     expect(verifyResult).toEqual({ verified: true, errors: [] });
 
-    const datasetsResult = await inv.datasets.list({ agent_id: 'agent-1' });
+    const datasetsResult = await inv.resources.datasets.list({ agent_id: 'agent-1' });
     expect(datasetsResult).toEqual([]);
 
-    const experimentResult = await inv.experiments.create({
+    const experimentResult = await inv.resources.experiments.create({
       name: 'Experiment',
       dataset_id: 'ds-1',
       dataset_version: 1,
@@ -125,10 +125,10 @@ describe('resource namespace surface', () => {
     });
     expect(experimentResult).toMatchObject({ id: 'exp-1', dataset_id: 'ds-1' });
 
-    const promptsResult = await inv.prompts.list();
+    const promptsResult = await inv.resources.prompts.list();
     expect(promptsResult).toEqual([]);
 
-    const promoteResult = await inv.datasets.promoteFromCompare('ds-1', {
+    const promoteResult = await inv.resources.datasets.promoteFromCompare('ds-1', {
       suite_id: 'suite-1',
       run_a: 'run-a',
       run_b: 'run-b',
@@ -136,7 +136,7 @@ describe('resource namespace surface', () => {
     });
     expect(promoteResult).toEqual([]);
 
-    const launchResult = await inv.evals.launch({
+    const launchResult = await inv.resources.evals.launch({
       mode: 'session',
       suite_id: 'suite-1',
       agent_id: 'agent-1',
@@ -144,22 +144,22 @@ describe('resource namespace surface', () => {
     });
     expect(launchResult).toMatchObject({ eval_run: { id: 'run-1' } });
 
-    const rerunResult = await inv.evals.rerun('run-1');
+    const rerunResult = await inv.resources.evals.rerun('run-1');
     expect(rerunResult).toEqual({ id: 'run-2', status: 'completed' });
 
-    const regressionsResult = await inv.evals.listRegressions({ suite_id: 'suite-1', run_a: 'run-a', run_b: 'run-b' });
+    const regressionsResult = await inv.resources.evals.listRegressions({ suite_id: 'suite-1', run_a: 'run-a', run_b: 'run-b' });
     expect(regressionsResult).toEqual([{ case_id: 'case-1' }]);
 
-    const lineageResult = await inv.evals.getLineage({ suite_id: 'suite-1', limit: 10 });
+    const lineageResult = await inv.resources.evals.getLineage({ suite_id: 'suite-1', limit: 10 });
     expect(lineageResult).toEqual([{ run_id: 'run-1' }]);
 
-    const improvementCandidates = await inv.evals.listImprovementCandidates({ suite_id: 'suite-1', status: 'pending' });
+    const improvementCandidates = await inv.resources.evals.listImprovementCandidates({ suite_id: 'suite-1', status: 'pending' });
     expect(improvementCandidates).toEqual([{ id: 'cand-1', status: 'pending' }]);
 
-    const updatedCandidate = await inv.evals.updateImprovementCandidate('cand-1', { status: 'accepted' });
+    const updatedCandidate = await inv.resources.evals.updateImprovementCandidate('cand-1', { status: 'accepted' });
     expect(updatedCandidate).toEqual({ id: 'cand-1', status: 'accepted' });
 
-    const createCandidatesResult = await inv.training.createCandidatesFromEvalCompare({
+    const createCandidatesResult = await inv.resources.training.createCandidatesFromEvalCompare({
       suite_id: 'suite-1',
       run_a: 'run-a',
       run_b: 'run-b',
@@ -167,10 +167,10 @@ describe('resource namespace surface', () => {
     });
     expect(createCandidatesResult).toEqual({ candidates: [{ id: 'cand-2' }], count: 1 });
 
-    const monitors = await inv.monitors.list({ target: 'signal', mode: 'structured' });
+    const monitors = await inv.resources.monitors.list({ target: 'signal', mode: 'structured' });
     expect(monitors[0]).toMatchObject({ id: 'mon-1', definition: { target: 'signal' } });
 
-    const validation = await inv.monitors.validate({
+    const validation = await inv.resources.monitors.validate({
       version: 1,
       target: 'signal',
       match: 'all',
@@ -179,7 +179,7 @@ describe('resource namespace surface', () => {
     });
     expect(validation).toEqual({ valid: true });
 
-    const evalResult = await inv.monitors.evaluate('mon-1');
+    const evalResult = await inv.resources.monitors.evaluate('mon-1');
     expect(evalResult).toEqual({ monitor_id: 'mon-1', target: 'signal', matches_found: 1, matched_ids: ['sig-1'], matched_node_ids: [] });
     expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/status/live');
     expect((fetch as any).mock.calls[1][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/verify');
@@ -231,7 +231,7 @@ describe('resource namespace surface', () => {
 
   it('does not expose removed training.listImprovementCandidates (API boundary guard)', () => {
     const inv = Invariance.init({ apiKey: 'inv_test' });
-    expect((inv.training as Record<string, unknown>).listImprovementCandidates).toBeUndefined();
+    expect((inv.resources.training as Record<string, unknown>).listImprovementCandidates).toBeUndefined();
   });
 });
 
@@ -250,7 +250,7 @@ describe('orchestration contract shapes', () => {
       }),
     });
 
-    const result = await inv.evals.launch({ mode: 'dataset', suite_id: 'suite-1', agent_id: 'agent-1', dataset_id: 'ds-1', dataset_version: 1 });
+    const result = await inv.resources.evals.launch({ mode: 'dataset', suite_id: 'suite-1', agent_id: 'agent-1', dataset_id: 'ds-1', dataset_version: 1 });
     expect(result.eval_run).toBeDefined();
     expect(typeof result.eval_run.id).toBe('string');
     expect(typeof result.eval_run.status).toBe('string');
@@ -269,7 +269,7 @@ describe('orchestration contract shapes', () => {
       }],
     });
 
-    const result = await inv.evals.listRegressions({ suite_id: 'suite-1' });
+    const result = await inv.resources.evals.listRegressions({ suite_id: 'suite-1' });
     expect(result).toHaveLength(1);
     const entry = result[0]!;
     expect(entry).toHaveProperty('case_id');
@@ -298,7 +298,7 @@ describe('orchestration contract shapes', () => {
       }],
     });
 
-    const result = await inv.evals.getLineage({ suite_id: 'suite-1' });
+    const result = await inv.resources.evals.getLineage({ suite_id: 'suite-1' });
     expect(result).toHaveLength(1);
     const entry = result[0]!;
     expect(entry).toHaveProperty('run_id');
@@ -329,7 +329,7 @@ describe('orchestration contract shapes', () => {
       }],
     });
 
-    const result = await inv.evals.listImprovementCandidates({ suite_id: 'suite-1' });
+    const result = await inv.resources.evals.listImprovementCandidates({ suite_id: 'suite-1' });
     expect(result).toHaveLength(1);
     const cand = result[0]!;
     const expectedKeys = [
@@ -351,7 +351,7 @@ describe('orchestration contract shapes', () => {
       json: async () => ({ id: 'cand-1', status: 'accepted', suite_id: 'suite-1', type: 'regression' }),
     });
 
-    const result = await inv.evals.updateImprovementCandidate('cand-1', { status: 'accepted' });
+    const result = await inv.resources.evals.updateImprovementCandidate('cand-1', { status: 'accepted' });
     expect(result.status).toBe('accepted');
     expect(result.id).toBe('cand-1');
     await inv.shutdown();
@@ -370,7 +370,7 @@ describe('orchestration contract shapes', () => {
       }),
     });
 
-    const result = await inv.training.createCandidatesFromEvalCompare({
+    const result = await inv.resources.training.createCandidatesFromEvalCompare({
       suite_id: 'suite-1', run_a: 'run-a', run_b: 'run-b', include: 'all',
     });
     expect(result.count).toBe(2);
@@ -385,8 +385,8 @@ describe('orchestration contract shapes', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({ ok: true, json: async () => [] });
 
-    await inv.evals.listImprovementCandidates({ suite_id: 's1', status: 'pending', type: 'regression', limit: 10, offset: 5 });
-    await inv.evals.getLineage({ agent_id: 'a1', suite_id: 's1', dataset_id: 'd1', limit: 20 });
+    await inv.resources.evals.listImprovementCandidates({ suite_id: 's1', status: 'pending', type: 'regression', limit: 10, offset: 5 });
+    await inv.resources.evals.getLineage({ agent_id: 'a1', suite_id: 's1', dataset_id: 'd1', limit: 20 });
 
     const candidatesUrl = (fetch as any).mock.calls[0][0] as string;
     expect(candidatesUrl).toContain('suite_id=s1');

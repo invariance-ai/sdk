@@ -16,6 +16,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./resources": {
+      "types": "./dist/resources.d.ts",
+      "import": "./dist/resources.js",
+      "require": "./dist/resources.cjs"
+    },
     "./adapters/langchain": {
       "types": "./dist/adapters/langchain.d.ts",
       "import": "./dist/adapters/langchain.js",

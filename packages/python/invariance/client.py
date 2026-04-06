@@ -12,29 +12,14 @@ from .http_client import HttpClient
 from .session import Session
 from .types import Action, Receipt, SessionCreateOpts
 
-from .resources.identity import IdentityResource
-from .resources.agents import AgentsResource
-from .resources.sessions import SessionsResource
-from .resources.receipts import ReceiptsResource
-from .resources.contracts import ContractsResource
-from .resources.a2a import A2AResource
-from .resources.trace import TraceResource
-from .resources.query import QueryResource
-from .resources.monitors import MonitorsResource
-from .resources.drift import DriftResource
-from .resources.training import TrainingResource
-from .resources.templates import TemplatesResource
-from .resources.api_keys import ApiKeysResource
-from .resources.usage import UsageResource
-from .resources.search import SearchResource
-from .resources.status import StatusResource
-from .resources.nl_query import NLQueryResource
-from .resources.identities import IdentitiesResource
-from .resources.evals import EvalsResource
-from .resources.failure_clusters import FailureClustersResource
-from .resources.suggestions import SuggestionsResource
-from .resources.docs import DocsResource
-from .resources.signals import SignalsResource
+from .modules.resources import ResourcesModule
+from .modules.admin import AdminModule
+from .modules.provenance import ProvenanceModule
+from .modules.tracing import TracingModule
+from .modules.monitors_module import MonitorsModule
+from .modules.analysis import AnalysisModule
+from .modules.improvement import ImprovementModule
+from .modules.run import RunModule
 
 T = TypeVar("T")
 
@@ -52,6 +37,8 @@ class Invariance:
         api_key: str,
         api_url: str | None = None,
         private_key: str | None = None,
+        agent: str | None = None,
+        instrumentation: dict[str, Any] | None = None,
         flush_interval_ms: int | None = None,
         max_batch_size: int | None = None,
         max_queue_size: int | None = None,
@@ -86,30 +73,23 @@ class Invariance:
 
         self._pending_session_closes: list[asyncio.Task[None]] = []
 
-        # Resource namespaces
-        self.identity = IdentityResource(self._http)
-        self.agents = AgentsResource(self._http)
-        self.sessions = SessionsResource(self._http)
-        self.receipts = ReceiptsResource(self._http)
-        self.contracts = ContractsResource(self._http)
-        self.a2a = A2AResource(self._http)
-        self.trace = TraceResource(self._http)
-        self.query = QueryResource(self._http)
-        self.monitors = MonitorsResource(self._http)
-        self.drift = DriftResource(self._http)
-        self.training = TrainingResource(self._http)
-        self.templates = TemplatesResource(self._http)
-        self.api_keys = ApiKeysResource(self._http)
-        self.usage = UsageResource(self._http)
-        self.search = SearchResource(self._http)
-        self.status = StatusResource(self._http)
-        self.nl_query = NLQueryResource(self._http)
-        self.identities = IdentitiesResource(self._http)
-        self.evals = EvalsResource(self._http)
-        self.failure_clusters = FailureClustersResource(self._http)
-        self.suggestions = SuggestionsResource(self._http)
-        self.docs = DocsResource(self._http)
-        self.signals = SignalsResource(self._http)
+        # Resources (raw namespace)
+        self.resources = ResourcesModule(self._http)
+
+        # Workflow modules
+        self.run = RunModule(
+            self.resources,
+            agent=agent,
+            private_key=private_key,
+            instrumentation=instrumentation,
+            session_factory=self.session,
+        )
+        self.provenance = ProvenanceModule(self.resources, self.session)
+        self.tracing = TracingModule(self.resources, agent=agent)
+        self.monitoring = MonitorsModule(self.resources)
+        self.analysis = AnalysisModule(self.resources)
+        self.improvement = ImprovementModule(self.resources)
+        self.admin = AdminModule(self.resources)
 
     @classmethod
     def init(
@@ -118,6 +98,8 @@ class Invariance:
         api_key: str,
         api_url: str | None = None,
         private_key: str | None = None,
+        agent: str | None = None,
+        instrumentation: dict[str, Any] | None = None,
         flush_interval_ms: int | None = None,
         max_batch_size: int | None = None,
         max_queue_size: int | None = None,
@@ -128,6 +110,8 @@ class Invariance:
             api_key=api_key,
             api_url=api_url,
             private_key=private_key,
+            agent=agent,
+            instrumentation=instrumentation,
             flush_interval_ms=flush_interval_ms,
             max_batch_size=max_batch_size,
             max_queue_size=max_queue_size,
@@ -156,7 +140,7 @@ class Invariance:
         name: str,
         id: str | None = None,
     ) -> Session:
-        """Create a new session. Lazily initialized — backend POST happens in background."""
+        """Create a new session. Lazily initialized -- backend POST happens in background."""
         return Session(
             agent=agent,
             name=name,
@@ -168,13 +152,13 @@ class Invariance:
         )
 
     async def _create_session_backend(self, opts: dict[str, Any]) -> None:
-        await self.sessions.create(opts)
+        await self.resources.sessions.create(opts)
 
     async def _close_session_backend(
         self, id: str, status: str, close_hash: str
     ) -> None:
         await self._batcher.flush()
-        await self.sessions.close(id, status, close_hash)
+        await self.resources.sessions.close(id, status, close_hash)
 
     async def create_session(
         self, *, agent: str, name: str, id: str | None = None
@@ -222,7 +206,7 @@ class Invariance:
 
     async def emit_signal(self, body: dict[str, Any]) -> dict[str, Any]:
         """Create a signal with source='emit'."""
-        return await self.signals.create(body)
+        return await self.resources.signals.create(body)
 
     async def flush(self) -> None:
         """Flush all pending receipts to the backend."""
