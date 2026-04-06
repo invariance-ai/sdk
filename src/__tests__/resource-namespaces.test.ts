@@ -74,11 +74,10 @@ describe('resource namespace surface', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          eval_run: { id: 'run-replay', status: 'completed', source_type: 'replay' },
+          eval_run: { id: 'run-replay', status: 'completed', source_type: 'replay', replay_session_id: 'replay-sess-1' },
           experiment_id: null,
           replay_continuation: {
-            replay_session_id: 'replay-sess-1',
-            replay_execution_mode: 'fully_continued',
+            execution_mode: 'fully_continued',
             continuation_node_count: 5,
             continuation_error: null,
           },
@@ -165,8 +164,8 @@ describe('resource namespace surface', () => {
       override_config: { prompt: 'Be concise' },
     });
     expect(replayResult).toMatchObject({
-      eval_run: { id: 'run-replay', source_type: 'replay' },
-      replay_continuation: { replay_execution_mode: 'fully_continued', continuation_node_count: 5 },
+      eval_run: { id: 'run-replay', source_type: 'replay', replay_session_id: 'replay-sess-1' },
+      replay_continuation: { execution_mode: 'fully_continued', continuation_node_count: 5 },
     });
 
     const rerunResult = await inv.evals.rerun('run-1');

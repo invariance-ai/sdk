@@ -178,8 +178,7 @@ export interface ReplayLaunchBody {
 }
 
 export interface ReplayContinuationResult {
-  replay_session_id: string;
-  replay_execution_mode: 'fork_only' | 'partially_continued' | 'fully_continued';
+  execution_mode: 'fork_only' | 'partially_continued' | 'fully_continued';
   continuation_node_count: number;
   continuation_error: string | null;
 }

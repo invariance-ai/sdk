@@ -95,9 +95,9 @@ function buildOverrideConfig(args: string[]): ReplayOverrideConfig | undefined {
   };
 }
 
-function printReplayContinuation(stdout: (line: string) => void, rc: ReplayContinuationResult) {
-  stdout(`Replay session: ${rc.replay_session_id}`);
-  stdout(`Execution mode: ${rc.replay_execution_mode}`);
+function printReplayContinuation(stdout: (line: string) => void, rc: ReplayContinuationResult, replaySessionId?: string | null) {
+  if (replaySessionId) stdout(`Replay session: ${replaySessionId}`);
+  stdout(`Execution mode: ${rc.execution_mode}`);
   stdout(`Continuation nodes: ${rc.continuation_node_count}`);
   if (rc.continuation_error) stdout(`Continuation error: ${rc.continuation_error}`);
 }
@@ -229,7 +229,9 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
             });
             stdout(`Run ${result.eval_run.id} created (status: ${result.eval_run.status})`);
             if (result.experiment_id) stdout(`Experiment: ${result.experiment_id}`);
-            if (result.replay_continuation) printReplayContinuation(stdout, result.replay_continuation);
+            if (result.replay_continuation) {
+              printReplayContinuation(stdout, result.replay_continuation, (result.eval_run as { replay_session_id?: string | null }).replay_session_id);
+            }
             printJson(stdout, result);
             return 0;
           }
@@ -251,7 +253,9 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
               ...(overrideConfig ? { override_config: overrideConfig } : {}),
             });
             stdout(`Run ${result.eval_run.id} created (status: ${result.eval_run.status})`);
-            if (result.replay_continuation) printReplayContinuation(stdout, result.replay_continuation);
+            if (result.replay_continuation) {
+              printReplayContinuation(stdout, result.replay_continuation, (result.eval_run as { replay_session_id?: string | null }).replay_session_id);
+            }
             printJson(stdout, result);
             return 0;
           }

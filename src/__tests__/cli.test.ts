@@ -14,11 +14,10 @@ function createStubClient() {
       rerun: vi.fn().mockResolvedValue({ id: 'run-2', status: 'completed' }),
       launch: vi.fn().mockResolvedValue({ eval_run: { id: 'run-1', status: 'completed' }, experiment_id: 'exp-1', replay_continuation: null }),
       launchReplay: vi.fn().mockResolvedValue({
-        eval_run: { id: 'run-3', status: 'completed' },
+        eval_run: { id: 'run-3', status: 'completed', replay_session_id: 'replay-sess-1' },
         experiment_id: null,
         replay_continuation: {
-          replay_session_id: 'replay-sess-1',
-          replay_execution_mode: 'fully_continued',
+          execution_mode: 'fully_continued',
           continuation_node_count: 5,
           continuation_error: null,
         },
@@ -234,6 +233,8 @@ describe('CLI evals', () => {
       version_label: 'prompt-tweak',
     });
     expect(stdout[0]).toContain('Run run-3 created');
+    expect(stdout.join('\n')).toContain('Replay session: replay-sess-1');
+    expect(stdout.join('\n')).toContain('Execution mode: fully_continued');
   });
 
   it('replay-launch passes override config flags', async () => {
