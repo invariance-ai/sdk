@@ -12,7 +12,7 @@ export type {
   ReplayTimelineEntry, ReplaySnapshot, CausalChain,
   CounterfactualRequest, CounterfactualResult, AuditResult,
   GraphPattern, PatternQuery, GraphSnapshot, NodeDiff,
-  TraceChainVerifyResult,
+  TraceChainVerifyResult, TraceVerifyResult,
 } from './trace.js';
 export type {
   Monitor, CreateMonitorBody, UpdateMonitorBody,
