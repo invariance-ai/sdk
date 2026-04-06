@@ -86,20 +86,22 @@ class RunModule:
             )
 
         session_id = str(ULID())
-        await self._resources.sessions.create(
-            {"id": session_id, "name": name, "agent_id": agent}
-        )
+        traces_enabled = self._instrumentation.get("traces", True) is not False
 
         provenance_session: Session | None = None
         provenance_enabled = bool(
             self._private_key
-            and self._instrumentation.get("provenance", False) is not False
+            and self._instrumentation.get("provenance", False) is True
         )
         if provenance_enabled and self._session_factory:
             provenance_session = self._session_factory(
                 agent=agent, name=name, id=session_id
             )
             await provenance_session.ready
+        else:
+            await self._resources.sessions.create(
+                {"id": session_id, "name": name, "agent_id": agent}
+            )
 
         return Run(
             session_id=session_id,
@@ -108,6 +110,7 @@ class RunModule:
             tags=tags,
             resources=self._resources,
             provenance_session=provenance_session,
+            traces_enabled=traces_enabled,
         )
 
 
@@ -121,12 +124,14 @@ class Run:
         tags: list[str] | None = None,
         resources: ResourcesModule,
         provenance_session: Session | None = None,
+        traces_enabled: bool = True,
     ) -> None:
         self.session_id = session_id
         self.agent = agent
         self.name = name
         self._resources = resources
         self._provenance_session = provenance_session
+        self._traces_enabled = traces_enabled
         self._parent_stack: list[str] = []
         self._event_count = 0
         self._start_time = time.time()
@@ -137,6 +142,8 @@ class Run:
         return self._parent_stack[-1] if self._parent_stack else None
 
     async def _submit_event(self, event: dict[str, Any]) -> Any:
+        if not self._traces_enabled:
+            return {"nodes": []}
         self._event_count += 1
         return await self._resources.trace.submit_events([event])
 
@@ -439,6 +446,8 @@ class Run:
         if self._provenance_session:
             receipt_count = len(self._provenance_session.get_receipts())
             await self._provenance_session.end(status)
+        else:
+            await self._resources.sessions.close(self.session_id, status, "0")
 
         return {
             "session_id": self.session_id,

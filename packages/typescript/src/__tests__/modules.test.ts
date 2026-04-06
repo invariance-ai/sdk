@@ -21,7 +21,8 @@ describe('workflow modules', () => {
     expect(inv.admin).toBeInstanceOf(AdminModule);
     expect(inv.provenance).toBeInstanceOf(ProvenanceModule);
     expect(inv.tracing).toBeInstanceOf(TracingModule);
-    expect(inv.monitoring).toBeInstanceOf(MonitorsModule);
+    expect(inv.monitors).toBeInstanceOf(MonitorsModule);
+    expect(inv.monitoring).toBe(inv.monitors);
     expect(inv.analysis).toBeInstanceOf(AnalysisModule);
     expect(inv.improvement).toBeInstanceOf(ImprovementModule);
   });
@@ -40,10 +41,10 @@ describe('workflow modules', () => {
     expect(inv.improvement.evals).toBe(inv.resources.evals);
     expect(inv.improvement.datasets).toBe(inv.resources.datasets);
     expect(inv.improvement.training).toBe(inv.resources.training);
-    // monitoring
-    expect(inv.monitoring.monitors).toBe(inv.resources.monitors);
-    expect(inv.monitoring.signals).toBe(inv.resources.signals);
-    expect(inv.monitoring.templates).toBe(inv.resources.templates);
+    // monitors
+    expect(inv.monitors.monitors).toBe(inv.resources.monitors);
+    expect(inv.monitors.signals).toBe(inv.resources.signals);
+    expect(inv.monitors.templates).toBe(inv.resources.templates);
     // provenance
     expect(inv.provenance.sessions).toBe(inv.resources.sessions);
     expect(inv.provenance.receipts).toBe(inv.resources.receipts);

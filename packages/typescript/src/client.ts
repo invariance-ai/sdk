@@ -40,11 +40,41 @@ export class Invariance {
   readonly run: RunModule;
   readonly provenance: ProvenanceModule;
   readonly tracing: TracingModule;
+  readonly monitors: MonitorsModule;
   readonly monitoring: MonitorsModule;
   readonly analysis: AnalysisModule;
   readonly improvement: ImprovementModule;
   readonly admin: AdminModule;
   readonly resources: ResourcesModule;
+
+  // ── Legacy direct resource namespaces ──
+  get identity() { return this.resources.identity; }
+  get agents() { return this.resources.agents; }
+  get sessions() { return this.resources.sessions; }
+  get receipts() { return this.resources.receipts; }
+  get contracts() { return this.resources.contracts; }
+  get a2a() { return this.resources.a2a; }
+  get trace() { return this.resources.trace; }
+  get query() { return this.resources.query; }
+  get signals() { return this.resources.signals; }
+  get drift() { return this.resources.drift; }
+  get training() { return this.resources.training; }
+  get templates() { return this.resources.templates; }
+  get apiKeys() { return this.resources.apiKeys; }
+  get usage() { return this.resources.usage; }
+  get search() { return this.resources.search; }
+  get status() { return this.resources.status; }
+  get nlQuery() { return this.resources.nlQuery; }
+  get identities() { return this.resources.identities; }
+  get evals() { return this.resources.evals; }
+  get failureClusters() { return this.resources.failureClusters; }
+  get suggestions() { return this.resources.suggestions; }
+  get docs() { return this.resources.docs; }
+  get datasets() { return this.resources.datasets; }
+  get scorers() { return this.resources.scorers; }
+  get experiments() { return this.resources.experiments; }
+  get prompts() { return this.resources.prompts; }
+  get annotations() { return this.resources.annotations; }
 
   private constructor(config: InvarianceConfig) {
     if (!config.apiKey) {
@@ -86,7 +116,8 @@ export class Invariance {
     });
     this.provenance = new ProvenanceModule(this.resources, (opts) => this.session(opts));
     this.tracing = new TracingModule(this.resources, { agent: config.agent });
-    this.monitoring = new MonitorsModule(this.resources);
+    this.monitors = new MonitorsModule(this.resources);
+    this.monitoring = this.monitors;
     this.analysis = new AnalysisModule(this.resources);
     this.improvement = new ImprovementModule(this.resources);
     this.admin = new AdminModule(this.resources);

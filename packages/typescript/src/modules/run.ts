@@ -14,7 +14,7 @@ import type { ResourcesModule } from './resources.js';
 export interface RunModuleConfig {
   agent?: string;
   privateKey?: string;
-  instrumentation?: { provenance?: boolean };
+  instrumentation?: { traces?: boolean; provenance?: boolean };
   sessionFactory: (opts: SessionCreateOpts) => Session;
   batcherEnqueue: (receipt: Receipt) => void;
 }
@@ -33,17 +33,11 @@ export class RunModule {
     }
 
     const sessionId = ulid();
+    const tracesEnabled = this._config.instrumentation?.traces !== false;
     const provenanceEnabled = !!(
       this._config.privateKey &&
-      (this._config.instrumentation?.provenance !== false)
+      this._config.instrumentation?.provenance === true
     );
-
-    // Create session on the backend
-    await this._resources.sessions.create({
-      id: sessionId,
-      name: opts.name,
-      agent_id: agent,
-    });
 
     // Create provenance session if enabled
     let provenanceSession: Session | undefined;
@@ -54,6 +48,12 @@ export class RunModule {
         id: sessionId,
       });
       await provenanceSession.ready;
+    } else {
+      await this._resources.sessions.create({
+        id: sessionId,
+        name: opts.name,
+        agent_id: agent,
+      });
     }
 
     return new Run({
@@ -63,6 +63,7 @@ export class RunModule {
       tags: opts.tags,
       resources: this._resources,
       provenanceSession,
+      tracesEnabled,
     });
   }
 }
@@ -74,6 +75,7 @@ interface RunOpts {
   tags?: string[];
   resources: ResourcesModule;
   provenanceSession?: Session;
+  tracesEnabled: boolean;
 }
 
 export class Run {
@@ -83,6 +85,7 @@ export class Run {
 
   private _resources: ResourcesModule;
   private _provenanceSession?: Session;
+  private _tracesEnabled: boolean;
   private _parentStack: string[] = [];
   private _eventCount = 0;
   private _startTime: number;
@@ -95,6 +98,7 @@ export class Run {
     this.name = opts.name;
     this._resources = opts.resources;
     this._provenanceSession = opts.provenanceSession;
+    this._tracesEnabled = opts.tracesEnabled;
     this._tags = opts.tags;
     this._startTime = Date.now();
   }
@@ -106,6 +110,9 @@ export class Run {
   }
 
   private async _submitEvent(event: TraceEventInput): Promise<{ nodes: TraceNode[] }> {
+    if (!this._tracesEnabled) {
+      return { nodes: [] };
+    }
     this._eventCount++;
     return this._resources.trace.submitEvents([event]);
   }
@@ -345,6 +352,8 @@ export class Run {
     if (this._provenanceSession) {
       receiptCount = this._provenanceSession.getReceipts().length;
       await this._provenanceSession.end(status);
+    } else {
+      await this._resources.sessions.close(this.sessionId, status, '0');
     }
 
     return {

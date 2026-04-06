@@ -136,7 +136,7 @@ describe('Run abstraction', () => {
   });
 
   it('finish() returns a summary', async () => {
-    mockFetch();
+    const { calls } = mockFetch();
     const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
     const run = await inv.run.start({ name: 'test-run' });
 
@@ -149,6 +149,7 @@ describe('Run abstraction', () => {
     expect(summary.receipt_count).toBe(0); // no provenance
     expect(summary.status).toBe('closed');
     expect(summary.duration_ms).toBeGreaterThanOrEqual(0);
+    expect(calls.some(c => c.url.includes(`/v1/sessions/${run.sessionId}`) && c.opts.method === 'PATCH')).toBe(true);
 
     await inv.shutdown();
   });
@@ -177,6 +178,42 @@ describe('Run abstraction', () => {
     const event = traceCall!.body[0];
     expect(event.action_type).toBe('trace_step');
     expect(event.error).toBe('boom');
+
+    await inv.shutdown();
+  });
+
+  it('does not emit trace events when traces are disabled', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({
+      apiKey: 'inv_test',
+      agent: 'test-agent',
+      instrumentation: { traces: false },
+    });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.step('lookup', async () => ({ found: true }));
+    const summary = await run.finish();
+
+    expect(calls.some(c => c.url.includes('/v1/trace/events'))).toBe(false);
+    expect(summary.event_count).toBe(0);
+
+    await inv.shutdown();
+  });
+
+  it('does not create the same session twice when provenance is enabled', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({
+      apiKey: 'inv_test',
+      agent: 'test-agent',
+      privateKey: 'a'.repeat(64),
+      instrumentation: { provenance: true },
+    });
+
+    const run = await inv.run.start({ name: 'test-run' });
+    await run.finish();
+
+    const sessionCreates = calls.filter(c => c.url.includes('/v1/sessions') && c.opts.method === 'POST');
+    expect(sessionCreates).toHaveLength(1);
 
     await inv.shutdown();
   });
