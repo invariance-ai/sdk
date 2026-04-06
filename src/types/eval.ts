@@ -46,6 +46,13 @@ export interface CreateEvalCaseBody {
   scorer_id?: string;
 }
 
+export interface ReplayOverrideConfig {
+  prompt?: string;
+  model?: string;
+  provider?: 'anthropic' | 'openai';
+  variant_kind?: string;
+}
+
 export interface EvalRun {
   id: string;
   suite_id: string;
@@ -63,6 +70,20 @@ export interface EvalRun {
   started_at: string;
   completed_at: string | null;
   created_at?: string;
+  // Dataset provenance
+  dataset_id?: string | null;
+  dataset_version?: number | null;
+  experiment_id?: string | null;
+  // Replay provenance
+  source_type?: 'session' | 'dataset' | 'replay';
+  source_session_id?: string | null;
+  source_node_id?: string | null;
+  replay_session_id?: string | null;
+  override_config?: ReplayOverrideConfig | null;
+  // Replay continuation
+  replay_execution_mode?: 'fork_only' | 'partially_continued' | 'fully_continued' | null;
+  continuation_node_count?: number | null;
+  continuation_error?: string | null;
 }
 
 export interface RunEvalBody {
@@ -132,7 +153,7 @@ export interface CreateEvalThresholdBody {
 // ── Orchestration Types ──
 
 export interface EvalLaunchBody {
-  mode: 'session' | 'dataset';
+  mode: 'session' | 'dataset' | 'replay';
   suite_id: string;
   agent_id: string;
   session_ids?: string[];
@@ -140,11 +161,33 @@ export interface EvalLaunchBody {
   dataset_version?: number;
   target?: ProviderTarget;
   version_label?: string;
+  // Replay mode fields
+  source_session_id?: string;
+  source_node_id?: string;
+  override_config?: ReplayOverrideConfig;
+}
+
+export interface ReplayLaunchBody {
+  suite_id: string;
+  agent_id: string;
+  source_session_id: string;
+  source_node_id: string;
+  override_config?: ReplayOverrideConfig;
+  target?: ProviderTarget;
+  version_label?: string;
+}
+
+export interface ReplayContinuationResult {
+  replay_session_id: string;
+  replay_execution_mode: 'fork_only' | 'partially_continued' | 'fully_continued';
+  continuation_node_count: number;
+  continuation_error: string | null;
 }
 
 export interface EvalLaunchResult {
   eval_run: EvalRun;
   experiment_id: string | null;
+  replay_continuation?: ReplayContinuationResult | null;
 }
 
 export interface ImprovementCandidate {
@@ -196,5 +239,13 @@ export interface EvalLineageEntry {
   dataset_id: string | null;
   dataset_version: number | null;
   experiment_id: string | null;
+  source_type: 'session' | 'dataset' | 'replay' | null;
+  source_session_id: string | null;
+  source_node_id: string | null;
+  replay_session_id: string | null;
+  replay_execution_mode: string | null;
+  continuation_node_count: number | null;
+  continuation_error: string | null;
+  override_config: ReplayOverrideConfig | null;
   created_at: string;
 }

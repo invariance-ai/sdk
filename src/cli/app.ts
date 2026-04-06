@@ -1,5 +1,5 @@
 import { Invariance } from '../client.js';
-import type { EvalLaunchBody, ProviderTarget } from '../types/eval.js';
+import type { EvalLaunchBody, ReplayLaunchBody, ReplayOverrideConfig, ProviderTarget, ReplayContinuationResult } from '../types/eval.js';
 
 type ExitCode = 0 | 1;
 
@@ -9,7 +9,8 @@ export interface CliClient {
     listRuns(opts?: { suite_id?: string; agent_id?: string; status?: string }): Promise<unknown[]>;
     getRun(id: string): Promise<unknown>;
     rerun(id: string): Promise<{ id: string; status: string }>;
-    launch(body: EvalLaunchBody): Promise<{ eval_run: { id: string; status: string }; experiment_id: string | null }>;
+    launch(body: EvalLaunchBody): Promise<{ eval_run: { id: string; status: string }; experiment_id: string | null; replay_continuation?: ReplayContinuationResult | null }>;
+    launchReplay(body: ReplayLaunchBody): Promise<{ eval_run: { id: string; status: string }; experiment_id: string | null; replay_continuation?: ReplayContinuationResult | null }>;
     compare(suiteId: string, runA: string, runB: string): Promise<unknown>;
     listRegressions(opts: { suite_id?: string; agent_id?: string; run_a?: string; run_b?: string }): Promise<unknown[]>;
     getLineage(opts: { suite_id?: string; agent_id?: string; dataset_id?: string; limit?: number }): Promise<unknown[]>;
@@ -80,6 +81,27 @@ function parseCsvFlag(args: string[], flag: string): string[] | undefined {
   return parts.length > 0 ? parts : undefined;
 }
 
+function buildOverrideConfig(args: string[]): ReplayOverrideConfig | undefined {
+  const prompt = getFlag(args, '--prompt');
+  const model = getFlag(args, '--model');
+  const provider = getFlag(args, '--provider') as ReplayOverrideConfig['provider'] | undefined;
+  const variantKind = getFlag(args, '--variant-kind');
+  if (!prompt && !model && !provider && !variantKind) return undefined;
+  return {
+    ...(prompt ? { prompt } : {}),
+    ...(model ? { model } : {}),
+    ...(provider ? { provider } : {}),
+    ...(variantKind ? { variant_kind: variantKind } : {}),
+  };
+}
+
+function printReplayContinuation(stdout: (line: string) => void, rc: ReplayContinuationResult) {
+  stdout(`Replay session: ${rc.replay_session_id}`);
+  stdout(`Execution mode: ${rc.replay_execution_mode}`);
+  stdout(`Continuation nodes: ${rc.continuation_node_count}`);
+  if (rc.continuation_error) stdout(`Continuation error: ${rc.continuation_error}`);
+}
+
 function buildTarget(args: string[]): ProviderTarget | undefined {
   const provider = getFlag(args, '--provider') as ProviderTarget['provider'] | undefined;
   const model = getFlag(args, '--model');
@@ -111,6 +133,7 @@ Commands:
     get-run <id>                    Get run details
     rerun <id>                      Rerun an existing eval run
     launch --suite <id> --agent <id> [--mode <session|dataset>] [--sessions <id1,id2>] [--dataset <id> --dataset-version <n>] [--label <label>] [--provider <anthropic|openai> --model <name> --api-key-env <ENV> --base-url-env <ENV>]
+    replay-launch --suite <id> --agent <id> --source-session <id> --source-node <id> [--prompt <text>] [--model <name>] [--provider <anthropic|openai>] [--label <label>]
     compare --suite <id> --run-a <id> --run-b <id>
     regressions --suite <id> [--agent <id>] [--run-a <id> --run-b <id>]
                or --run-a <id> --run-b <id>
@@ -163,7 +186,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
             const agentId = getFlag(argv, '--agent');
             const status = getFlag(argv, '--status');
             const runs = await client.evals.listRuns({ suite_id: suiteId, agent_id: agentId, status });
-            printTable(stdout, runs as Array<Record<string, unknown>>, ['id', 'suite_id', 'status', 'pass_rate', 'version_label', 'created_at']);
+            printTable(stdout, runs as Array<Record<string, unknown>>, ['id', 'suite_id', 'status', 'pass_rate', 'version_label', 'source_type', 'created_at']);
             return 0;
           }
           case 'get-run': {
@@ -206,6 +229,29 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
             });
             stdout(`Run ${result.eval_run.id} created (status: ${result.eval_run.status})`);
             if (result.experiment_id) stdout(`Experiment: ${result.experiment_id}`);
+            if (result.replay_continuation) printReplayContinuation(stdout, result.replay_continuation);
+            printJson(stdout, result);
+            return 0;
+          }
+          case 'replay-launch': {
+            const replayUsage = 'Usage: evals replay-launch --suite <id> --agent <id> --source-session <id> --source-node <id> [--prompt <text>] [--model <name>] [--provider <anthropic|openai>] [--label <label>]';
+            const suiteId = requireFlag(argv, stderr, '--suite', replayUsage);
+            const agentId = requireFlag(argv, stderr, '--agent', replayUsage);
+            const sourceSession = requireFlag(argv, stderr, '--source-session', replayUsage);
+            const sourceNode = requireFlag(argv, stderr, '--source-node', replayUsage);
+            const versionLabel = getFlag(argv, '--label');
+            const overrideConfig = buildOverrideConfig(argv);
+
+            const result = await client.evals.launchReplay({
+              suite_id: suiteId,
+              agent_id: agentId,
+              source_session_id: sourceSession,
+              source_node_id: sourceNode,
+              ...(versionLabel ? { version_label: versionLabel } : {}),
+              ...(overrideConfig ? { override_config: overrideConfig } : {}),
+            });
+            stdout(`Run ${result.eval_run.id} created (status: ${result.eval_run.status})`);
+            if (result.replay_continuation) printReplayContinuation(stdout, result.replay_continuation);
             printJson(stdout, result);
             return 0;
           }
@@ -245,12 +291,12 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
               dataset_id: datasetId,
               ...(limit ? { limit: parseInt(limit, 10) } : {}),
             });
-            printTable(stdout, data as Array<Record<string, unknown>>, ['run_id', 'suite_name', 'version_label', 'status', 'pass_rate', 'created_at']);
+            printTable(stdout, data as Array<Record<string, unknown>>, ['run_id', 'suite_name', 'version_label', 'status', 'pass_rate', 'source_type', 'created_at']);
             return 0;
           }
           default:
             stderr(`Unknown evals subcommand: ${subcommand}`);
-            stderr('Available: list-suites, list-runs, get-run, rerun, launch, compare, regressions, lineage');
+            stderr('Available: list-suites, list-runs, get-run, rerun, launch, replay-launch, compare, regressions, lineage');
             return 1;
         }
       }

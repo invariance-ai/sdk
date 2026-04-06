@@ -73,6 +73,19 @@ describe('resource namespace surface', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({
+          eval_run: { id: 'run-replay', status: 'completed', source_type: 'replay' },
+          experiment_id: null,
+          replay_continuation: {
+            replay_session_id: 'replay-sess-1',
+            replay_execution_mode: 'fully_continued',
+            continuation_node_count: 5,
+            continuation_error: null,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ id: 'run-2', status: 'completed' }),
       })
       .mockResolvedValueOnce({
@@ -144,6 +157,18 @@ describe('resource namespace surface', () => {
     });
     expect(launchResult).toMatchObject({ eval_run: { id: 'run-1' } });
 
+    const replayResult = await inv.evals.launchReplay({
+      suite_id: 'suite-1',
+      agent_id: 'agent-1',
+      source_session_id: 'sess-1',
+      source_node_id: 'node-1',
+      override_config: { prompt: 'Be concise' },
+    });
+    expect(replayResult).toMatchObject({
+      eval_run: { id: 'run-replay', source_type: 'replay' },
+      replay_continuation: { replay_execution_mode: 'fully_continued', continuation_node_count: 5 },
+    });
+
     const rerunResult = await inv.evals.rerun('run-1');
     expect(rerunResult).toEqual({ id: 'run-2', status: 'completed' });
 
@@ -191,20 +216,23 @@ describe('resource namespace surface', () => {
     expect((fetch as any).mock.calls[5][1]).toMatchObject({ method: 'POST' });
     expect((fetch as any).mock.calls[6][0]).toBe('https://api.invariance.dev/v1/evals/launch');
     expect((fetch as any).mock.calls[6][1]).toMatchObject({ method: 'POST' });
-    expect((fetch as any).mock.calls[7][0]).toBe('https://api.invariance.dev/v1/evals/runs/run-1/rerun');
+    expect((fetch as any).mock.calls[7][0]).toBe('https://api.invariance.dev/v1/evals/launch');
     expect((fetch as any).mock.calls[7][1]).toMatchObject({ method: 'POST' });
-    expect((fetch as any).mock.calls[8][0]).toBe('https://api.invariance.dev/v1/evals/regressions?suite_id=suite-1&run_a=run-a&run_b=run-b');
-    expect((fetch as any).mock.calls[9][0]).toBe('https://api.invariance.dev/v1/evals/lineage?suite_id=suite-1&limit=10');
-    expect((fetch as any).mock.calls[10][0]).toBe('https://api.invariance.dev/v1/evals/improvement-candidates?suite_id=suite-1&status=pending');
-    expect((fetch as any).mock.calls[11][0]).toBe('https://api.invariance.dev/v1/evals/improvement-candidates/cand-1');
-    expect((fetch as any).mock.calls[11][1]).toMatchObject({ method: 'PATCH' });
-    expect((fetch as any).mock.calls[12][0]).toBe('https://api.invariance.dev/v1/training/candidates/from-eval-compare');
-    expect((fetch as any).mock.calls[12][1]).toMatchObject({ method: 'POST' });
-    expect((fetch as any).mock.calls[13][0]).toBe('https://api.invariance.dev/v1/monitors?target=signal&mode=structured');
-    expect((fetch as any).mock.calls[14][0]).toBe('https://api.invariance.dev/v1/monitors/validate');
-    expect((fetch as any).mock.calls[14][1]).toMatchObject({ method: 'POST' });
-    expect((fetch as any).mock.calls[15][0]).toBe('https://api.invariance.dev/v1/monitors/mon-1/evaluate');
+    expect(JSON.parse((fetch as any).mock.calls[7][1].body)).toMatchObject({ mode: 'replay', source_session_id: 'sess-1', source_node_id: 'node-1' });
+    expect((fetch as any).mock.calls[8][0]).toBe('https://api.invariance.dev/v1/evals/runs/run-1/rerun');
+    expect((fetch as any).mock.calls[8][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[9][0]).toBe('https://api.invariance.dev/v1/evals/regressions?suite_id=suite-1&run_a=run-a&run_b=run-b');
+    expect((fetch as any).mock.calls[10][0]).toBe('https://api.invariance.dev/v1/evals/lineage?suite_id=suite-1&limit=10');
+    expect((fetch as any).mock.calls[11][0]).toBe('https://api.invariance.dev/v1/evals/improvement-candidates?suite_id=suite-1&status=pending');
+    expect((fetch as any).mock.calls[12][0]).toBe('https://api.invariance.dev/v1/evals/improvement-candidates/cand-1');
+    expect((fetch as any).mock.calls[12][1]).toMatchObject({ method: 'PATCH' });
+    expect((fetch as any).mock.calls[13][0]).toBe('https://api.invariance.dev/v1/training/candidates/from-eval-compare');
+    expect((fetch as any).mock.calls[13][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[14][0]).toBe('https://api.invariance.dev/v1/monitors?target=signal&mode=structured');
+    expect((fetch as any).mock.calls[15][0]).toBe('https://api.invariance.dev/v1/monitors/validate');
     expect((fetch as any).mock.calls[15][1]).toMatchObject({ method: 'POST' });
+    expect((fetch as any).mock.calls[16][0]).toBe('https://api.invariance.dev/v1/monitors/mon-1/evaluate');
+    expect((fetch as any).mock.calls[16][1]).toMatchObject({ method: 'POST' });
 
     await inv.shutdown();
   });
