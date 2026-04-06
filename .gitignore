@@ -1,6 +1,8 @@
 .claude/
 node_modules/
+packages/*/node_modules/
 dist/
+packages/*/dist/
 *.tsbuildinfo
 .env
 .env.*
@@ -11,5 +13,5 @@ __pycache__/
 .venv/
 *.egg-info/
 .pytest_cache/
-python/**/__pycache__/
-python/.pytest_cache/
+packages/python/**/__pycache__/
+packages/python/.pytest_cache/
