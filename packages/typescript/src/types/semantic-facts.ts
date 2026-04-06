@@ -272,6 +272,20 @@ export interface OntologyCandidateListResponse {
   total: number;
 }
 
+export interface OntologyNodeListResponse {
+  nodes: OntologyNode[];
+  total: number;
+}
+
+export interface OntologyEdgeListResponse {
+  edges: OntologyEdge[];
+  total: number;
+}
+
+export interface OntologyEvidenceListResponse {
+  evidence: OntologyEvidenceLink[];
+}
+
 export interface OntologyMineResult {
   concepts: number;
   relations: number;
