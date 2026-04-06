@@ -13,8 +13,9 @@ class TracingModule:
         self._resources = resources
         self._default_agent = agent
 
-    async def submit(self, events: list[dict[str, Any]]) -> Any:
-        return await self._resources.trace.submit_events(events)
+    async def submit(self, events: dict[str, Any] | list[dict[str, Any]]) -> Any:
+        payload = events if isinstance(events, list) else [events]
+        return await self._resources.trace.submit_events(payload)
 
     async def context(
         self,
@@ -25,16 +26,27 @@ class TracingModule:
         agent_id: str | None = None,
         parent_id: str | None = None,
         tags: list[str] | None = None,
+        custom_attributes: dict[str, Any] | None = None,
+        custom_headers: dict[str, str] | None = None,
     ) -> Any:
+        resolved_agent_id = agent_id or self._default_agent
+        if not resolved_agent_id:
+            raise ValueError(
+                "agent_id is required: pass it to tracing.context() or set agent in the Invariance config"
+            )
         event: dict[str, Any] = {
             "session_id": session_id,
-            "agent_id": agent_id or self._default_agent or "",
+            "agent_id": resolved_agent_id,
             "action_type": "context",
             "input": {"label": label},
             "output": {"value": value},
         }
         if parent_id:
             event["parent_id"] = parent_id
+        if custom_attributes:
+            event["custom_attributes"] = custom_attributes
+        if custom_headers:
+            event["custom_headers"] = custom_headers
         if tags:
             event["metadata"] = {"tags": tags}
         return await self._resources.trace.submit_events([event])
