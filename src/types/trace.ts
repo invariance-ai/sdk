@@ -22,6 +22,12 @@ export interface NodeMetadata {
   dependency_context?: Record<string, unknown>;
 }
 
+/** String-keyed routing values for monitor triggers (e.g. x-invariance-monitor-kind). */
+export type TraceNodeCustomHeaders = Record<string, string>;
+
+/** Typed monitor-facing attributes (e.g. risk_tier, detect_pii). */
+export type TraceNodeCustomAttributes = Record<string, string | number | boolean | null>;
+
 export interface TraceNode {
   id: string;
   session_id: string;
@@ -33,6 +39,8 @@ export interface TraceNode {
   output: unknown | null;
   error: unknown | null;
   metadata: NodeMetadata;
+  custom_headers?: TraceNodeCustomHeaders;
+  custom_attributes?: TraceNodeCustomAttributes;
   timestamp: number;
   duration_ms: number;
   hash: string;
@@ -54,6 +62,8 @@ export interface TraceEventInput {
   span_id?: string;
   duration_ms?: number;
   metadata?: Partial<NodeMetadata>;
+  custom_headers?: TraceNodeCustomHeaders;
+  custom_attributes?: TraceNodeCustomAttributes;
 }
 
 export interface ReplayTimelineEntry {

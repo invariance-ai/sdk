@@ -31,6 +31,16 @@ export { SignalPoller } from './signal-poller.js';
 // Normalize
 export { normalizeActionType, toSnakeCase, toCamelCase } from './normalize.js';
 
+// Trace builders
+export {
+  buildTraceEvent, buildToolInvocationEvent,
+  buildDecisionEvent, buildConstraintCheckEvent, buildHandoffEvent,
+} from './trace-builders.js';
+export type {
+  BuildTraceEventOpts, BuildToolInvocationOpts,
+  BuildDecisionOpts, BuildConstraintCheckOpts, BuildHandoffOpts,
+} from './trace-builders.js';
+
 // Resource classes (for advanced use / extending)
 export { IdentityResource } from './resources/identity.js';
 export { AgentsResource } from './resources/agents.js';
