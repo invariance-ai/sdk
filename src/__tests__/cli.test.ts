@@ -12,7 +12,16 @@ function createStubClient() {
       ]),
       getRun: vi.fn().mockResolvedValue({ id: 'run-1', status: 'completed', results: [] }),
       rerun: vi.fn().mockResolvedValue({ id: 'run-2', status: 'completed' }),
-      launch: vi.fn().mockResolvedValue({ eval_run: { id: 'run-1', status: 'completed' }, experiment_id: 'exp-1' }),
+      launch: vi.fn().mockResolvedValue({ eval_run: { id: 'run-1', status: 'completed' }, experiment_id: 'exp-1', replay_continuation: null }),
+      launchReplay: vi.fn().mockResolvedValue({
+        eval_run: { id: 'run-3', status: 'completed', replay_session_id: 'replay-sess-1' },
+        experiment_id: null,
+        replay_continuation: {
+          execution_mode: 'fully_continued',
+          continuation_node_count: 5,
+          continuation_error: null,
+        },
+      }),
       compare: vi.fn().mockResolvedValue({ per_case: [], regressions: 0, improvements: 0 }),
       listRegressions: vi.fn().mockResolvedValue([]),
       getLineage: vi.fn().mockResolvedValue([
@@ -198,6 +207,111 @@ describe('CLI evals', () => {
     const client = createStubClient();
     const { deps, stderr } = makeDeps(client);
     const exitCode = await runCli(['evals', 'launch', '--agent', 'a1'], deps);
+    expect(exitCode).toBe(1);
+    expect(stderr.join('\n')).toContain('Usage');
+  });
+
+  // ── Replay launch ───────────────────────────────────────────────
+
+  it('replay-launch calls launchReplay with source session and node', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+
+    const exitCode = await runCli([
+      'evals', 'replay-launch',
+      '--suite', 'suite-1', '--agent', 'agent-1',
+      '--source-session', 'sess-orig', '--source-node', 'node-42',
+      '--label', 'prompt-tweak',
+    ], deps);
+
+    expect(exitCode).toBe(0);
+    expect(client.evals.launchReplay).toHaveBeenCalledWith({
+      suite_id: 'suite-1',
+      agent_id: 'agent-1',
+      source_session_id: 'sess-orig',
+      source_node_id: 'node-42',
+      version_label: 'prompt-tweak',
+    });
+    expect(stdout[0]).toContain('Run run-3 created');
+    expect(stdout.join('\n')).toContain('Replay session: replay-sess-1');
+    expect(stdout.join('\n')).toContain('Execution mode: fully_continued');
+  });
+
+  it('replay-launch passes override config flags', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+
+    const exitCode = await runCli([
+      'evals', 'replay-launch',
+      '--suite', 'suite-1', '--agent', 'agent-1',
+      '--source-session', 'sess-orig', '--source-node', 'node-42',
+      '--prompt', 'Be more concise', '--model', 'claude-sonnet-4-6', '--provider', 'anthropic',
+    ], deps);
+
+    expect(exitCode).toBe(0);
+    expect(client.evals.launchReplay).toHaveBeenCalledWith({
+      suite_id: 'suite-1',
+      agent_id: 'agent-1',
+      source_session_id: 'sess-orig',
+      source_node_id: 'node-42',
+      override_config: {
+        prompt: 'Be more concise',
+        model: 'claude-sonnet-4-6',
+        provider: 'anthropic',
+      },
+    });
+  });
+
+  it('replay-launch prints continuation results', async () => {
+    const client = createStubClient();
+    const { deps, stdout } = makeDeps(client);
+
+    await runCli([
+      'evals', 'replay-launch',
+      '--suite', 'suite-1', '--agent', 'agent-1',
+      '--source-session', 'sess-orig', '--source-node', 'node-42',
+    ], deps);
+
+    const output = stdout.join('\n');
+    expect(output).toContain('Replay session: replay-sess-1');
+    expect(output).toContain('Execution mode: fully_continued');
+    expect(output).toContain('Continuation nodes: 5');
+  });
+
+  it('replay-launch errors without --source-session', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli([
+      'evals', 'replay-launch',
+      '--suite', 'suite-1', '--agent', 'agent-1',
+      '--source-node', 'node-42',
+    ], deps);
+    expect(exitCode).toBe(1);
+    expect(stderr.join('\n')).toContain('Usage');
+    expect(client.evals.launchReplay).not.toHaveBeenCalled();
+  });
+
+  it('replay-launch errors without --source-node', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli([
+      'evals', 'replay-launch',
+      '--suite', 'suite-1', '--agent', 'agent-1',
+      '--source-session', 'sess-orig',
+    ], deps);
+    expect(exitCode).toBe(1);
+    expect(stderr.join('\n')).toContain('Usage');
+    expect(client.evals.launchReplay).not.toHaveBeenCalled();
+  });
+
+  it('replay-launch errors without --suite', async () => {
+    const client = createStubClient();
+    const { deps, stderr } = makeDeps(client);
+    const exitCode = await runCli([
+      'evals', 'replay-launch',
+      '--agent', 'agent-1',
+      '--source-session', 'sess-orig', '--source-node', 'node-42',
+    ], deps);
     expect(exitCode).toBe(1);
     expect(stderr.join('\n')).toContain('Usage');
   });

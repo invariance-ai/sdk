@@ -3,7 +3,7 @@ import type {
   EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCaseResult, EvalCompareResult,
   EvalThreshold, CreateEvalThresholdBody,
-  EvalLaunchBody, EvalLaunchResult, ImprovementCandidate,
+  EvalLaunchBody, EvalLaunchResult, ReplayLaunchBody, ImprovementCandidate,
   EvalRegressionEntry, EvalLineageEntry,
 } from '../types/eval.js';
 
@@ -92,6 +92,13 @@ export class EvalsResource {
   // Orchestration
   async launch(body: EvalLaunchBody): Promise<EvalLaunchResult> {
     return this.http.post<EvalLaunchResult>('/v1/evals/launch', body);
+  }
+
+  async launchReplay(body: ReplayLaunchBody): Promise<EvalLaunchResult> {
+    return this.http.post<EvalLaunchResult>('/v1/evals/launch', {
+      mode: 'replay' as const,
+      ...body,
+    });
   }
 
   async listRegressions(opts: { suite_id?: string; agent_id?: string; run_a?: string; run_b?: string }): Promise<EvalRegressionEntry[]> {

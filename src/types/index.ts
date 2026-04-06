@@ -52,11 +52,11 @@ export type {
   CreateCandidatesFromCompareBody, CreateCandidatesResult,
 } from './training.js';
 export type {
-  ProviderTarget, EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
+  ProviderTarget, ReplayOverrideConfig, EvalSuite, CreateEvalSuiteBody, EvalCase, CreateEvalCaseBody,
   EvalRun, RunEvalBody, EvalCaseResult, EvalCompareResult,
   EvalThreshold, CreateEvalThresholdBody,
-  EvalLaunchBody, EvalLaunchResult, ImprovementCandidate,
-  EvalRegressionEntry, EvalLineageEntry,
+  EvalLaunchBody, ReplayLaunchBody, EvalLaunchResult, ReplayContinuationResult,
+  ImprovementCandidate, EvalRegressionEntry, EvalLineageEntry,
 } from './eval.js';
 export type {
   Dataset, DatasetRow, DatasetVersion, CreateDatasetBody, UpdateDatasetBody,
