@@ -22,7 +22,6 @@ describe('workflow modules', () => {
     expect(inv.provenance).toBeInstanceOf(ProvenanceModule);
     expect(inv.tracing).toBeInstanceOf(TracingModule);
     expect(inv.monitors).toBeInstanceOf(MonitorsModule);
-    expect(inv.monitoring).toBe(inv.monitors);
     expect(inv.analysis).toBeInstanceOf(AnalysisModule);
     expect(inv.improvement).toBeInstanceOf(ImprovementModule);
   });

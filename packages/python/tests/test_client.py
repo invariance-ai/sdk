@@ -70,7 +70,7 @@ def test_session_can_be_created_outside_running_loop():
 
 
 @pytest.mark.asyncio
-async def test_resource_namespaces_cover_dashboard_flows():
+async def test_resources_namespace_covers_dashboard_flows():
     client = Invariance.init(api_key="test-key", api_url="https://api.test")
 
     with respx.mock(base_url="https://api.test") as router:
@@ -90,9 +90,9 @@ async def test_resource_namespaces_cover_dashboard_flows():
             return_value=Response(200, json={"valid": True})
         )
 
-        anomaly_result = await client.trace.get_anomalies({"limit": 5, "agentId": "agent-1"})
-        status_result = await client.status.snapshot()
-        verify_result = await client.trace.verify_chain("sess-1")
+        anomaly_result = await client.resources.trace.get_anomalies({"limit": 5, "agentId": "agent-1"})
+        status_result = await client.resources.status.snapshot()
+        verify_result = await client.resources.trace.verify_chain("sess-1")
 
     assert anomaly_result == {
         "anomalies": [{"id": "node-1", "session_id": "sess-1"}],
@@ -118,6 +118,7 @@ def test_removed_convenience_methods_do_not_exist():
         "search_global",
         "list_sessions", "get_session", "verify_session",
         "signup", "create_org",
+        "trace", "status", "monitoring",
     ]
     present = [m for m in removed if hasattr(client, m)]
     assert present == []

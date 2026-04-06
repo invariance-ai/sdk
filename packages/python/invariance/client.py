@@ -87,39 +87,9 @@ class Invariance:
         self.provenance = ProvenanceModule(self.resources, self.session)
         self.tracing = TracingModule(self.resources, agent=agent)
         self.monitors = MonitorsModule(self.resources)
-        self.monitoring = self.monitors
         self.analysis = AnalysisModule(self.resources)
         self.improvement = ImprovementModule(self.resources)
         self.admin = AdminModule(self.resources)
-
-        # Legacy direct resource namespaces
-        self.identity = self.resources.identity
-        self.agents = self.resources.agents
-        self.sessions = self.resources.sessions
-        self.receipts = self.resources.receipts
-        self.contracts = self.resources.contracts
-        self.a2a = self.resources.a2a
-        self.trace = self.resources.trace
-        self.query = self.resources.query
-        self.signals = self.resources.signals
-        self.drift = self.resources.drift
-        self.training = self.resources.training
-        self.templates = self.resources.templates
-        self.api_keys = self.resources.api_keys
-        self.usage = self.resources.usage
-        self.search = self.resources.search
-        self.status = self.resources.status
-        self.nl_query = self.resources.nl_query
-        self.identities = self.resources.identities
-        self.evals = self.resources.evals
-        self.failure_clusters = self.resources.failure_clusters
-        self.suggestions = self.resources.suggestions
-        self.docs = self.resources.docs
-        self.datasets = self.resources.datasets
-        self.scorers = self.resources.scorers
-        self.experiments = self.resources.experiments
-        self.prompts = self.resources.prompts
-        self.annotations = self.resources.annotations
 
     @classmethod
     def init(
