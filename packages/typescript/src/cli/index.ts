@@ -2,7 +2,12 @@
 
 import { runCli } from './app.js';
 
-const exitCode = await runCli(process.argv.slice(2));
-if (exitCode !== 0) {
-  process.exitCode = exitCode;
+async function main() {
+  const exitCode = await runCli(process.argv.slice(2));
+  process.exit(exitCode);
 }
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
