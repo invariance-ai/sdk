@@ -58,6 +58,50 @@ async def test_log_wraps_non_dict_data():
 
 
 @pytest.mark.asyncio
+async def test_flush_flushes_pending_provenance_receipts():
+    client = Invariance.init(
+        api_key="test-key",
+        api_url="https://api.test",
+        agent="test-agent",
+        private_key="a" * 64,
+        instrumentation={"provenance": True},
+    )
+    with respx.mock(base_url="https://api.test", assert_all_called=False) as router:
+        _mock_routes(router)
+        receipts_route = router.post("/v1/receipts").mock(
+            return_value=Response(200, json={})
+        )
+        run = await client.run.start(name="test-run")
+        await run.log("decision context", {"reason": "customer eligible"})
+
+        assert receipts_route.call_count == 0
+
+        await run.flush()
+
+        assert receipts_route.call_count == 1
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_log_records_provenance_receipt_when_enabled():
+    client = Invariance.init(
+        api_key="test-key",
+        api_url="https://api.test",
+        agent="test-agent",
+        private_key="a" * 64,
+        instrumentation={"provenance": True},
+    )
+    with respx.mock(base_url="https://api.test", assert_all_called=False) as router:
+        _mock_routes(router)
+        run = await client.run.start(name="test-run")
+        await run.log("decision context", {"reason": "customer eligible"})
+        summary = await run.finish()
+
+        assert summary["receipt_count"] == 1
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_fail_closes_with_failed_status():
     client = Invariance.init(api_key="test-key", api_url="https://api.test", agent="test-agent")
     with respx.mock(base_url="https://api.test", assert_all_called=False) as router:
@@ -102,6 +146,25 @@ async def test_cancel_without_reason():
         run = await client.run.start(name="test-run")
         summary = await run.cancel()
         assert summary["status"] == "cancelled"
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cancel_records_provenance_receipt_without_reason():
+    client = Invariance.init(
+        api_key="test-key",
+        api_url="https://api.test",
+        agent="test-agent",
+        private_key="a" * 64,
+        instrumentation={"provenance": True},
+    )
+    with respx.mock(base_url="https://api.test", assert_all_called=False) as router:
+        _mock_routes(router)
+        run = await client.run.start(name="test-run")
+        summary = await run.cancel()
+
+        assert summary["status"] == "cancelled"
+        assert summary["receipt_count"] == 1
     await client.shutdown()
 
 

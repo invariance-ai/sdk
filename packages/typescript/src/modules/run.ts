@@ -16,7 +16,7 @@ export interface RunModuleConfig {
   privateKey?: string;
   instrumentation?: { traces?: boolean; provenance?: boolean };
   sessionFactory: (opts: SessionCreateOpts) => Session;
-  batcherEnqueue: (receipt: Receipt) => void;
+  flushPendingWork: () => Promise<void>;
 }
 
 export class RunModule {
@@ -64,6 +64,7 @@ export class RunModule {
       resources: this._resources,
       provenanceSession,
       tracesEnabled,
+      flushPendingWork: this._config.flushPendingWork,
     });
   }
 }
@@ -76,6 +77,7 @@ interface RunOpts {
   resources: ResourcesModule;
   provenanceSession?: Session;
   tracesEnabled: boolean;
+  flushPendingWork: () => Promise<void>;
 }
 
 export class Run {
@@ -86,6 +88,7 @@ export class Run {
   private _resources: ResourcesModule;
   private _provenanceSession?: Session;
   private _tracesEnabled: boolean;
+  private _flushPendingWork: () => Promise<void>;
   private _parentStack: string[] = [];
   private _eventCount = 0;
   private _startTime: number;
@@ -99,6 +102,7 @@ export class Run {
     this._resources = opts.resources;
     this._provenanceSession = opts.provenanceSession;
     this._tracesEnabled = opts.tracesEnabled;
+    this._flushPendingWork = opts.flushPendingWork;
     this._tags = opts.tags;
     this._startTime = Date.now();
   }
@@ -340,20 +344,22 @@ export class Run {
   /** Log a simple message or data payload against this run. */
   async log(label: string, data?: unknown, opts?: StepOpts): Promise<void> {
     this._assertOpen();
+    const output = data !== undefined
+      ? (typeof data === 'object' && data !== null ? data : { value: data })
+      : undefined;
     const event = buildTraceEvent({
       session_id: this.sessionId,
       agent_id: this.agent,
       action_type: 'trace_step',
       input: { label },
-      output: data !== undefined
-        ? (typeof data === 'object' && data !== null ? data : { value: data })
-        : undefined,
+      output,
       parent_id: this._currentParentId,
       tags: opts?.tags ?? this._tags,
       custom_attributes: opts?.custom_attributes,
       custom_headers: opts?.custom_headers,
     });
     await this._submitEvent(event);
+    await this._recordReceipt(`log:${label}`, { label }, output);
   }
 
   /** Emit a signal from this run. */
@@ -364,10 +370,7 @@ export class Run {
 
   /** Flush any pending trace or receipt work without closing the run. */
   async flush(): Promise<void> {
-    if (this._provenanceSession) {
-      // Provenance session flushes through the batcher
-      await this._provenanceSession.flush?.();
-    }
+    await this._flushPendingWork();
   }
 
   /** Mark the run as failed, emit an error event, and close the session. */
@@ -396,16 +399,20 @@ export class Run {
     this._assertOpen();
 
     if (reason) {
+      const output = { reason };
       const event = buildTraceEvent({
         session_id: this.sessionId,
         agent_id: this.agent,
         action_type: 'trace_step',
         input: { step: '__run_cancelled' },
-        output: { reason },
+        output,
         parent_id: this._currentParentId,
         tags: this._tags,
       });
       await this._submitEvent(event);
+      await this._recordReceipt('__run_cancelled', undefined, output);
+    } else {
+      await this._recordReceipt('__run_cancelled');
     }
 
     return this._close('cancelled');

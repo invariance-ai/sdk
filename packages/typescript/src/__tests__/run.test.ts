@@ -245,6 +245,43 @@ describe('Run abstraction', () => {
     await inv.shutdown();
   });
 
+  it('flush() flushes pending provenance receipts', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({
+      apiKey: 'inv_test',
+      agent: 'test-agent',
+      privateKey: 'a'.repeat(64),
+      instrumentation: { provenance: true },
+    });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.log('decision context', { reason: 'customer eligible' });
+    expect(calls.some(c => c.url.includes('/v1/receipts'))).toBe(false);
+
+    await run.flush();
+
+    expect(calls.some(c => c.url.includes('/v1/receipts'))).toBe(true);
+
+    await inv.shutdown();
+  });
+
+  it('log() records a provenance receipt when enabled', async () => {
+    const inv = Invariance.init({
+      apiKey: 'inv_test',
+      agent: 'test-agent',
+      privateKey: 'a'.repeat(64),
+      instrumentation: { provenance: true },
+    });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.log('decision context', { reason: 'customer eligible' });
+    const summary = await run.finish();
+
+    expect(summary.receipt_count).toBe(1);
+
+    await inv.shutdown();
+  });
+
   it('fail() emits error event and closes with failed status', async () => {
     const { calls } = mockFetch();
     const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
@@ -311,6 +348,23 @@ describe('Run abstraction', () => {
 
     const traceCalls = calls.filter(c => c.url.includes('/v1/trace/events'));
     expect(traceCalls).toHaveLength(0);
+
+    await inv.shutdown();
+  });
+
+  it('cancel() records a provenance receipt even without a reason', async () => {
+    const inv = Invariance.init({
+      apiKey: 'inv_test',
+      agent: 'test-agent',
+      privateKey: 'a'.repeat(64),
+      instrumentation: { provenance: true },
+    });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    const summary = await run.cancel();
+
+    expect(summary.status).toBe('cancelled');
+    expect(summary.receipt_count).toBe(1);
 
     await inv.shutdown();
   });

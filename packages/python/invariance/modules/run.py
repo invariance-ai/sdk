@@ -65,12 +65,14 @@ class RunModule:
         private_key: str | None = None,
         instrumentation: dict[str, Any] | None = None,
         session_factory: Callable[..., Session] | None = None,
+        flush_pending_work: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self._resources = resources
         self._agent = agent
         self._private_key = private_key
         self._instrumentation = instrumentation or {}
         self._session_factory = session_factory
+        self._flush_pending_work = flush_pending_work
 
     async def start(
         self,
@@ -111,6 +113,7 @@ class RunModule:
             resources=self._resources,
             provenance_session=provenance_session,
             traces_enabled=traces_enabled,
+            flush_pending_work=self._flush_pending_work,
         )
 
 
@@ -125,6 +128,7 @@ class Run:
         resources: ResourcesModule,
         provenance_session: Session | None = None,
         traces_enabled: bool = True,
+        flush_pending_work: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self.session_id = session_id
         self.agent = agent
@@ -132,6 +136,7 @@ class Run:
         self._resources = resources
         self._provenance_session = provenance_session
         self._traces_enabled = traces_enabled
+        self._flush_pending_work = flush_pending_work
         self._parent_stack: list[str] = []
         self._event_count = 0
         self._start_time = time.time()
@@ -460,6 +465,7 @@ class Run:
             custom_headers=custom_headers,
         )
         await self._submit_event(event)
+        await self._record_receipt(f"log:{label}", {"label": label}, output)
 
     async def signal(self, body: dict[str, Any]) -> Any:
         self._assert_open()
@@ -467,8 +473,8 @@ class Run:
 
     async def flush(self) -> None:
         """Flush any pending trace or receipt work without closing the run."""
-        if self._provenance_session and hasattr(self._provenance_session, "flush"):
-            await self._provenance_session.flush()
+        if self._flush_pending_work:
+            await self._flush_pending_work()
 
     async def fail(self, error: Any) -> dict[str, Any]:
         """Mark the run as failed, emit an error event, and close the session."""
@@ -494,16 +500,20 @@ class Run:
         self._assert_open()
 
         if reason:
+            output = {"reason": reason}
             event = _build_trace_event(
                 session_id=self.session_id,
                 agent_id=self.agent,
                 action_type="trace_step",
                 input={"step": "__run_cancelled"},
-                output={"reason": reason},
+                output=output,
                 parent_id=self._current_parent_id(),
                 tags=self._tags,
             )
             await self._submit_event(event)
+            await self._record_receipt("__run_cancelled", output_data=output)
+        else:
+            await self._record_receipt("__run_cancelled")
 
         return await self._close("cancelled")
 

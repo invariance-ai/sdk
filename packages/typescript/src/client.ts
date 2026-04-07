@@ -16,7 +16,6 @@ import { ImprovementModule } from './modules/improvement.js';
 import { RunModule } from './modules/run.js';
 
 import type { InvarianceConfig, Action } from './types/config.js';
-import type { Receipt } from './types/receipt.js';
 import type { SessionCreateOpts } from './types/session.js';
 
 declare const __SDK_VERSION__: string;
@@ -85,7 +84,7 @@ export class Invariance {
       privateKey: this.privateKey,
       instrumentation: config.instrumentation,
       sessionFactory: (opts) => this.session(opts),
-      batcherEnqueue: (receipt) => this.batcher.enqueue(receipt),
+      flushPendingWork: () => this.batcher.flush(),
     });
     this.provenance = new ProvenanceModule(this.resources, (opts) => this.session(opts));
     this.tracing = new TracingModule(this.resources, { agent: config.agent });

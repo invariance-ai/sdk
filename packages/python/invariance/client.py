@@ -83,6 +83,7 @@ class Invariance:
             private_key=private_key,
             instrumentation=instrumentation,
             session_factory=self.session,
+            flush_pending_work=self.flush,
         )
         self.provenance = ProvenanceModule(self.resources, self.session)
         self.tracing = TracingModule(self.resources, agent=agent)
