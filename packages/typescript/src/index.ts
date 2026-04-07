@@ -1,37 +1,21 @@
-// Main client
+// ── Primary exports ──
 export { Invariance } from './client.js';
-
-// Session & receipt
 export { Session } from './session.js';
-export { createReceipt, verifyChain } from './receipt.js';
-
-// Crypto utilities
-export {
-  sortedStringify, sha256, computeReceiptHash,
-  ed25519Sign, ed25519Verify, generateKeypair, getPublicKey,
-  deriveAgentKeypair, bytesToHex, hexToBytes, randomHex,
-} from './crypto.js';
-
-// Errors
 export { InvarianceError } from './errors.js';
 export type { ErrorCode } from './errors.js';
 
-// Policy
-export { checkPolicies, assertPolicy } from './policy.js';
+// ── Workflow modules ──
+export { Run, RunModule } from './modules/run.js';
+export { ResourcesModule } from './modules/resources.js';
+export { AdminModule } from './modules/admin.js';
+export { ProvenanceModule } from './modules/provenance.js';
+export { TracingModule } from './modules/tracing.js';
+export { MonitorsModule } from './modules/monitors-module.js';
+export { AnalysisModule } from './modules/analysis.js';
+export { ImprovementModule } from './modules/improvement.js';
 
-// A2A Channel
-export { A2AChannel } from './a2a-channel.js';
-
-// Monitor Poller
-export { MonitorPoller } from './monitor-poller.js';
-
-// Signal Poller
-export { SignalPoller } from './signal-poller.js';
-
-// Normalize
-export { normalizeActionType, toSnakeCase, toCamelCase } from './normalize.js';
-
-// Trace builders
+// ── Key helpers ──
+export { createReceipt, verifyChain } from './receipt.js';
 export {
   buildTraceEvent, buildToolInvocationEvent,
   buildDecisionEvent, buildConstraintCheckEvent, buildHandoffEvent,
@@ -40,36 +24,18 @@ export type {
   BuildTraceEventOpts, BuildToolInvocationOpts,
   BuildDecisionOpts, BuildConstraintCheckOpts, BuildHandoffOpts,
 } from './trace-builders.js';
+export {
+  sortedStringify, sha256, computeReceiptHash,
+  ed25519Sign, ed25519Verify, generateKeypair, getPublicKey,
+  deriveAgentKeypair, bytesToHex, hexToBytes, randomHex,
+} from './crypto.js';
 
-// Resource classes (for advanced use / extending)
-export { IdentityResource } from './resources/identity.js';
-export { AgentsResource } from './resources/agents.js';
-export { SessionsResource } from './resources/sessions.js';
-export { ReceiptsResource } from './resources/receipts.js';
-export { ContractsResource } from './resources/contracts.js';
-export { A2AResource } from './resources/a2a.js';
-export { TraceResource } from './resources/trace.js';
-export { QueryResource } from './resources/query.js';
-export { MonitorsResource } from './resources/monitors.js';
-export { SignalsResource } from './resources/signals.js';
-export { DriftResource } from './resources/drift.js';
-export { TrainingResource } from './resources/training.js';
-export { TemplatesResource } from './resources/templates.js';
-export { ApiKeysResource } from './resources/api-keys.js';
-export { UsageResource } from './resources/usage.js';
-export { SearchResource } from './resources/search.js';
-export { StatusResource } from './resources/status.js';
-export { NLQueryResource } from './resources/nl-query.js';
-export { IdentitiesResource } from './resources/identities.js';
-export { EvalsResource } from './resources/evals.js';
-export { FailureClustersResource } from './resources/failure-clusters.js';
-export { SuggestionsResource } from './resources/suggestions.js';
-export { DocsResource } from './resources/docs.js';
-export { DatasetsResource } from './resources/datasets.js';
-export { ScorersResource } from './resources/scorers.js';
-export { ExperimentsResource } from './resources/experiments.js';
-export { PromptsResource } from './resources/prompts.js';
-export { AnnotationsResource } from './resources/annotations.js';
+// ── Utilities ──
+export { checkPolicies, assertPolicy } from './policy.js';
+export { A2AChannel } from './a2a-channel.js';
+export { MonitorPoller } from './monitor-poller.js';
+export { SignalPoller } from './signal-poller.js';
+export { normalizeActionType, toSnakeCase, toCamelCase } from './normalize.js';
 
-// All types
+// ── All types ──
 export type * from './types/index.js';

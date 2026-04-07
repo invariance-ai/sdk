@@ -6,6 +6,7 @@ const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 export default defineConfig({
   entry: [
     'src/index.ts',
+    'src/resources.ts',
     'src/adapters/langchain.ts',
     'src/adapters/crewai.ts',
     'src/adapters/autogen.ts',
