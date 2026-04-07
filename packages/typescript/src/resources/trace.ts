@@ -11,6 +11,9 @@ import type {
   SemanticFactAggregateQuery, SemanticFactAggregateListResponse,
   OntologyCandidateQuery, OntologyCandidateListResponse,
   OntologyCandidate, OntologyMineResult,
+  GraphDomain, OntologyNodeQuery, OntologyEdgeQuery,
+  OntologyNode, OntologyGraphSnapshot,
+  OntologyNodeListResponse, OntologyEdgeListResponse, OntologyEvidenceListResponse,
 } from '../types/semantic-facts.js';
 
 export class TraceResource {
@@ -143,5 +146,41 @@ export class TraceResource {
 
   async mineOntologyCandidates(): Promise<OntologyMineResult> {
     return this.http.post<OntologyMineResult>('/v1/trace/ontology-candidates/mine', {});
+  }
+
+  // ── Ontology Graph ──
+
+  async getOntologyNodes(query?: OntologyNodeQuery): Promise<OntologyNodeListResponse> {
+    return this.http.get<OntologyNodeListResponse>('/v1/trace/ontology/nodes', {
+      params: query as Record<string, string | number | boolean | undefined> | undefined,
+    });
+  }
+
+  async getOntologyNode(id: string): Promise<OntologyNode> {
+    return this.http.get<OntologyNode>(`/v1/trace/ontology/nodes/${id}`);
+  }
+
+  async getOntologyNeighborhood(nodeId: string, depth?: number): Promise<OntologyGraphSnapshot> {
+    return this.http.get<OntologyGraphSnapshot>(`/v1/trace/ontology/nodes/${nodeId}/neighborhood`, {
+      params: { depth },
+    });
+  }
+
+  async getOntologyNodeEvidence(nodeId: string): Promise<OntologyEvidenceListResponse> {
+    return this.http.get<OntologyEvidenceListResponse>(`/v1/trace/ontology/nodes/${nodeId}/evidence`);
+  }
+
+  async getOntologyEdges(query?: OntologyEdgeQuery): Promise<OntologyEdgeListResponse> {
+    return this.http.get<OntologyEdgeListResponse>('/v1/trace/ontology/edges', {
+      params: query as Record<string, string | number | boolean | undefined> | undefined,
+    });
+  }
+
+  async getOntologyEdgeEvidence(edgeId: string): Promise<OntologyEvidenceListResponse> {
+    return this.http.get<OntologyEvidenceListResponse>(`/v1/trace/ontology/edges/${edgeId}/evidence`);
+  }
+
+  async getOntologyGraphSnapshot(domain: GraphDomain | 'linked'): Promise<OntologyGraphSnapshot> {
+    return this.http.get<OntologyGraphSnapshot>(`/v1/trace/ontology/graph/${domain}`);
   }
 }

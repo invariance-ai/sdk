@@ -92,11 +92,13 @@ export type {
   LiveStatusEventType, LiveStatusEvent, LiveStatusAgentSummary, LiveStatusSnapshot,
 } from './misc.js';
 export type {
-  SemanticFactKind, SemanticEntity, SemanticProvenance, SemanticPredicate,
+  SemanticFactKind, SemanticEntityType, SemanticEntity, SemanticProvenance, SemanticPredicate,
   SemanticFact, SemanticFactsResponse, NodeSemanticFactsResponse,
   SemanticFactContradiction, SemanticFactAggregate,
   OntologyCandidateKind, OntologyConcept, OntologyRelation, OntologyCandidate,
-  SemanticFactQuery, SemanticFactAggregateQuery, OntologyCandidateQuery,
+  GraphDomain, OntologyNodeStatus, OntologyNode, OntologyEdge, OntologyEvidenceLink, OntologyGraphSnapshot,
+  SemanticFactQuery, SemanticFactAggregateQuery, OntologyCandidateQuery, OntologyNodeQuery, OntologyEdgeQuery,
   SemanticFactListResponse, SemanticFactAggregateListResponse,
-  OntologyCandidateListResponse, OntologyMineResult,
+  OntologyCandidateListResponse, OntologyNodeListResponse, OntologyEdgeListResponse, OntologyEvidenceListResponse,
+  OntologyMineResult,
 } from './semantic-facts.js';
