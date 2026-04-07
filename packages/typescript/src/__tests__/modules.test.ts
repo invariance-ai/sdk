@@ -35,11 +35,21 @@ describe('workflow modules', () => {
     // analysis
     expect(inv.analysis.query).toBe(inv.resources.query);
     expect(inv.analysis.drift).toBe(inv.resources.drift);
-    expect(inv.analysis.search).toBe(inv.resources.search);
+    expect(inv.analysis.search.nl).toBe(inv.resources.nlQuery);
+    expect(inv.analysis.search.global).toBe(inv.resources.search);
+    expect(inv.analysis.replay.timeline).toBeTypeOf('function');
+    expect(inv.analysis.audit.generate).toBeTypeOf('function');
+    expect(inv.analysis.graph.snapshot).toBeTypeOf('function');
+    expect(inv.analysis.live.status).toBe(inv.resources.status);
+    expect(inv.analysis.live.usage).toBe(inv.resources.usage);
     // improvement
-    expect(inv.improvement.evals).toBe(inv.resources.evals);
-    expect(inv.improvement.datasets).toBe(inv.resources.datasets);
+    expect(inv.improvement.evaluations).toBe(inv.resources.evals);
+    expect(inv.improvement.data).toBe(inv.resources.datasets);
+    expect(inv.improvement.scoring).toBe(inv.resources.scorers);
     expect(inv.improvement.training).toBe(inv.resources.training);
+    expect(inv.improvement.recommendations.clusters).toBe(inv.resources.failureClusters);
+    expect(inv.improvement.recommendations.suggestions).toBe(inv.resources.suggestions);
+    expect(inv.improvement.annotations).toBe(inv.resources.annotations);
     // monitors
     expect(inv.monitors.monitors).toBe(inv.resources.monitors);
     expect(inv.monitors.signals).toBe(inv.resources.signals);
