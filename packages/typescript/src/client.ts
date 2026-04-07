@@ -35,15 +35,20 @@ export class Invariance {
   private pendingSessionCloses: Promise<void>[] = [];
   private monitorPoller: MonitorPoller | null = null;
   private signalPoller: SignalPoller | null = null;
+  private static _emitSignalWarned = false;
 
   // ── Workflow modules ──
   readonly run: RunModule;
   readonly provenance: ProvenanceModule;
   readonly tracing: TracingModule;
   readonly monitors: MonitorsModule;
+
+  // ── Namespace modules (organized access to resources) ──
   readonly analysis: AnalysisModule;
   readonly improvement: ImprovementModule;
   readonly admin: AdminModule;
+
+  // ── Raw resource access (advanced) ──
   readonly resources: ResourcesModule;
 
   private constructor(config: InvarianceConfig) {
@@ -206,8 +211,13 @@ export class Invariance {
 
   /**
    * Create a signal with source='emit'.
+   * @deprecated Use `run.signal()` for in-run signals or `resources.signals.create()` for standalone signals.
    */
   async emitSignal(body: CreateSignalBody): Promise<Signal> {
+    if (!Invariance._emitSignalWarned) {
+      Invariance._emitSignalWarned = true;
+      console.warn('[invariance] emitSignal() is deprecated. Use run.signal() or resources.signals.create() instead.');
+    }
     return this.resources.signals.create(body);
   }
 

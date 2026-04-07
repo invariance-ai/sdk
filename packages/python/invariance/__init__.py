@@ -1,4 +1,10 @@
-"""Invariance SDK for Python -- record, sign, and verify AI agent actions."""
+"""Invariance SDK for Python -- record, sign, and verify AI agent actions.
+
+Secondary imports available:
+    - ``invariance.crypto`` — cryptographic utilities (signing, hashing, receipts)
+    - ``invariance.normalize`` — action type normalization helpers
+    - ``invariance.a2a_channel`` — agent-to-agent communication
+"""
 
 from __future__ import annotations
 
@@ -14,23 +20,7 @@ from .modules.tracing import TracingModule
 from .modules.monitors_module import MonitorsModule
 from .modules.analysis import AnalysisModule
 from .modules.improvement import ImprovementModule
-from .receipt import create_receipt, verify_chain
-from .crypto import (
-    sorted_stringify,
-    sha256,
-    compute_receipt_hash,
-    ed25519_sign,
-    ed25519_verify,
-    generate_keypair,
-    get_public_key,
-    derive_agent_keypair,
-    bytes_to_hex,
-    hex_to_bytes,
-    random_hex,
-)
 from .errors import InvarianceError
-from .normalize import normalize_action_type, to_snake_case, to_camel_case
-from .a2a_channel import A2AChannel
 from .traced import traced
 from ._trace_session import trace_session
 from .types import BehavioralPrimitive
@@ -69,7 +59,6 @@ __all__ = [
     # Client
     "Invariance",
     "Session",
-    "A2AChannel",
     # Modules
     "Run",
     "RunModule",
@@ -80,27 +69,8 @@ __all__ = [
     "MonitorsModule",
     "AnalysisModule",
     "ImprovementModule",
-    # Receipt
-    "create_receipt",
-    "verify_chain",
-    # Crypto
-    "sorted_stringify",
-    "sha256",
-    "compute_receipt_hash",
-    "ed25519_sign",
-    "ed25519_verify",
-    "generate_keypair",
-    "get_public_key",
-    "derive_agent_keypair",
-    "bytes_to_hex",
-    "hex_to_bytes",
-    "random_hex",
     # Errors
     "InvarianceError",
-    # Normalize
-    "normalize_action_type",
-    "to_snake_case",
-    "to_camel_case",
     # Tracing decorator
     "init",
     "traced",

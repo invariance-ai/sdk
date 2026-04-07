@@ -7,6 +7,10 @@ export default defineConfig({
   entry: [
     'src/index.ts',
     'src/resources.ts',
+    'src/crypto-entry.ts',
+    'src/trace-builders.ts',
+    'src/advanced.ts',
+    'src/types/index.ts',
     'src/adapters/langchain.ts',
     'src/adapters/crewai.ts',
     'src/adapters/autogen.ts',
