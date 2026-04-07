@@ -124,3 +124,55 @@ class TraceResource:
                     else [],
                 }
         return {"verified": False, "errors": ["Invalid verification response"]}
+
+    # ── Ontology Graph ──
+
+    async def get_ontology_nodes(
+        self, *, graph_domain: str | None = None, node_type: str | None = None,
+        search: str | None = None, min_score: float | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if graph_domain: params["graph_domain"] = graph_domain
+        if node_type: params["node_type"] = node_type
+        if search: params["search"] = search
+        if min_score is not None: params["min_score"] = min_score
+        if limit is not None: params["limit"] = limit
+        return await self._http.get("/v1/trace/ontology/nodes", params=params)
+
+    async def get_ontology_node(self, node_id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/trace/ontology/nodes/{node_id}")
+
+    async def get_ontology_neighborhood(
+        self, node_id: str, depth: int = 1,
+    ) -> dict[str, Any]:
+        return await self._http.get(
+            f"/v1/trace/ontology/nodes/{node_id}/neighborhood",
+            params={"depth": depth},
+        )
+
+    async def get_ontology_node_evidence(self, node_id: str) -> dict[str, Any]:
+        return await self._http.get(
+            f"/v1/trace/ontology/nodes/{node_id}/evidence"
+        )
+
+    async def get_ontology_edges(
+        self, *, graph_domain: str | None = None, edge_type: str | None = None,
+        min_score: float | None = None, limit: int | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if graph_domain: params["graph_domain"] = graph_domain
+        if edge_type: params["edge_type"] = edge_type
+        if min_score is not None: params["min_score"] = min_score
+        if limit is not None: params["limit"] = limit
+        return await self._http.get("/v1/trace/ontology/edges", params=params)
+
+    async def get_ontology_edge_evidence(self, edge_id: str) -> dict[str, Any]:
+        return await self._http.get(
+            f"/v1/trace/ontology/edges/{edge_id}/evidence"
+        )
+
+    async def get_ontology_graph_snapshot(
+        self, domain: str = "linked",
+    ) -> dict[str, Any]:
+        return await self._http.get(f"/v1/trace/ontology/graph/{domain}")
