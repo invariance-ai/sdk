@@ -17,7 +17,7 @@ class TracingModule:
         payload = events if isinstance(events, list) else [events]
         return await self._resources.trace.submit_events(payload)
 
-    async def context(
+    async def log_context(
         self,
         label: str,
         value: Any,
@@ -29,10 +29,11 @@ class TracingModule:
         custom_attributes: dict[str, Any] | None = None,
         custom_headers: dict[str, str] | None = None,
     ) -> Any:
+        """Log a context trace event — the simplest way to attach data to a session."""
         resolved_agent_id = agent_id or self._default_agent
         if not resolved_agent_id:
             raise ValueError(
-                "agent_id is required: pass it to tracing.context() or set agent in the Invariance config"
+                "agent_id is required: pass it to tracing.log_context() or set agent in the Invariance config"
             )
         event: dict[str, Any] = {
             "session_id": session_id,
@@ -50,9 +51,6 @@ class TracingModule:
         if tags:
             event["metadata"] = {"tags": tags}
         return await self._resources.trace.submit_events([event])
-
-    async def log(self, label: str, value: Any, **kwargs: Any) -> Any:
-        return await self.context(label, value, **kwargs)
 
     async def replay(self, session_id: str) -> Any:
         return await self._resources.trace.get_replay(session_id)

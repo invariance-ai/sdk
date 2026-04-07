@@ -50,4 +50,14 @@ describe('workflow modules', () => {
     expect(inv.provenance.contracts).toBe(inv.resources.contracts);
     expect(inv.provenance.a2a).toBe(inv.resources.a2a);
   });
+
+  it('does not expose removed compatibility helpers on workflow modules', () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    expect((inv.tracing as Record<string, unknown>).context).toBeUndefined();
+    expect((inv.tracing as Record<string, unknown>).log).toBeUndefined();
+    expect((inv.monitors as Record<string, unknown>).list).toBeUndefined();
+    expect((inv.monitors as Record<string, unknown>).create).toBeUndefined();
+    expect((inv.monitors as Record<string, unknown>).emitSignal).toBeUndefined();
+    expect((inv as Record<string, unknown>).emitSignal).toBeUndefined();
+  });
 });

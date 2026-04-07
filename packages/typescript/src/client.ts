@@ -18,7 +18,6 @@ import { RunModule } from './modules/run.js';
 import type { InvarianceConfig, Action } from './types/config.js';
 import type { Receipt } from './types/receipt.js';
 import type { SessionCreateOpts } from './types/session.js';
-import type { Signal, CreateSignalBody } from './types/signal.js';
 
 declare const __SDK_VERSION__: string;
 
@@ -41,9 +40,13 @@ export class Invariance {
   readonly provenance: ProvenanceModule;
   readonly tracing: TracingModule;
   readonly monitors: MonitorsModule;
+
+  // ── Namespace modules (organized access to resources) ──
   readonly analysis: AnalysisModule;
   readonly improvement: ImprovementModule;
   readonly admin: AdminModule;
+
+  // ── Raw resource access (advanced) ──
   readonly resources: ResourcesModule;
 
   private constructor(config: InvarianceConfig) {
@@ -202,13 +205,6 @@ export class Invariance {
    */
   async flush(): Promise<void> {
     await this.batcher.flush();
-  }
-
-  /**
-   * Create a signal with source='emit'.
-   */
-  async emitSignal(body: CreateSignalBody): Promise<Signal> {
-    return this.resources.signals.create(body);
   }
 
   /**

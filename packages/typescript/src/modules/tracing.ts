@@ -24,8 +24,8 @@ export class TracingModule {
     return buildTraceEvent(opts);
   }
 
-  /** Log a context trace event -- the simplest way to attach data to a session. */
-  async context(label: string, value: unknown, opts: {
+  /** Log a context trace event — the simplest way to attach data to a session. */
+  async logContext(label: string, value: unknown, opts: {
     session_id: string;
     agent_id?: string;
     parent_id?: string;
@@ -35,7 +35,7 @@ export class TracingModule {
   }): Promise<{ nodes: TraceNode[] }> {
     const agentId = opts.agent_id ?? this._defaultAgent;
     if (!agentId) {
-      throw new Error('agent_id is required: pass it to tracing.context() or set agent in the Invariance config');
+      throw new Error('agent_id is required: pass it to tracing.logContext() or set agent in the Invariance config');
     }
     const event = buildTraceEvent({
       session_id: opts.session_id,
@@ -49,18 +49,6 @@ export class TracingModule {
       custom_headers: opts.custom_headers,
     });
     return this._resources.trace.submitEvents([event]);
-  }
-
-  /** Alias for context(). */
-  async log(label: string, value: unknown, opts: {
-    session_id: string;
-    agent_id?: string;
-    parent_id?: string;
-    tags?: string[];
-    custom_attributes?: TraceNodeCustomAttributes;
-    custom_headers?: TraceNodeCustomHeaders;
-  }): Promise<{ nodes: TraceNode[] }> {
-    return this.context(label, value, opts);
   }
 
   // Convenience delegates to TraceResource

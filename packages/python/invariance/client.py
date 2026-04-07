@@ -77,7 +77,7 @@ class Invariance:
         self.resources = ResourcesModule(self._http)
 
         # Workflow modules
-        self.run = RunModule(
+        self.run: RunModule = RunModule(
             self.resources,
             agent=agent,
             private_key=private_key,
@@ -203,10 +203,6 @@ class Invariance:
         result = await s.wrap({"action": action, "input": input}, fn)
         await s.end()
         return result
-
-    async def emit_signal(self, body: dict[str, Any]) -> dict[str, Any]:
-        """Create a signal with source='emit'."""
-        return await self.resources.signals.create(body)
 
     async def flush(self) -> None:
         """Flush all pending receipts to the backend."""

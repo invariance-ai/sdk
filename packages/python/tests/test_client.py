@@ -118,7 +118,17 @@ def test_removed_convenience_methods_do_not_exist():
         "search_global",
         "list_sessions", "get_session", "verify_session",
         "signup", "create_org",
-        "trace", "status", "monitoring",
+        "trace", "status", "monitoring", "emit_signal",
     ]
     present = [m for m in removed if hasattr(client, m)]
     assert present == []
+
+
+def test_surface_cleanup_removes_module_compatibility_helpers():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+
+    assert not hasattr(client.tracing, "context")
+    assert not hasattr(client.tracing, "log")
+    assert not hasattr(client.monitors, "list")
+    assert not hasattr(client.monitors, "create")
+    assert not hasattr(client.monitors, "emit_signal")
