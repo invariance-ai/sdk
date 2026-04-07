@@ -141,3 +141,25 @@ class AnalysisModule:
     def usage(self) -> UsageResource:
         """Deprecated: use ``live.usage`` instead."""
         return self._resources.usage
+
+    # ── Ontology Graph ──
+
+    async def ontology_graph(self, domain: str = "linked") -> dict:
+        """Get business or agent graph snapshot, or the linked view of both."""
+        return await self._resources.trace.get_ontology_graph_snapshot(domain)
+
+    async def ontology_nodes(self, **kwargs) -> dict:
+        """Query ontology nodes with filters (domain, type, score, search)."""
+        return await self._resources.trace.get_ontology_nodes(**kwargs)
+
+    async def ontology_edges(self, **kwargs) -> dict:
+        """Query ontology edges with filters."""
+        return await self._resources.trace.get_ontology_edges(**kwargs)
+
+    async def ontology_neighborhood(self, node_id: str, depth: int = 1) -> dict:
+        """Get a node's neighborhood — connected nodes and edges within depth hops."""
+        return await self._resources.trace.get_ontology_neighborhood(node_id, depth)
+
+    async def ontology_evidence(self, node_id: str) -> dict:
+        """Explain why a node was inferred — returns evidence links and aggregates."""
+        return await self._resources.trace.get_ontology_node_evidence(node_id)
