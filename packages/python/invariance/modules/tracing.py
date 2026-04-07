@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -52,40 +51,6 @@ class TracingModule:
         if tags:
             event["metadata"] = {"tags": tags}
         return await self._resources.trace.submit_events([event])
-
-    async def context(
-        self,
-        label: str,
-        value: Any,
-        *,
-        session_id: str,
-        agent_id: str | None = None,
-        parent_id: str | None = None,
-        tags: list[str] | None = None,
-        custom_attributes: dict[str, Any] | None = None,
-        custom_headers: dict[str, str] | None = None,
-    ) -> Any:
-        """.. deprecated:: Use ``log_context()`` instead."""
-        warnings.warn(
-            "tracing.context() is deprecated. Use tracing.log_context() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return await self.log_context(
-            label, value,
-            session_id=session_id, agent_id=agent_id, parent_id=parent_id,
-            tags=tags, custom_attributes=custom_attributes,
-            custom_headers=custom_headers,
-        )
-
-    async def log(self, label: str, value: Any, **kwargs: Any) -> Any:
-        """.. deprecated:: Use ``log_context()`` instead."""
-        warnings.warn(
-            "tracing.log() is deprecated. Use tracing.log_context() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return await self.log_context(label, value, **kwargs)
 
     async def replay(self, session_id: str) -> Any:
         return await self._resources.trace.get_replay(session_id)

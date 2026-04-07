@@ -18,7 +18,6 @@ import { RunModule } from './modules/run.js';
 import type { InvarianceConfig, Action } from './types/config.js';
 import type { Receipt } from './types/receipt.js';
 import type { SessionCreateOpts } from './types/session.js';
-import type { Signal, CreateSignalBody } from './types/signal.js';
 
 declare const __SDK_VERSION__: string;
 
@@ -35,7 +34,6 @@ export class Invariance {
   private pendingSessionCloses: Promise<void>[] = [];
   private monitorPoller: MonitorPoller | null = null;
   private signalPoller: SignalPoller | null = null;
-  private static _emitSignalWarned = false;
 
   // ── Workflow modules ──
   readonly run: RunModule;
@@ -207,18 +205,6 @@ export class Invariance {
    */
   async flush(): Promise<void> {
     await this.batcher.flush();
-  }
-
-  /**
-   * Create a signal with source='emit'.
-   * @deprecated Use `run.signal()` for in-run signals or `resources.signals.create()` for standalone signals.
-   */
-  async emitSignal(body: CreateSignalBody): Promise<Signal> {
-    if (!Invariance._emitSignalWarned) {
-      Invariance._emitSignalWarned = true;
-      console.warn('[invariance] emitSignal() is deprecated. Use run.signal() or resources.signals.create() instead.');
-    }
-    return this.resources.signals.create(body);
   }
 
   /**

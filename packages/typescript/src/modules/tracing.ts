@@ -51,40 +51,6 @@ export class TracingModule {
     return this._resources.trace.submitEvents([event]);
   }
 
-  /**
-   * @deprecated Use `logContext()` instead.
-   */
-  async context(label: string, value: unknown, opts: {
-    session_id: string;
-    agent_id?: string;
-    parent_id?: string;
-    tags?: string[];
-    custom_attributes?: TraceNodeCustomAttributes;
-    custom_headers?: TraceNodeCustomHeaders;
-  }): Promise<{ nodes: TraceNode[] }> {
-    if (!TracingModule._contextWarned) {
-      TracingModule._contextWarned = true;
-      console.warn('[invariance] tracing.context() is deprecated. Use tracing.logContext() instead.');
-    }
-    return this.logContext(label, value, opts);
-  }
-
-  /**
-   * @deprecated Use `logContext()` instead.
-   */
-  async log(label: string, value: unknown, opts: {
-    session_id: string;
-    agent_id?: string;
-    parent_id?: string;
-    tags?: string[];
-    custom_attributes?: TraceNodeCustomAttributes;
-    custom_headers?: TraceNodeCustomHeaders;
-  }): Promise<{ nodes: TraceNode[] }> {
-    return this.context(label, value, opts);
-  }
-
-  private static _contextWarned = false;
-
   // Convenience delegates to TraceResource
 
   async replay(sessionId: string) { return this._resources.trace.getReplay(sessionId); }

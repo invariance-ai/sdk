@@ -204,21 +204,6 @@ class Invariance:
         await s.end()
         return result
 
-    async def emit_signal(self, body: dict[str, Any]) -> dict[str, Any]:
-        """Create a signal with source='emit'.
-
-        .. deprecated::
-            Use ``run.signal()`` for in-run signals or ``resources.signals.create()``
-            for standalone signals.
-        """
-        import warnings
-        warnings.warn(
-            "emit_signal() is deprecated. Use run.signal() or resources.signals.create() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return await self.resources.signals.create(body)
-
     async def flush(self) -> None:
         """Flush all pending receipts to the backend."""
         await self._batcher.flush()
