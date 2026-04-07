@@ -7,12 +7,14 @@ export interface RunStartOpts {
   custom_attributes?: TraceNodeCustomAttributes;
 }
 
+export type RunStatus = 'closed' | 'tampered' | 'failed' | 'cancelled';
+
 export interface RunSummary {
   session_id: string;
   duration_ms: number;
   event_count: number;
   receipt_count: number;
-  status: 'closed' | 'tampered';
+  status: RunStatus;
 }
 
 export interface StepOpts {

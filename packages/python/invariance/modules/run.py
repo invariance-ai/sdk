@@ -65,12 +65,14 @@ class RunModule:
         private_key: str | None = None,
         instrumentation: dict[str, Any] | None = None,
         session_factory: Callable[..., Session] | None = None,
+        flush_pending_work: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self._resources = resources
         self._agent = agent
         self._private_key = private_key
         self._instrumentation = instrumentation or {}
         self._session_factory = session_factory
+        self._flush_pending_work = flush_pending_work
 
     async def start(
         self,
@@ -111,6 +113,7 @@ class RunModule:
             resources=self._resources,
             provenance_session=provenance_session,
             traces_enabled=traces_enabled,
+            flush_pending_work=self._flush_pending_work,
         )
 
 
@@ -125,6 +128,7 @@ class Run:
         resources: ResourcesModule,
         provenance_session: Session | None = None,
         traces_enabled: bool = True,
+        flush_pending_work: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self.session_id = session_id
         self.agent = agent
@@ -132,6 +136,7 @@ class Run:
         self._resources = resources
         self._provenance_session = provenance_session
         self._traces_enabled = traces_enabled
+        self._flush_pending_work = flush_pending_work
         self._parent_stack: list[str] = []
         self._event_count = 0
         self._start_time = time.time()
@@ -434,20 +439,98 @@ class Run:
         )
         await self._submit_event(event)
 
+    async def log(
+        self,
+        label: str,
+        data: Any = None,
+        *,
+        tags: list[str] | None = None,
+        custom_attributes: dict[str, Any] | None = None,
+        custom_headers: dict[str, str] | None = None,
+    ) -> Any:
+        """Log a simple message or data payload against this run."""
+        self._assert_open()
+        output = None
+        if data is not None:
+            output = data if isinstance(data, dict) else {"value": data}
+        event = _build_trace_event(
+            session_id=self.session_id,
+            agent_id=self.agent,
+            action_type="trace_step",
+            input={"label": label},
+            output=output,
+            parent_id=self._current_parent_id(),
+            tags=tags or self._tags,
+            custom_attributes=custom_attributes,
+            custom_headers=custom_headers,
+        )
+        await self._submit_event(event)
+        await self._record_receipt(f"log:{label}", {"label": label}, output)
+
     async def signal(self, body: dict[str, Any]) -> Any:
         self._assert_open()
         return await self._resources.signals.create(body)
 
+    async def flush(self) -> None:
+        """Flush any pending trace or receipt work without closing the run."""
+        if self._flush_pending_work:
+            await self._flush_pending_work()
+
+    async def fail(self, error: Any) -> dict[str, Any]:
+        """Mark the run as failed, emit an error event, and close the session."""
+        self._assert_open()
+        error_msg = str(error)
+
+        event = _build_trace_event(
+            session_id=self.session_id,
+            agent_id=self.agent,
+            action_type="trace_step",
+            input={"step": "__run_failed"},
+            error=error_msg,
+            parent_id=self._current_parent_id(),
+            tags=self._tags,
+        )
+        await self._submit_event(event)
+        await self._record_receipt("__run_failed", error=error_msg)
+
+        return await self._close("failed")
+
+    async def cancel(self, reason: str | None = None) -> dict[str, Any]:
+        """Cancel the run with an optional reason and close the session."""
+        self._assert_open()
+
+        if reason:
+            output = {"reason": reason}
+            event = _build_trace_event(
+                session_id=self.session_id,
+                agent_id=self.agent,
+                action_type="trace_step",
+                input={"step": "__run_cancelled"},
+                output=output,
+                parent_id=self._current_parent_id(),
+                tags=self._tags,
+            )
+            await self._submit_event(event)
+            await self._record_receipt("__run_cancelled", output_data=output)
+        else:
+            await self._record_receipt("__run_cancelled")
+
+        return await self._close("cancelled")
+
     async def finish(self, status: str = "closed") -> dict[str, Any]:
         self._assert_open()
+        return await self._close(status)
+
+    async def _close(self, status: str) -> dict[str, Any]:
         self._finished = True
 
         receipt_count = 0
+        session_status = "closed" if status == "closed" else "tampered"
         if self._provenance_session:
             receipt_count = len(self._provenance_session.get_receipts())
-            await self._provenance_session.end(status)
+            await self._provenance_session.end(session_status)
         else:
-            await self._resources.sessions.close(self.session_id, status, "0")
+            await self._resources.sessions.close(self.session_id, session_status, "0")
 
         return {
             "session_id": self.session_id,

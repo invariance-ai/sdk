@@ -2,7 +2,7 @@ import { ulid } from 'ulid';
 import type { Session } from '../session.js';
 import type { SessionCreateOpts } from '../types/session.js';
 import type { TraceEventInput, TraceNode } from '../types/trace.js';
-import type { RunStartOpts, RunSummary, StepOpts } from '../types/run.js';
+import type { RunStartOpts, RunSummary, RunStatus, StepOpts } from '../types/run.js';
 import type { CreateSignalBody, Signal } from '../types/signal.js';
 import type { Receipt } from '../types/receipt.js';
 import {
@@ -16,7 +16,7 @@ export interface RunModuleConfig {
   privateKey?: string;
   instrumentation?: { traces?: boolean; provenance?: boolean };
   sessionFactory: (opts: SessionCreateOpts) => Session;
-  batcherEnqueue: (receipt: Receipt) => void;
+  flushPendingWork: () => Promise<void>;
 }
 
 export class RunModule {
@@ -64,6 +64,7 @@ export class RunModule {
       resources: this._resources,
       provenanceSession,
       tracesEnabled,
+      flushPendingWork: this._config.flushPendingWork,
     });
   }
 }
@@ -76,6 +77,7 @@ interface RunOpts {
   resources: ResourcesModule;
   provenanceSession?: Session;
   tracesEnabled: boolean;
+  flushPendingWork: () => Promise<void>;
 }
 
 export class Run {
@@ -86,6 +88,7 @@ export class Run {
   private _resources: ResourcesModule;
   private _provenanceSession?: Session;
   private _tracesEnabled: boolean;
+  private _flushPendingWork: () => Promise<void>;
   private _parentStack: string[] = [];
   private _eventCount = 0;
   private _startTime: number;
@@ -99,6 +102,7 @@ export class Run {
     this._resources = opts.resources;
     this._provenanceSession = opts.provenanceSession;
     this._tracesEnabled = opts.tracesEnabled;
+    this._flushPendingWork = opts.flushPendingWork;
     this._tags = opts.tags;
     this._startTime = Date.now();
   }
@@ -337,23 +341,98 @@ export class Run {
     await this._submitEvent(event);
   }
 
+  /** Log a simple message or data payload against this run. */
+  async log(label: string, data?: unknown, opts?: StepOpts): Promise<void> {
+    this._assertOpen();
+    const output = data !== undefined
+      ? (typeof data === 'object' && data !== null ? data : { value: data })
+      : undefined;
+    const event = buildTraceEvent({
+      session_id: this.sessionId,
+      agent_id: this.agent,
+      action_type: 'trace_step',
+      input: { label },
+      output,
+      parent_id: this._currentParentId,
+      tags: opts?.tags ?? this._tags,
+      custom_attributes: opts?.custom_attributes,
+      custom_headers: opts?.custom_headers,
+    });
+    await this._submitEvent(event);
+    await this._recordReceipt(`log:${label}`, { label }, output);
+  }
+
   /** Emit a signal from this run. */
   async signal(body: CreateSignalBody): Promise<Signal> {
     this._assertOpen();
     return this._resources.signals.create(body);
   }
 
-  /** Finish the run: close the session and return a summary. */
-  async finish(status: 'closed' | 'tampered' = 'closed'): Promise<RunSummary> {
+  /** Flush any pending trace or receipt work without closing the run. */
+  async flush(): Promise<void> {
+    await this._flushPendingWork();
+  }
+
+  /** Mark the run as failed, emit an error event, and close the session. */
+  async fail(error: unknown): Promise<RunSummary> {
     this._assertOpen();
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    // Emit a final error trace event
+    const event = buildTraceEvent({
+      session_id: this.sessionId,
+      agent_id: this.agent,
+      action_type: 'trace_step',
+      input: { step: '__run_failed' },
+      error: errorMsg,
+      parent_id: this._currentParentId,
+      tags: this._tags,
+    });
+    await this._submitEvent(event);
+    await this._recordReceipt('__run_failed', undefined, undefined, errorMsg);
+
+    return this._close('failed');
+  }
+
+  /** Cancel the run with an optional reason and close the session. */
+  async cancel(reason?: string): Promise<RunSummary> {
+    this._assertOpen();
+
+    if (reason) {
+      const output = { reason };
+      const event = buildTraceEvent({
+        session_id: this.sessionId,
+        agent_id: this.agent,
+        action_type: 'trace_step',
+        input: { step: '__run_cancelled' },
+        output,
+        parent_id: this._currentParentId,
+        tags: this._tags,
+      });
+      await this._submitEvent(event);
+      await this._recordReceipt('__run_cancelled', undefined, output);
+    } else {
+      await this._recordReceipt('__run_cancelled');
+    }
+
+    return this._close('cancelled');
+  }
+
+  /** Finish the run: close the session and return a summary. */
+  async finish(status: RunStatus = 'closed'): Promise<RunSummary> {
+    this._assertOpen();
+    return this._close(status);
+  }
+
+  private async _close(status: RunStatus): Promise<RunSummary> {
     this._finished = true;
 
     let receiptCount = 0;
     if (this._provenanceSession) {
       receiptCount = this._provenanceSession.getReceipts().length;
-      await this._provenanceSession.end(status);
+      await this._provenanceSession.end(status === 'closed' ? 'closed' : 'tampered');
     } else {
-      await this._resources.sessions.close(this.sessionId, status, '0');
+      await this._resources.sessions.close(this.sessionId, status === 'closed' ? 'closed' : 'tampered', '0');
     }
 
     return {

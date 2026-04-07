@@ -200,6 +200,175 @@ describe('Run abstraction', () => {
     await inv.shutdown();
   });
 
+  it('log() emits a trace_step event with label and data', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.log('decision context', { reason: 'customer eligible' });
+
+    const traceCall = calls.find(c => c.url.includes('/v1/trace/events'));
+    const event = traceCall!.body[0];
+    expect(event.action_type).toBe('trace_step');
+    expect(event.input).toEqual({ label: 'decision context' });
+    expect(event.output).toEqual({ reason: 'customer eligible' });
+
+    await inv.shutdown();
+  });
+
+  it('log() works with no data', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.log('checkpoint reached');
+
+    const traceCall = calls.find(c => c.url.includes('/v1/trace/events'));
+    const event = traceCall!.body[0];
+    expect(event.input).toEqual({ label: 'checkpoint reached' });
+    expect(event.output).toBeUndefined();
+
+    await inv.shutdown();
+  });
+
+  it('log() wraps non-object data', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.log('score', 42);
+
+    const traceCall = calls.find(c => c.url.includes('/v1/trace/events'));
+    const event = traceCall!.body[0];
+    expect(event.output).toEqual({ value: 42 });
+
+    await inv.shutdown();
+  });
+
+  it('flush() flushes pending provenance receipts', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({
+      apiKey: 'inv_test',
+      agent: 'test-agent',
+      privateKey: 'a'.repeat(64),
+      instrumentation: { provenance: true },
+    });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.log('decision context', { reason: 'customer eligible' });
+    expect(calls.some(c => c.url.includes('/v1/receipts'))).toBe(false);
+
+    await run.flush();
+
+    expect(calls.some(c => c.url.includes('/v1/receipts'))).toBe(true);
+
+    await inv.shutdown();
+  });
+
+  it('log() records a provenance receipt when enabled', async () => {
+    const inv = Invariance.init({
+      apiKey: 'inv_test',
+      agent: 'test-agent',
+      privateKey: 'a'.repeat(64),
+      instrumentation: { provenance: true },
+    });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.log('decision context', { reason: 'customer eligible' });
+    const summary = await run.finish();
+
+    expect(summary.receipt_count).toBe(1);
+
+    await inv.shutdown();
+  });
+
+  it('fail() emits error event and closes with failed status', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    const summary = await run.fail(new Error('something broke'));
+
+    expect(summary.status).toBe('failed');
+    expect(summary.session_id).toBe(run.sessionId);
+
+    const traceCalls = calls.filter(c => c.url.includes('/v1/trace/events'));
+    const errorEvent = traceCalls[0]!.body[0];
+    expect(errorEvent.action_type).toBe('trace_step');
+    expect(errorEvent.input).toEqual({ step: '__run_failed' });
+    expect(errorEvent.error).toBe('something broke');
+
+    // Should have closed the session
+    expect(calls.some(c => c.url.includes(`/v1/sessions/${run.sessionId}`) && c.opts.method === 'PATCH')).toBe(true);
+
+    await inv.shutdown();
+  });
+
+  it('fail() prevents further operations', async () => {
+    mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+    await run.fail('error');
+    await expect(run.step('a', async () => 'b')).rejects.toThrow('already finished');
+    await inv.shutdown();
+  });
+
+  it('cancel() closes with cancelled status', async () => {
+    mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    const summary = await run.cancel('user requested');
+    expect(summary.status).toBe('cancelled');
+
+    await inv.shutdown();
+  });
+
+  it('cancel() emits reason event when reason provided', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.cancel('timeout');
+
+    const traceCalls = calls.filter(c => c.url.includes('/v1/trace/events'));
+    const cancelEvent = traceCalls[0]!.body[0];
+    expect(cancelEvent.input).toEqual({ step: '__run_cancelled' });
+    expect(cancelEvent.output).toEqual({ reason: 'timeout' });
+
+    await inv.shutdown();
+  });
+
+  it('cancel() without reason does not emit trace event', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.cancel();
+
+    const traceCalls = calls.filter(c => c.url.includes('/v1/trace/events'));
+    expect(traceCalls).toHaveLength(0);
+
+    await inv.shutdown();
+  });
+
+  it('cancel() records a provenance receipt even without a reason', async () => {
+    const inv = Invariance.init({
+      apiKey: 'inv_test',
+      agent: 'test-agent',
+      privateKey: 'a'.repeat(64),
+      instrumentation: { provenance: true },
+    });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    const summary = await run.cancel();
+
+    expect(summary.status).toBe('cancelled');
+    expect(summary.receipt_count).toBe(1);
+
+    await inv.shutdown();
+  });
+
   it('does not create the same session twice when provenance is enabled', async () => {
     const { calls } = mockFetch();
     const inv = Invariance.init({
