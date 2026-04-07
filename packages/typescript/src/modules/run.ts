@@ -2,7 +2,7 @@ import { ulid } from 'ulid';
 import type { Session } from '../session.js';
 import type { SessionCreateOpts } from '../types/session.js';
 import type { TraceEventInput, TraceNode } from '../types/trace.js';
-import type { RunStartOpts, RunSummary, StepOpts } from '../types/run.js';
+import type { RunStartOpts, RunSummary, RunStatus, StepOpts } from '../types/run.js';
 import type { CreateSignalBody, Signal } from '../types/signal.js';
 import type { Receipt } from '../types/receipt.js';
 import {
@@ -337,23 +337,95 @@ export class Run {
     await this._submitEvent(event);
   }
 
+  /** Log a simple message or data payload against this run. */
+  async log(label: string, data?: unknown, opts?: StepOpts): Promise<void> {
+    this._assertOpen();
+    const event = buildTraceEvent({
+      session_id: this.sessionId,
+      agent_id: this.agent,
+      action_type: 'trace_step',
+      input: { label },
+      output: data !== undefined
+        ? (typeof data === 'object' && data !== null ? data : { value: data })
+        : undefined,
+      parent_id: this._currentParentId,
+      tags: opts?.tags ?? this._tags,
+      custom_attributes: opts?.custom_attributes,
+      custom_headers: opts?.custom_headers,
+    });
+    await this._submitEvent(event);
+  }
+
   /** Emit a signal from this run. */
   async signal(body: CreateSignalBody): Promise<Signal> {
     this._assertOpen();
     return this._resources.signals.create(body);
   }
 
-  /** Finish the run: close the session and return a summary. */
-  async finish(status: 'closed' | 'tampered' = 'closed'): Promise<RunSummary> {
+  /** Flush any pending trace or receipt work without closing the run. */
+  async flush(): Promise<void> {
+    if (this._provenanceSession) {
+      // Provenance session flushes through the batcher
+      await this._provenanceSession.flush?.();
+    }
+  }
+
+  /** Mark the run as failed, emit an error event, and close the session. */
+  async fail(error: unknown): Promise<RunSummary> {
     this._assertOpen();
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    // Emit a final error trace event
+    const event = buildTraceEvent({
+      session_id: this.sessionId,
+      agent_id: this.agent,
+      action_type: 'trace_step',
+      input: { step: '__run_failed' },
+      error: errorMsg,
+      parent_id: this._currentParentId,
+      tags: this._tags,
+    });
+    await this._submitEvent(event);
+    await this._recordReceipt('__run_failed', undefined, undefined, errorMsg);
+
+    return this._close('failed');
+  }
+
+  /** Cancel the run with an optional reason and close the session. */
+  async cancel(reason?: string): Promise<RunSummary> {
+    this._assertOpen();
+
+    if (reason) {
+      const event = buildTraceEvent({
+        session_id: this.sessionId,
+        agent_id: this.agent,
+        action_type: 'trace_step',
+        input: { step: '__run_cancelled' },
+        output: { reason },
+        parent_id: this._currentParentId,
+        tags: this._tags,
+      });
+      await this._submitEvent(event);
+    }
+
+    return this._close('cancelled');
+  }
+
+  /** Finish the run: close the session and return a summary. */
+  async finish(status: RunStatus = 'closed'): Promise<RunSummary> {
+    this._assertOpen();
+    return this._close(status);
+  }
+
+  private async _close(status: RunStatus): Promise<RunSummary> {
     this._finished = true;
 
     let receiptCount = 0;
     if (this._provenanceSession) {
       receiptCount = this._provenanceSession.getReceipts().length;
-      await this._provenanceSession.end(status);
+      await this._provenanceSession.end(status === 'closed' ? 'closed' : 'tampered');
     } else {
-      await this._resources.sessions.close(this.sessionId, status, '0');
+      await this._resources.sessions.close(this.sessionId, status === 'closed' ? 'closed' : 'tampered', '0');
     }
 
     return {
