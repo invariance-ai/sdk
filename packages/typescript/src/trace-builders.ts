@@ -2,6 +2,7 @@ import type {
   TraceEventInput, BehavioralPrimitive, NodeMetadata,
   TraceNodeCustomHeaders, TraceNodeCustomAttributes,
 } from './types/trace.js';
+import type { UsageOpts, ContextWindowOpts } from './types/run.js';
 
 // ── Shared options ──
 
@@ -120,5 +121,39 @@ export function buildHandoffEvent(opts: BuildHandoffOpts): TraceEventInput {
     ...opts,
     action_type: 'sub_agent_spawn',
     input: { target_agent_id: opts.target_agent_id, task: opts.task, context: opts.context },
+  });
+}
+
+// ── Token usage ──
+
+export interface BuildTokenUsageOpts extends BaseTraceOpts {
+  usage: UsageOpts;
+}
+
+export function buildTokenUsageEvent(opts: BuildTokenUsageOpts): TraceEventInput {
+  const { model, input_tokens, output_tokens, ...rest } = opts.usage;
+  return buildTraceEvent({
+    ...opts,
+    action_type: 'token_usage',
+    input: { model, input_tokens, output_tokens, ...rest },
+    metadata: {
+      ...opts.metadata,
+      token_cost: input_tokens + output_tokens,
+    },
+  });
+}
+
+// ── Context window ──
+
+export interface BuildContextWindowOpts extends BaseTraceOpts {
+  context: ContextWindowOpts;
+}
+
+export function buildContextWindowEvent(opts: BuildContextWindowOpts): TraceEventInput {
+  const { label, segments, ...metrics } = opts.context;
+  return buildTraceEvent({
+    ...opts,
+    action_type: 'context_window',
+    input: { label, ...metrics, ...(segments ? { segments } : {}) },
   });
 }

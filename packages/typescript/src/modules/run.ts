@@ -2,12 +2,13 @@ import { ulid } from 'ulid';
 import type { Session } from '../session.js';
 import type { SessionCreateOpts } from '../types/session.js';
 import type { TraceEventInput, TraceNode } from '../types/trace.js';
-import type { RunStartOpts, RunSummary, RunStatus, StepOpts } from '../types/run.js';
+import type { RunStartOpts, RunSummary, RunStatus, StepOpts, UsageOpts, ContextWindowOpts } from '../types/run.js';
 import type { CreateSignalBody, Signal } from '../types/signal.js';
 import type { Receipt } from '../types/receipt.js';
 import {
   buildTraceEvent, buildToolInvocationEvent,
   buildDecisionEvent, buildConstraintCheckEvent, buildHandoffEvent,
+  buildTokenUsageEvent, buildContextWindowEvent,
 } from '../trace-builders.js';
 import type { ResourcesModule } from './resources.js';
 
@@ -360,6 +361,34 @@ export class Run {
     });
     await this._submitEvent(event);
     await this._recordReceipt(`log:${label}`, { label }, output);
+  }
+
+  /** Record token and model usage for an LLM call. */
+  async usage(opts: UsageOpts): Promise<void> {
+    this._assertOpen();
+    const event = buildTokenUsageEvent({
+      session_id: this.sessionId,
+      agent_id: this.agent,
+      usage: opts,
+      parent_id: this._currentParentId,
+      tags: this._tags,
+    });
+    await this._submitEvent(event);
+    await this._recordReceipt('usage', opts);
+  }
+
+  /** Record prompt/context composition at a decision point. */
+  async contextWindow(opts: ContextWindowOpts): Promise<void> {
+    this._assertOpen();
+    const event = buildContextWindowEvent({
+      session_id: this.sessionId,
+      agent_id: this.agent,
+      context: opts,
+      parent_id: this._currentParentId,
+      tags: this._tags,
+    });
+    await this._submitEvent(event);
+    await this._recordReceipt('context_window', opts);
   }
 
   /** Emit a signal from this run. */
