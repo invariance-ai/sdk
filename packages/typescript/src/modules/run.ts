@@ -364,28 +364,32 @@ export class Run {
   }
 
   /** Record token and model usage for an LLM call. */
-  async usage(opts: UsageOpts): Promise<void> {
+  async usage(opts: UsageOpts, stepOpts?: StepOpts): Promise<void> {
     this._assertOpen();
     const event = buildTokenUsageEvent({
       session_id: this.sessionId,
       agent_id: this.agent,
       usage: opts,
       parent_id: this._currentParentId,
-      tags: this._tags,
+      tags: stepOpts?.tags ?? this._tags,
+      custom_attributes: stepOpts?.custom_attributes,
+      custom_headers: stepOpts?.custom_headers,
     });
     await this._submitEvent(event);
     await this._recordReceipt('usage', opts);
   }
 
   /** Record prompt/context composition at a decision point. */
-  async contextWindow(opts: ContextWindowOpts): Promise<void> {
+  async contextWindow(opts: ContextWindowOpts, stepOpts?: StepOpts): Promise<void> {
     this._assertOpen();
     const event = buildContextWindowEvent({
       session_id: this.sessionId,
       agent_id: this.agent,
       context: opts,
       parent_id: this._currentParentId,
-      tags: this._tags,
+      tags: stepOpts?.tags ?? this._tags,
+      custom_attributes: stepOpts?.custom_attributes,
+      custom_headers: stepOpts?.custom_headers,
     });
     await this._submitEvent(event);
     await this._recordReceipt('context_window', opts);

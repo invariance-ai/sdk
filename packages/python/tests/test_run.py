@@ -169,6 +169,62 @@ async def test_cancel_records_provenance_receipt_without_reason():
 
 
 @pytest.mark.asyncio
+async def test_usage_emits_token_usage_event():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test", agent="test-agent")
+    with respx.mock(base_url="https://api.test", assert_all_called=False) as router:
+        _mock_routes(router)
+        trace_route = router.post("/v1/trace/events").mock(
+            return_value=Response(200, json={"nodes": []})
+        )
+        run = await client.run.start(name="test-run")
+        await run.usage(
+            model="gpt-5.4-mini",
+            input_tokens=120,
+            output_tokens=30,
+            estimated_cost_usd=0.004,
+            tags=["llm"],
+            custom_attributes={"provider": "openai"},
+            custom_headers={"phase": "draft"},
+        )
+
+        payload = trace_route.calls[-1].request.content.decode()
+        assert '"action_type":"token_usage"' in payload
+        assert '"input_tokens":120' in payload
+        assert '"output_tokens":30' in payload
+        assert '"token_cost":150' in payload
+        assert '"provider":"openai"' in payload
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_context_window_emits_context_window_event():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test", agent="test-agent")
+    with respx.mock(base_url="https://api.test", assert_all_called=False) as router:
+        _mock_routes(router)
+        trace_route = router.post("/v1/trace/events").mock(
+            return_value=Response(200, json={"nodes": []})
+        )
+        run = await client.run.start(name="test-run")
+        await run.context_window(
+            label="answer context",
+            model="gpt-5.4-mini",
+            input_tokens=800,
+            truncated=True,
+            segments=[{"type": "retrieval", "tokens": 500, "item_count": 4}],
+            tags=["context"],
+            custom_attributes={"retrieval_count": 4},
+            custom_headers={"workflow": "refund"},
+        )
+
+        payload = trace_route.calls[-1].request.content.decode()
+        assert '"action_type":"context_window"' in payload
+        assert '"label":"answer context"' in payload
+        assert '"retrieval_count":4' in payload
+        assert '"workflow":"refund"' in payload
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_finish_returns_summary():
     client = Invariance.init(api_key="test-key", api_url="https://api.test", agent="test-agent")
     with respx.mock(base_url="https://api.test", assert_all_called=False) as router:

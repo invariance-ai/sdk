@@ -476,6 +476,9 @@ class Run:
         cached_tokens: int | None = None,
         reasoning_tokens: int | None = None,
         estimated_cost_usd: float | None = None,
+        tags: list[str] | None = None,
+        custom_attributes: dict[str, Any] | None = None,
+        custom_headers: dict[str, str] | None = None,
     ) -> None:
         """Record token and model usage for an LLM call."""
         self._assert_open()
@@ -497,7 +500,9 @@ class Run:
             action_type="token_usage",
             input=usage_data,
             parent_id=self._current_parent_id(),
-            tags=self._tags,
+            tags=tags or self._tags,
+            custom_attributes=custom_attributes,
+            custom_headers=custom_headers,
             metadata={"token_cost": input_tokens + output_tokens},
         )
         await self._submit_event(event)
@@ -513,6 +518,9 @@ class Run:
         budget_tokens: int | None = None,
         truncated: bool | None = None,
         segments: list[dict[str, Any]] | None = None,
+        tags: list[str] | None = None,
+        custom_attributes: dict[str, Any] | None = None,
+        custom_headers: dict[str, str] | None = None,
     ) -> None:
         """Record prompt/context composition at a decision point."""
         self._assert_open()
@@ -536,7 +544,9 @@ class Run:
             action_type="context_window",
             input=input_data,
             parent_id=self._current_parent_id(),
-            tags=self._tags,
+            tags=tags or self._tags,
+            custom_attributes=custom_attributes,
+            custom_headers=custom_headers,
         )
         await self._submit_event(event)
         await self._record_receipt("context_window", input_data)
