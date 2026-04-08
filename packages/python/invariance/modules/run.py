@@ -467,6 +467,90 @@ class Run:
         await self._submit_event(event)
         await self._record_receipt(f"log:{label}", {"label": label}, output)
 
+    async def usage(
+        self,
+        *,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        cached_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+        estimated_cost_usd: float | None = None,
+        tags: list[str] | None = None,
+        custom_attributes: dict[str, Any] | None = None,
+        custom_headers: dict[str, str] | None = None,
+    ) -> None:
+        """Record token and model usage for an LLM call."""
+        self._assert_open()
+        usage_data: dict[str, Any] = {
+            "model": model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+        }
+        if cached_tokens is not None:
+            usage_data["cached_tokens"] = cached_tokens
+        if reasoning_tokens is not None:
+            usage_data["reasoning_tokens"] = reasoning_tokens
+        if estimated_cost_usd is not None:
+            usage_data["estimated_cost_usd"] = estimated_cost_usd
+
+        event = _build_trace_event(
+            session_id=self.session_id,
+            agent_id=self.agent,
+            action_type="token_usage",
+            input=usage_data,
+            parent_id=self._current_parent_id(),
+            tags=tags or self._tags,
+            custom_attributes=custom_attributes,
+            custom_headers=custom_headers,
+            metadata={"token_cost": input_tokens + output_tokens},
+        )
+        await self._submit_event(event)
+        await self._record_receipt("usage", usage_data)
+
+    async def context_window(
+        self,
+        *,
+        label: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int | None = None,
+        budget_tokens: int | None = None,
+        truncated: bool | None = None,
+        segments: list[dict[str, Any]] | None = None,
+        tags: list[str] | None = None,
+        custom_attributes: dict[str, Any] | None = None,
+        custom_headers: dict[str, str] | None = None,
+    ) -> None:
+        """Record prompt/context composition at a decision point."""
+        self._assert_open()
+        input_data: dict[str, Any] = {
+            "label": label,
+            "model": model,
+            "input_tokens": input_tokens,
+        }
+        if output_tokens is not None:
+            input_data["output_tokens"] = output_tokens
+        if budget_tokens is not None:
+            input_data["budget_tokens"] = budget_tokens
+        if truncated is not None:
+            input_data["truncated"] = truncated
+        if segments is not None:
+            input_data["segments"] = segments
+
+        event = _build_trace_event(
+            session_id=self.session_id,
+            agent_id=self.agent,
+            action_type="context_window",
+            input=input_data,
+            parent_id=self._current_parent_id(),
+            tags=tags or self._tags,
+            custom_attributes=custom_attributes,
+            custom_headers=custom_headers,
+        )
+        await self._submit_event(event)
+        await self._record_receipt("context_window", input_data)
+
     async def signal(self, body: dict[str, Any]) -> Any:
         self._assert_open()
         return await self._resources.signals.create(body)

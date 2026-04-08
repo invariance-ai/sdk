@@ -369,6 +369,78 @@ describe('Run abstraction', () => {
     await inv.shutdown();
   });
 
+  it('usage() emits a token_usage event with usage metrics and custom metadata', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.usage(
+      {
+        model: 'gpt-5.4-mini',
+        input_tokens: 120,
+        output_tokens: 30,
+        estimated_cost_usd: 0.004,
+      },
+      {
+        tags: ['llm'],
+        custom_attributes: { provider: 'openai' },
+        custom_headers: { phase: 'draft' },
+      },
+    );
+
+    const traceCall = calls.find(c => c.url.includes('/v1/trace/events'));
+    const event = traceCall!.body[0];
+    expect(event.action_type).toBe('token_usage');
+    expect(event.input).toMatchObject({
+      model: 'gpt-5.4-mini',
+      input_tokens: 120,
+      output_tokens: 30,
+      estimated_cost_usd: 0.004,
+    });
+    expect(event.metadata).toMatchObject({ token_cost: 150, tags: ['llm'] });
+    expect(event.custom_attributes).toEqual({ provider: 'openai' });
+    expect(event.custom_headers).toEqual({ phase: 'draft' });
+
+    await inv.shutdown();
+  });
+
+  it('contextWindow() emits a context_window event with segments and custom metadata', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.contextWindow(
+      {
+        label: 'answer context',
+        model: 'gpt-5.4-mini',
+        input_tokens: 800,
+        truncated: true,
+        segments: [{ type: 'retrieval', tokens: 500, item_count: 4 }],
+      },
+      {
+        tags: ['context'],
+        custom_attributes: { retrieval_count: 4 },
+        custom_headers: { workflow: 'refund' },
+      },
+    );
+
+    const traceCall = calls.find(c => c.url.includes('/v1/trace/events'));
+    const event = traceCall!.body[0];
+    expect(event.action_type).toBe('context_window');
+    expect(event.input).toMatchObject({
+      label: 'answer context',
+      model: 'gpt-5.4-mini',
+      input_tokens: 800,
+      truncated: true,
+      segments: [{ type: 'retrieval', tokens: 500, item_count: 4 }],
+    });
+    expect(event.metadata).toMatchObject({ tags: ['context'] });
+    expect(event.custom_attributes).toEqual({ retrieval_count: 4 });
+    expect(event.custom_headers).toEqual({ workflow: 'refund' });
+
+    await inv.shutdown();
+  });
+
   it('does not create the same session twice when provenance is enabled', async () => {
     const { calls } = mockFetch();
     const inv = Invariance.init({

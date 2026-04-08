@@ -19,7 +19,7 @@ export { A2AChannel } from './a2a-channel.js';
 
 // ── Core types (product-facing subset) ──
 export type { InvarianceConfig, InstrumentationConfig, Action } from './types/config.js';
-export type { RunStartOpts, RunSummary, RunStatus, StepOpts } from './types/run.js';
+export type { RunStartOpts, RunSummary, RunStatus, StepOpts, UsageOpts, ContextSegment, ContextWindowOpts } from './types/run.js';
 export type { SessionCreateOpts, SessionInfo } from './types/session.js';
 export type { Receipt } from './types/receipt.js';
 export type { BehavioralPrimitive, TraceEventInput, TraceNode } from './types/trace.js';
