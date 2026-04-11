@@ -15,6 +15,10 @@ function mockFetch() {
     if (url.includes('/v1/trace/events')) {
       return { ok: true, json: async () => ({ nodes: body?.map((_: unknown, i: number) => ({ id: `node-${i}` })) ?? [] }) };
     }
+    // Signals
+    if (url.includes('/v1/signals') && opts.method === 'POST') {
+      return { ok: true, json: async () => ({ id: 'sig-1', ...body }) };
+    }
     // Session close
     if (url.includes('/v1/sessions/') && opts.method === 'PATCH') {
       return { ok: true, json: async () => ({ id: 'sess', status: 'closed' }) };
@@ -96,6 +100,23 @@ describe('Run abstraction', () => {
     const event = traceCalls[0]!.body[0];
     expect(event.action_type).toBe('tool_invocation');
     expect(event.input).toMatchObject({ tool: 'fetch_order', args: { orderId: '123' } });
+
+    await inv.shutdown();
+  });
+
+  it('evaluate() links failed signals to the submitted trace node', async () => {
+    const { calls } = mockFetch();
+    const inv = Invariance.init({ apiKey: 'inv_test', agent: 'test-agent' });
+    const run = await inv.run.start({ name: 'test-run' });
+
+    await run.evaluate('policy', { answer: 'bad' }, { passed: false, score: 0.2, details: 'missing citation' });
+
+    const traceCall = calls.find(c => c.url.includes('/v1/trace/events'));
+    expect(traceCall!.body[0].action_type).toBe('constraint_check');
+
+    const signalCall = calls.find(c => c.url.includes('/v1/signals') && c.opts.method === 'POST');
+    expect(signalCall!.body.trace_node_id).toBe('node-0');
+    expect(signalCall!.body.metadata.trace_node_id).toBe('node-0');
 
     await inv.shutdown();
   });

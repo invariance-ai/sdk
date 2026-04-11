@@ -28,3 +28,6 @@ class SessionsResource:
 
     async def verify(self, id: str) -> VerifyResult:
         return await self._http.get(f"/v1/sessions/{id}/verify")
+
+    async def proof_summary(self, id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/sessions/{id}/proof-summary")

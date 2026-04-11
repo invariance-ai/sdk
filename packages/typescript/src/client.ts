@@ -13,6 +13,7 @@ import { TracingModule } from './modules/tracing.js';
 import { MonitorsModule } from './modules/monitors-module.js';
 import { AnalysisModule } from './modules/analysis.js';
 import { ImprovementModule } from './modules/improvement.js';
+import type { Receipt } from './types/receipt.js';
 import { RunModule } from './modules/run.js';
 
 import type { InvarianceConfig, Action } from './types/config.js';

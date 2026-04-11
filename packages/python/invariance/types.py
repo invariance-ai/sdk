@@ -187,6 +187,9 @@ BehavioralPrimitive = Literal[
     "goal_drift",
     "constraint_check",
     "plan_revision",
+    "trace_step",
+    "context_window",
+    "token_usage",
     "a2a_send",
     "a2a_receive",
 ]

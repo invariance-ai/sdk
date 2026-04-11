@@ -14,6 +14,10 @@ export class SignalsResource {
     return this.http.get<Signal>(`/v1/signals/${id}`);
   }
 
+  async evidence(id: string): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/v1/signals/${id}/evidence`);
+  }
+
   async create(body: CreateSignalBody): Promise<Signal> {
     return this.http.post<Signal>('/v1/signals', body);
   }

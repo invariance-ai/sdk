@@ -24,4 +24,8 @@ export class SessionsResource {
   async verify(id: string): Promise<VerifyResult> {
     return this.http.get<VerifyResult>(`/v1/sessions/${id}/verify`);
   }
+
+  async proofSummary(id: string): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/v1/sessions/${id}/proof-summary`);
+  }
 }
