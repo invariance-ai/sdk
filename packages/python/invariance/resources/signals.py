@@ -15,6 +15,9 @@ class SignalsResource:
     async def get(self, signal_id: str) -> dict[str, Any]:
         return await self._http.get(f"/v1/signals/{signal_id}")
 
+    async def evidence(self, signal_id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/signals/{signal_id}/evidence")
+
     async def create(self, body: dict[str, Any]) -> dict[str, Any]:
         return await self._http.post("/v1/signals", body)
 

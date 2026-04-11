@@ -26,6 +26,18 @@ class TraceResource:
     async def get_session_nodes(self, session_id: str) -> dict[str, Any]:
         return await self._http.get(f"/v1/trace/sessions/{session_id}/nodes")
 
+    async def get_session_summary(self, session_id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/trace/sessions/{session_id}/summary")
+
+    async def get_session_handoffs(self, session_id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/trace/sessions/{session_id}/handoffs")
+
+    async def get_session_signals(self, session_id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/trace/sessions/{session_id}/signals")
+
+    async def get_session_proof(self, session_id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/trace/sessions/{session_id}/proof")
+
     async def get_replay(self, session_id: str) -> dict[str, Any]:
         return await self._http.get(f"/v1/trace/sessions/{session_id}/replay")
 

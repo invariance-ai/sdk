@@ -347,25 +347,28 @@ class Run:
         target_agent: str,
         task: str | None = None,
         *,
+        context_delta: dict[str, Any] | None = None,
         tags: list[str] | None = None,
         custom_attributes: dict[str, Any] | None = None,
         custom_headers: dict[str, str] | None = None,
     ) -> Any:
+        """Record a handoff to another agent with optional context delta."""
         self._assert_open()
+        input_data: dict[str, Any] = {"target_agent_id": target_agent, "task": task}
+        if context_delta:
+            input_data["context_delta"] = context_delta
         event = _build_trace_event(
             session_id=self.session_id,
             agent_id=self.agent,
             action_type="sub_agent_spawn",
-            input={"target_agent_id": target_agent, "task": task},
+            input=input_data,
             parent_id=self._current_parent_id(),
             tags=tags or self._tags,
             custom_attributes=custom_attributes,
             custom_headers=custom_headers,
         )
         await self._submit_event(event)
-        await self._record_receipt(
-            "handoff", {"target_agent_id": target_agent, "task": task}
-        )
+        await self._record_receipt("handoff", input_data)
 
     async def message(
         self,
@@ -552,8 +555,62 @@ class Run:
         await self._record_receipt("context_window", input_data)
 
     async def signal(self, body: dict[str, Any]) -> Any:
+        """Emit a signal from this run. Session and agent context are auto-filled."""
         self._assert_open()
+        body.setdefault("session_id", self.session_id)
+        body.setdefault("agent_id", self.agent)
         return await self._resources.signals.create(body)
+
+    async def evaluate(
+        self,
+        name: str,
+        input_data: dict[str, Any],
+        result: dict[str, Any],
+        *,
+        tags: list[str] | None = None,
+        custom_attributes: dict[str, Any] | None = None,
+        custom_headers: dict[str, str] | None = None,
+    ) -> None:
+        """Record an inline evaluation check and emit a trace event + receipt.
+
+        ``result`` should contain ``passed`` (bool) and optionally ``score`` / ``details``.
+        A signal is auto-emitted on failure.
+        """
+        self._assert_open()
+        passed = result.get("passed", False)
+        score = result.get("score")
+        details = result.get("details")
+
+        event = _build_trace_event(
+            session_id=self.session_id,
+            agent_id=self.agent,
+            action_type="constraint_check",
+            input={"evaluator": name, **input_data},
+            output={"passed": passed, "score": score, "details": details},
+            parent_id=self._current_parent_id(),
+            tags=tags or self._tags,
+            custom_attributes=custom_attributes,
+            custom_headers=custom_headers,
+        )
+        submitted = await self._submit_event(event)
+        await self._record_receipt(
+            f"eval:{name}", input_data, {"passed": passed, "score": score}
+        )
+
+        if not passed:
+            trace_node_id = None
+            nodes = submitted.get("nodes") if isinstance(submitted, dict) else None
+            if isinstance(nodes, list) and nodes and isinstance(nodes[0], dict):
+                trace_node_id = nodes[0].get("id")
+            await self._resources.signals.create({
+                "title": f"Evaluation failed: {name}",
+                "message": details or f'Evaluator "{name}" did not pass',
+                "severity": "medium",
+                "session_id": self.session_id,
+                "agent_id": self.agent,
+                "trace_node_id": trace_node_id,
+                "metadata": {"evaluator": name, "score": score, "trace_node_id": trace_node_id, **input_data},
+            })
 
     async def flush(self) -> None:
         """Flush any pending trace or receipt work without closing the run."""

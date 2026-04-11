@@ -114,13 +114,19 @@ export interface BuildHandoffOpts extends BaseTraceOpts {
   target_agent_id: string;
   task?: string;
   context?: unknown;
+  context_delta?: Record<string, unknown>;
 }
 
 export function buildHandoffEvent(opts: BuildHandoffOpts): TraceEventInput {
   return buildTraceEvent({
     ...opts,
     action_type: 'sub_agent_spawn',
-    input: { target_agent_id: opts.target_agent_id, task: opts.task, context: opts.context },
+    input: {
+      target_agent_id: opts.target_agent_id,
+      task: opts.task,
+      context: opts.context,
+      ...(opts.context_delta ? { context_delta: opts.context_delta } : {}),
+    },
   });
 }
 

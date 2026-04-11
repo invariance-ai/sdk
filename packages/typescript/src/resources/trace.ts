@@ -31,6 +31,22 @@ export class TraceResource {
     return this.http.get<{ nodes: TraceNode[] }>(`/v1/trace/sessions/${sessionId}/nodes`);
   }
 
+  async getSessionSummary(sessionId: string): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/v1/trace/sessions/${sessionId}/summary`);
+  }
+
+  async getSessionHandoffs(sessionId: string): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/v1/trace/sessions/${sessionId}/handoffs`);
+  }
+
+  async getSessionSignals(sessionId: string): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/v1/trace/sessions/${sessionId}/signals`);
+  }
+
+  async getSessionProof(sessionId: string): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/v1/trace/sessions/${sessionId}/proof`);
+  }
+
   async getReplay(sessionId: string): Promise<{ timeline: ReplayTimelineEntry[] }> {
     return this.http.get<{ timeline: ReplayTimelineEntry[] }>(`/v1/trace/sessions/${sessionId}/replay`);
   }

@@ -8,6 +8,7 @@ def _mock_routes(router):
     """Set up standard mock routes for run tests."""
     router.post("/v1/sessions").mock(return_value=Response(200, json={}))
     router.post("/v1/trace/events").mock(return_value=Response(200, json={"nodes": []}))
+    router.post("/v1/signals").mock(return_value=Response(200, json={}))
     router.route(method="PATCH", path__regex=r"/v1/sessions/.+").mock(
         return_value=Response(200, json={"status": "closed"})
     )
@@ -221,6 +222,30 @@ async def test_context_window_emits_context_window_event():
         assert '"label":"answer context"' in payload
         assert '"retrieval_count":4' in payload
         assert '"workflow":"refund"' in payload
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evaluate_links_failed_signal_to_trace_node():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test", agent="test-agent")
+    with respx.mock(base_url="https://api.test", assert_all_called=False) as router:
+        _mock_routes(router)
+        router.post("/v1/trace/events").mock(
+            return_value=Response(200, json={"nodes": [{"id": "node-eval"}]})
+        )
+        signal_route = router.post("/v1/signals").mock(
+            return_value=Response(200, json={})
+        )
+        run = await client.run.start(name="test-run")
+        await run.evaluate(
+            "policy",
+            {"answer": "bad"},
+            {"passed": False, "score": 0.2, "details": "missing citation"},
+        )
+
+        payload = signal_route.calls[-1].request.content.decode()
+        assert '"trace_node_id":"node-eval"' in payload
+        assert '"score":0.2' in payload
     await client.shutdown()
 
 
