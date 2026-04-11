@@ -2,12 +2,12 @@ import { ulid } from 'ulid';
 import type { Session } from '../session.js';
 import type { SessionCreateOpts } from '../types/session.js';
 import type { TraceEventInput, TraceNode } from '../types/trace.js';
-import type { RunStartOpts, RunSummary, RunStatus, StepOpts } from '../types/run.js';
+import type { RunStartOpts, RunSummary, RunStatus, StepOpts, UsageOpts, ContextWindowOpts } from '../types/run.js';
 import type { CreateSignalBody, Signal } from '../types/signal.js';
-import type { Receipt } from '../types/receipt.js';
 import {
   buildTraceEvent, buildToolInvocationEvent,
   buildDecisionEvent, buildConstraintCheckEvent, buildHandoffEvent,
+  buildTokenUsageEvent, buildContextWindowEvent,
 } from '../trace-builders.js';
 import type { ResourcesModule } from './resources.js';
 
@@ -273,21 +273,26 @@ export class Run {
     return result;
   }
 
-  /** Record a handoff to another agent. */
-  async handoff(targetAgent: string, task?: string, opts?: StepOpts): Promise<void> {
+  /** Record a handoff to another agent with optional context delta. */
+  async handoff(targetAgent: string, task?: string, opts?: StepOpts & { context_delta?: Record<string, unknown> }): Promise<void> {
     this._assertOpen();
     const event = buildHandoffEvent({
       session_id: this.sessionId,
       agent_id: this.agent,
       target_agent_id: targetAgent,
       task,
+      context_delta: opts?.context_delta,
       parent_id: this._currentParentId,
       tags: opts?.tags ?? this._tags,
       custom_attributes: opts?.custom_attributes,
       custom_headers: opts?.custom_headers,
     });
     await this._submitEvent(event);
-    await this._recordReceipt('handoff', { target_agent_id: targetAgent, task });
+    await this._recordReceipt('handoff', {
+      target_agent_id: targetAgent,
+      task,
+      ...(opts?.context_delta ? { context_delta: opts.context_delta } : {}),
+    });
   }
 
   /** Record a message event. */
@@ -362,10 +367,78 @@ export class Run {
     await this._recordReceipt(`log:${label}`, { label }, output);
   }
 
-  /** Emit a signal from this run. */
+  /** Record token and model usage for an LLM call. */
+  async usage(opts: UsageOpts, stepOpts?: StepOpts): Promise<void> {
+    this._assertOpen();
+    const event = buildTokenUsageEvent({
+      session_id: this.sessionId,
+      agent_id: this.agent,
+      usage: opts,
+      parent_id: this._currentParentId,
+      tags: stepOpts?.tags ?? this._tags,
+      custom_attributes: stepOpts?.custom_attributes,
+      custom_headers: stepOpts?.custom_headers,
+    });
+    await this._submitEvent(event);
+    await this._recordReceipt('usage', opts);
+  }
+
+  /** Record prompt/context composition at a decision point. */
+  async contextWindow(opts: ContextWindowOpts, stepOpts?: StepOpts): Promise<void> {
+    this._assertOpen();
+    const event = buildContextWindowEvent({
+      session_id: this.sessionId,
+      agent_id: this.agent,
+      context: opts,
+      parent_id: this._currentParentId,
+      tags: stepOpts?.tags ?? this._tags,
+      custom_attributes: stepOpts?.custom_attributes,
+      custom_headers: stepOpts?.custom_headers,
+    });
+    await this._submitEvent(event);
+    await this._recordReceipt('context_window', opts);
+  }
+
+  /** Emit a signal from this run. Session and agent context are auto-filled. */
   async signal(body: CreateSignalBody): Promise<Signal> {
     this._assertOpen();
-    return this._resources.signals.create(body);
+    return this._resources.signals.create({
+      ...body,
+      session_id: body.session_id ?? this.sessionId,
+      agent_id: body.agent_id ?? this.agent,
+    });
+  }
+
+  /** Record an inline evaluation check and emit a trace event + receipt. */
+  async evaluate(name: string, input: Record<string, unknown>, result: { passed: boolean; score?: number; details?: string }, opts?: StepOpts): Promise<void> {
+    this._assertOpen();
+    const event = buildTraceEvent({
+      session_id: this.sessionId,
+      agent_id: this.agent,
+      action_type: 'constraint_check',
+      input: { evaluator: name, ...input },
+      output: { passed: result.passed, score: result.score, details: result.details },
+      parent_id: this._currentParentId,
+      tags: opts?.tags ?? this._tags,
+      custom_attributes: opts?.custom_attributes,
+      custom_headers: opts?.custom_headers,
+    });
+    const submitted = await this._submitEvent(event);
+    await this._recordReceipt(`eval:${name}`, input, { passed: result.passed, score: result.score });
+
+    // Auto-emit signal on evaluation failure
+    if (!result.passed) {
+      const traceNodeId = submitted.nodes[0]?.id;
+      await this._resources.signals.create({
+        title: `Evaluation failed: ${name}`,
+        message: result.details ?? `Evaluator "${name}" did not pass`,
+        severity: 'medium',
+        session_id: this.sessionId,
+        agent_id: this.agent,
+        trace_node_id: traceNodeId,
+        metadata: { evaluator: name, score: result.score, trace_node_id: traceNodeId, ...input },
+      });
+    }
   }
 
   /** Flush any pending trace or receipt work without closing the run. */
