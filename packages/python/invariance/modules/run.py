@@ -313,9 +313,32 @@ class Run:
         self._parent_stack.append(span_id)
 
         start = time.time()
+        error = None
         try:
             result = await fn()
-        except Exception:
+        except Exception as e:
+            error = str(e)
+            event = _build_trace_event(
+                session_id=self.session_id,
+                agent_id=self.agent,
+                action_type="decision_point",
+                input={"candidates": context.get("candidates", [])},
+                output={
+                    "chosen": context.get("chosen"),
+                    "reasoning": context.get("reasoning"),
+                },
+                error=error,
+                parent_id=parent_id,
+                span_id=span_id,
+                duration_ms=int((time.time() - start) * 1000),
+                tags=tags or self._tags,
+                custom_attributes=custom_attributes,
+                custom_headers=custom_headers,
+            )
+            await self._submit_event(event)
+            await self._record_receipt(
+                f"decision:{name}", context, error=error
+            )
             self._parent_stack.pop()
             raise
 
