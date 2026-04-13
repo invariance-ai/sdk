@@ -1,21 +1,21 @@
 export interface DeveloperIdentity {
   handle: string;
-  public_key: string;
-  private_key: string;
+  public_key: string | null;
+  private_key?: string;
   api_key: string;
 }
 
 export interface OrgIdentity {
   name: string;
-  public_key: string;
-  private_key: string;
+  public_key: string | null;
+  private_key?: string;
   api_key: string;
 }
 
 export interface AgentIdentity {
   owner: string;
   name: string;
-  public_key: string;
+  public_key: string | null;
   agent_id: string;
   created_at: string;
 }
@@ -38,5 +38,5 @@ export interface SignupOpts {
 
 export interface RegisterAgentOpts {
   name: string;
-  public_key: string;
+  public_key?: string;
 }
