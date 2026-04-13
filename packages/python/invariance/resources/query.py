@@ -35,3 +35,10 @@ class QueryResource:
 
     async def tools(self) -> dict[str, Any]:
         return await self._http.get("/v1/query/tools")
+
+    async def session_signals(
+        self,
+        session_id: str,
+        opts: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self._http.get(f"/v1/query/session/{session_id}/signals", params=opts)

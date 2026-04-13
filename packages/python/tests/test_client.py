@@ -132,3 +132,168 @@ def test_surface_cleanup_removes_module_compatibility_helpers():
     assert not hasattr(client.monitors, "list")
     assert not hasattr(client.monitors, "create")
     assert not hasattr(client.monitors, "emit_signal")
+
+
+# ── Launch resource helpers ──────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_sessions_create_sends_runtime_and_tags():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        route = router.post("/v1/sessions").mock(
+            return_value=Response(200, json={"id": "sess-1", "name": "Test", "status": "open"})
+        )
+        await client.resources.sessions.create({
+            "id": "sess-1",
+            "name": "Test",
+            "runtime": {"framework": "langchain", "model": "claude-4"},
+            "tags": ["mvp", "test"],
+        })
+        req = route.calls[0].request
+        import json
+        body = json.loads(req.content)
+        assert body["runtime"] == {"framework": "langchain", "model": "claude-4"}
+        assert body["tags"] == ["mvp", "test"]
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_sessions_summary():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        router.get("/v1/trace/sessions/sess-1/summary").mock(
+            return_value=Response(200, json={"session_id": "sess-1", "total_nodes": 5})
+        )
+        result = await client.resources.sessions.summary("sess-1")
+        assert result["session_id"] == "sess-1"
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_sessions_proof():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        router.get("/v1/trace/sessions/sess-1/proof").mock(
+            return_value=Response(200, json={"verified": True})
+        )
+        result = await client.resources.sessions.proof("sess-1")
+        assert result["verified"] is True
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_sessions_replay():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        router.get("/v1/trace/sessions/sess-1/replay").mock(
+            return_value=Response(200, json={"events": []})
+        )
+        result = await client.resources.sessions.replay("sess-1")
+        assert result["events"] == []
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_sessions_signals():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        router.get("/v1/query/session/sess-1/signals", params={"limit": "10"}).mock(
+            return_value=Response(200, json={"session_id": "sess-1", "signals": [{"id": "sig-1"}]})
+        )
+        result = await client.resources.sessions.signals("sess-1", {"limit": 10})
+        assert result["session_id"] == "sess-1"
+        assert len(result["signals"]) == 1
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_query_session_signals():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        router.get("/v1/query/session/sess-1/signals", params={"limit": "10"}).mock(
+            return_value=Response(200, json={"session_id": "sess-1", "signals": []})
+        )
+        result = await client.resources.query.session_signals("sess-1", {"limit": 10})
+        assert result["session_id"] == "sess-1"
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evals_launch():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        router.post("/v1/evals/launch").mock(
+            return_value=Response(200, json={"eval_run": {"id": "run-1"}, "experiment_id": None})
+        )
+        result = await client.resources.evals.launch({
+            "mode": "session", "suite_id": "suite-1", "agent_id": "agent-1", "session_ids": ["sess-1"],
+        })
+        assert result["eval_run"]["id"] == "run-1"
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evals_rerun():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        router.post("/v1/evals/runs/run-1/rerun").mock(
+            return_value=Response(200, json={"id": "run-2", "status": "completed"})
+        )
+        result = await client.resources.evals.rerun("run-1")
+        assert result["id"] == "run-2"
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evals_list_regressions():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        router.get("/v1/evals/regressions").mock(
+            return_value=Response(200, json=[{"case_id": "case-1"}])
+        )
+        result = await client.resources.evals.list_regressions({"suite_id": "suite-1"})
+        assert result == [{"case_id": "case-1"}]
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evals_get_lineage():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        router.get("/v1/evals/lineage").mock(
+            return_value=Response(200, json=[{"run_id": "run-1"}])
+        )
+        result = await client.resources.evals.get_lineage({"suite_id": "suite-1"})
+        assert result == [{"run_id": "run-1"}]
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evals_accept_improvement_candidate():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        route = router.patch("/v1/evals/improvement-candidates/cand-1").mock(
+            return_value=Response(200, json={"id": "cand-1", "status": "accepted"})
+        )
+        result = await client.resources.evals.accept_improvement_candidate("cand-1")
+        assert result["status"] == "accepted"
+        import json
+        body = json.loads(route.calls[0].request.content)
+        assert body == {"status": "accepted"}
+    await client.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_evals_reject_improvement_candidate():
+    client = Invariance.init(api_key="test-key", api_url="https://api.test")
+    with respx.mock(base_url="https://api.test") as router:
+        route = router.patch("/v1/evals/improvement-candidates/cand-1").mock(
+            return_value=Response(200, json={"id": "cand-1", "status": "rejected"})
+        )
+        result = await client.resources.evals.reject_improvement_candidate("cand-1")
+        assert result["status"] == "rejected"
+        import json
+        body = json.loads(route.calls[0].request.content)
+        assert body == {"status": "rejected"}
+    await client.shutdown()

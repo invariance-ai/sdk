@@ -54,6 +54,17 @@ class SessionInfo(TypedDict):
     closeHash: str | None
 
 
+class SessionRuntimeMetadata(TypedDict, total=False):
+    framework: str
+    version: str
+    source: str
+    sdk: str
+    provider: str
+    model: str
+    external_agent_id: str
+    agent_name: str
+
+
 class RemoteSession(TypedDict, total=False):
     id: str
     name: str
@@ -64,6 +75,17 @@ class RemoteSession(TypedDict, total=False):
     root_hash: str | None
     close_hash: str | None
     receipt_count: int
+    runtime: SessionRuntimeMetadata
+    tags: list[str]
+
+
+class SessionCreateBody(TypedDict, total=False):
+    id: str
+    name: str
+    agent_id: str
+    created_by: str
+    runtime: SessionRuntimeMetadata
+    tags: list[str]
 
 
 class SessionCreateOpts(TypedDict, total=False):
@@ -766,6 +788,71 @@ class CreateEvalThresholdBody(TypedDict):
     value: float
 
 
+# ── Eval Orchestration ─────────────────────────────────────────────────────
+
+class ProviderTarget(TypedDict, total=False):
+    provider: Literal["anthropic", "openai"]
+    model: str
+    api_key_env: str
+    base_url_env: str
+
+
+class EvalLaunchBody(TypedDict, total=False):
+    mode: Literal["session", "dataset"]
+    suite_id: str
+    agent_id: str
+    session_ids: list[str]
+    dataset_id: str
+    dataset_version: int
+    target: ProviderTarget
+    version_label: str
+
+
+class EvalLaunchResult(TypedDict):
+    eval_run: EvalRun
+    experiment_id: str | None
+
+
+class ImprovementCandidate(TypedDict, total=False):
+    id: str
+    suite_id: str
+    run_a: str
+    run_b: str
+    case_id: str
+    case_name: str
+    type: str
+    status: str
+    delta: float | None
+    session_id: str | None
+    trace_node_id: str | None
+
+
+class EvalRegressionEntry(TypedDict, total=False):
+    case_id: str
+    case_name: str
+    run_a: str
+    run_b: str
+    suite_id: str
+    delta: float | None
+    session_id: str | None
+    dataset_row_id: str | None
+
+
+class EvalLineageEntry(TypedDict, total=False):
+    run_id: str
+    suite_id: str
+    suite_name: str
+    agent_id: str
+    version_label: str | None
+    status: str
+    pass_rate: float | None
+    avg_score: float | None
+    dataset_id: str | None
+    dataset_version: int | None
+    experiment_id: str | None
+    created_at: str
+
+
 # ── Misc ────────────────────────────────────────────────────────────────────
 
 class SearchResult(TypedDict):
@@ -1025,3 +1112,14 @@ class SignalStats(TypedDict):
     by_source: dict[str, int]
     by_severity: dict[str, int]
     unacknowledged: int
+
+
+# ── Session Signals Query ──────────────────────────────────────────────────
+
+class SessionSignalsQuery(TypedDict, total=False):
+    limit: int
+
+
+class SessionSignalsResult(TypedDict):
+    session_id: str
+    signals: list[Signal]

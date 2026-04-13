@@ -86,3 +86,28 @@ class EvalsResource:
 
     async def delete_threshold(self, id: str) -> None:
         await self._http.delete(f"/v1/evals/thresholds/{id}")
+
+    # Orchestration
+    async def launch(self, body: dict[str, Any]) -> dict[str, Any]:
+        return await self._http.post("/v1/evals/launch", body)
+
+    async def rerun(self, id: str) -> dict[str, Any]:
+        return await self._http.post(f"/v1/evals/runs/{id}/rerun", {})
+
+    async def list_regressions(self, opts: dict[str, Any]) -> list[dict[str, Any]]:
+        return await self._http.get("/v1/evals/regressions", params=opts)
+
+    async def get_lineage(self, opts: dict[str, Any]) -> list[dict[str, Any]]:
+        return await self._http.get("/v1/evals/lineage", params=opts)
+
+    async def list_improvement_candidates(self, opts: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        return await self._http.get("/v1/evals/improvement-candidates", params=opts)
+
+    async def update_improvement_candidate(self, id: str, body: dict[str, Any]) -> dict[str, Any]:
+        return await self._http.patch(f"/v1/evals/improvement-candidates/{id}", body)
+
+    async def accept_improvement_candidate(self, id: str) -> dict[str, Any]:
+        return await self.update_improvement_candidate(id, {"status": "accepted"})
+
+    async def reject_improvement_candidate(self, id: str) -> dict[str, Any]:
+        return await self.update_improvement_candidate(id, {"status": "rejected"})
