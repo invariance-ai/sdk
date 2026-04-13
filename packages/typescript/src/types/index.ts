@@ -26,8 +26,12 @@ export type {
 export type {
   Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorValidateResult, MonitorListOpts,
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
-  MonitorExecution, MonitorExecutionListResponse, MonitorRunListResponse,
+  MonitorExecution, MonitorExecutionListResponse,
   MonitorFinding, MonitorFindingListResponse, MonitorHistoryListParams,
+  MonitorReview, MonitorReviewCreateBody, MonitorReviewUpdateBody,
+  MonitorReviewListResponse, MonitorReviewListParams,
+  MonitorReviewStatus, MonitorReviewDecision,
+  SimpleMonitorBody, SimpleMonitorEvaluator,
   MonitorDefinition, MonitorDefinitionBase, MonitorDefinitionRule,
   CronMonitorDefinition, NodeMonitorDefinition, BackendRuleMonitorDefinition,
   MonitorSeverity, MonitorFamily, MonitorScope,

@@ -253,7 +253,9 @@ export interface MonitorBackendEvent {
 // ── Execution & Finding Status ──
 
 export type MonitorExecutionStatus = 'running' | 'passed' | 'failed' | 'error' | 'skipped' | 'timed_out';
-export type MonitorFindingStatus = 'open' | 'acknowledged' | 'resolved';
+export type MonitorFindingStatus = 'open' | 'acknowledged' | 'resolved' | 'dismissed' | 'review_requested';
+export type MonitorReviewStatus = 'pending' | 'claimed' | 'passed' | 'failed' | 'needs_fix';
+export type MonitorReviewDecision = 'pass' | 'fail' | 'needs_fix';
 
 // ── Monitor Definition ──
 
@@ -438,11 +440,6 @@ export interface MonitorExecutionListResponse {
   next_cursor: string | null;
 }
 
-export interface MonitorRunListResponse {
-  runs: MonitorExecution[];
-  next_cursor: string | null;
-}
-
 export interface MonitorFinding {
   id: string;
   monitor_execution_id: string;
@@ -468,4 +465,67 @@ export interface MonitorFindingListResponse {
 export interface MonitorHistoryListParams {
   after_id?: string;
   limit?: number;
+}
+
+// ── Reviews ──
+
+export interface MonitorReview {
+  id: string;
+  finding_id: string;
+  monitor_id: string;
+  monitor_execution_id: string | null;
+  owner_id: string;
+  status: MonitorReviewStatus;
+  priority: string;
+  notes: string | null;
+  assigned_to: string | null;
+  reviewer_id: string | null;
+  decision?: MonitorReviewDecision;
+  resolved_at?: string;
+  created_at: string;
+}
+
+export interface MonitorReviewCreateBody {
+  finding_id: string;
+  priority?: string;
+  notes?: string;
+}
+
+export interface MonitorReviewUpdateBody {
+  status?: 'claimed' | 'pending';
+  assigned_to?: string | null;
+  decision?: MonitorReviewDecision;
+  notes?: string;
+}
+
+export interface MonitorReviewListResponse {
+  reviews: MonitorReview[];
+  next_cursor: string | null;
+}
+
+export interface MonitorReviewListParams {
+  status?: MonitorReviewStatus;
+  priority?: string;
+  assigned_to?: string;
+  monitor_id?: string;
+  limit?: number;
+  after_id?: string;
+}
+
+// ── Simple Monitor (customer-facing) ──
+
+export interface SimpleMonitorEvaluator {
+  type: 'keyword' | 'threshold';
+  field: string;
+  value?: string;
+  operator?: 'gt' | 'gte' | 'lt' | 'lte';
+}
+
+export interface SimpleMonitorBody {
+  name: string;
+  agent_id?: string;
+  trigger?: { type: 'on_completion' | 'on_error' | 'scheduled'; cadence_minutes?: number };
+  evaluator: SimpleMonitorEvaluator;
+  severity?: MonitorSeverity;
+  review?: boolean;
 }
