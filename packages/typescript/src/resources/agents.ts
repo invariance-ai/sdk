@@ -4,7 +4,10 @@ import type { AgentRecord, AgentMetrics, AgentActionTemplate, AgentActionPolicy 
 export class AgentsResource {
   constructor(private http: HttpClient) {}
 
-  async create(opts: { name: string }): Promise<AgentRecord> {
+  async create(opts: {
+    name: string;
+    crypto?: 'none' | 'generate' | { public_key: string };
+  }): Promise<AgentRecord> {
     return this.http.post<AgentRecord>('/v1/agents', opts);
   }
 

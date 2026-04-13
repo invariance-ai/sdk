@@ -1,17 +1,16 @@
 /**
  * Quickstart — minimal session recording example.
- * Auto-generates a keypair so you don't need to manage keys.
+ * No cryptographic keys needed — signing is fully opt-in.
  *
  * Run: npx tsx examples/quickstart.ts
  */
 import { Invariance } from '@invariance/sdk';
 
-// Generate a fresh keypair (no need to manage keys for dev/testing)
-const { privateKey } = Invariance.generateKeypair();
-
 const inv = Invariance.init({
   apiKey: process.env.INVARIANCE_API_KEY || 'dev_test',
-  privateKey,
+  // Signing is opt-in. To enable Ed25519 signed receipts:
+  // const { privateKey } = Invariance.generateKeypair();
+  // Pass privateKey here and set instrumentation.provenance: true
 });
 
 // Create a session — groups related actions into a hash-chained audit trail
