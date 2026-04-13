@@ -379,6 +379,39 @@ describe('orchestration contract shapes', () => {
     await inv.shutdown();
   });
 
+  it('acceptImprovementCandidate patches status accepted', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'cand-1', status: 'accepted' }),
+    });
+
+    const result = await inv.resources.evals.acceptImprovementCandidate('cand-1');
+    expect(result.status).toBe('accepted');
+    const call = (fetch as any).mock.calls[0];
+    expect(call[0]).toBe('https://api.invariance.dev/v1/evals/improvement-candidates/cand-1');
+    expect(call[1]).toMatchObject({ method: 'PATCH' });
+    const body = JSON.parse(call[1].body);
+    expect(body).toEqual({ status: 'accepted' });
+    await inv.shutdown();
+  });
+
+  it('rejectImprovementCandidate patches status rejected', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'cand-1', status: 'rejected' }),
+    });
+
+    const result = await inv.resources.evals.rejectImprovementCandidate('cand-1');
+    expect(result.status).toBe('rejected');
+    const call = (fetch as any).mock.calls[0];
+    expect(call[0]).toBe('https://api.invariance.dev/v1/evals/improvement-candidates/cand-1');
+    const body = JSON.parse(call[1].body);
+    expect(body).toEqual({ status: 'rejected' });
+    await inv.shutdown();
+  });
+
   it('passes query parameters correctly for all filter options', async () => {
     const inv = Invariance.init({ apiKey: 'inv_test' });
     (fetch as any)
@@ -401,6 +434,101 @@ describe('orchestration contract shapes', () => {
     expect(lineageUrl).toContain('dataset_id=d1');
     expect(lineageUrl).toContain('limit=20');
 
+    await inv.shutdown();
+  });
+});
+
+describe('launch resource helpers', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  it('sessions.create sends runtime and tags', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'sess-1', name: 'Test', created_by: 'user-1', status: 'open', created_at: '2026-01-01T00:00:00Z', closed_at: null, root_hash: null, close_hash: null }),
+    });
+
+    await inv.resources.sessions.create({
+      id: 'sess-1',
+      name: 'Test',
+      runtime: { framework: 'langchain', model: 'claude-4' },
+      tags: ['mvp', 'test'],
+    });
+
+    const call = (fetch as any).mock.calls[0];
+    expect(call[0]).toBe('https://api.invariance.dev/v1/sessions');
+    expect(call[1]).toMatchObject({ method: 'POST' });
+    const body = JSON.parse(call[1].body);
+    expect(body.runtime).toEqual({ framework: 'langchain', model: 'claude-4' });
+    expect(body.tags).toEqual(['mvp', 'test']);
+    await inv.shutdown();
+  });
+
+  it('sessions.summary calls /v1/trace/sessions/:id/summary', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ session_id: 'sess-1', total_nodes: 5 }),
+    });
+
+    const result = await inv.resources.sessions.summary('sess-1');
+    expect(result).toMatchObject({ session_id: 'sess-1' });
+    expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/summary');
+    await inv.shutdown();
+  });
+
+  it('sessions.proof calls /v1/trace/sessions/:id/proof', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ verified: true }),
+    });
+
+    const result = await inv.resources.sessions.proof('sess-1');
+    expect(result).toMatchObject({ verified: true });
+    expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/proof');
+    await inv.shutdown();
+  });
+
+  it('sessions.replay calls /v1/trace/sessions/:id/replay', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ events: [] }),
+    });
+
+    const result = await inv.resources.sessions.replay('sess-1');
+    expect(result).toMatchObject({ events: [] });
+    expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/trace/sessions/sess-1/replay');
+    await inv.shutdown();
+  });
+
+  it('sessions.signals calls /v1/query/session/:id/signals with limit', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ session_id: 'sess-1', signals: [{ id: 'sig-1' }] }),
+    });
+
+    const result = await inv.resources.sessions.signals('sess-1', { limit: 10 });
+    expect(result.session_id).toBe('sess-1');
+    expect(result.signals).toHaveLength(1);
+    expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/query/session/sess-1/signals?limit=10');
+    await inv.shutdown();
+  });
+
+  it('query.sessionSignals calls /v1/query/session/:id/signals with limit', async () => {
+    const inv = Invariance.init({ apiKey: 'inv_test' });
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ session_id: 'sess-1', signals: [] }),
+    });
+
+    const result = await inv.resources.query.sessionSignals('sess-1', { limit: 10 });
+    expect(result.session_id).toBe('sess-1');
+    expect((fetch as any).mock.calls[0][0]).toBe('https://api.invariance.dev/v1/query/session/sess-1/signals?limit=10');
     await inv.shutdown();
   });
 });
