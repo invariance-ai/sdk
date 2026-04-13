@@ -7,7 +7,7 @@ import type { Action } from './types/config.js';
 
 export type EnqueueFn = (receipt: Receipt) => void;
 export type SessionCreateFn = (opts: { id: string; name: string; agent_id?: string }) => Promise<void>;
-export type SessionCloseFn = (id: string, status: string, closeHash: string) => Promise<void>;
+export type SessionCloseFn = (id: string, status: 'closed' | 'tampered', closeHash: string) => Promise<void>;
 
 export interface SessionOpts {
   agent: string;

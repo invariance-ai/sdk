@@ -18,7 +18,7 @@ export class SessionsResource {
     return this.http.get(`/v1/sessions/${id}`);
   }
 
-  async close(id: string, status: string, closeHash: string): Promise<{ id: string; status: string; close_hash: string }> {
+  async close(id: string, status: 'closed' | 'tampered', closeHash: string): Promise<{ id: string; status: string; close_hash: string }> {
     return this.http.patch(`/v1/sessions/${id}`, { status, close_hash: closeHash });
   }
 

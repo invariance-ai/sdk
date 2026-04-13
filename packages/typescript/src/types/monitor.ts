@@ -426,7 +426,7 @@ export interface MonitorExecution {
   executor_type: string;
   trigger_type: string;
   trigger_source: string | null;
-  status: string;
+  status: 'running' | 'passed' | 'failed' | 'error' | 'skipped' | 'timed_out';
   input_ref: Record<string, unknown> | null;
   output: Record<string, unknown> | null;
   error: string | null;
@@ -449,7 +449,7 @@ export interface MonitorFinding {
   title: string;
   summary: string;
   evidence: Record<string, unknown>;
-  status: string;
+  status: 'open' | 'acknowledged' | 'resolved' | 'dismissed' | 'review_requested';
   dedupe_key: string | null;
   trace_node_id: string | null;
   session_id: string | null;
