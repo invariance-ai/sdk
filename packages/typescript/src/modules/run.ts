@@ -247,9 +247,28 @@ export class Run {
 
     const start = Date.now();
     let result: T;
+    let error: string | undefined;
+
     try {
       result = await fn();
     } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+      const event = buildTraceEvent({
+        session_id: this.sessionId,
+        agent_id: this.agent,
+        action_type: 'decision_point',
+        input: { candidates: context.candidates },
+        output: { chosen: context.chosen, reasoning: context.reasoning },
+        error,
+        parent_id: parentId,
+        span_id: spanId,
+        duration_ms: Date.now() - start,
+        tags: opts?.tags ?? this._tags,
+        custom_attributes: opts?.custom_attributes,
+        custom_headers: opts?.custom_headers,
+      });
+      await this._submitEvent(event);
+      await this._recordReceipt(`decision:${name}`, context, undefined, error);
       this._parentStack.pop();
       throw err;
     }
