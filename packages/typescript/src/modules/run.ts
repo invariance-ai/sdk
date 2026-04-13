@@ -520,6 +520,9 @@ export class Run {
     this._finished = true;
 
     let receiptCount = 0;
+    // RunStatus has additional states ('failed', 'cancelled') beyond what the session API
+    // accepts ('closed' | 'tampered'). Map anything non-closed to 'tampered' for the session layer;
+    // the original RunStatus is preserved in RunSummary for callers.
     if (this._provenanceSession) {
       receiptCount = this._provenanceSession.getReceipts().length;
       await this._provenanceSession.end(status === 'closed' ? 'closed' : 'tampered');
