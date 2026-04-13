@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, Optional, TypedDict
+
+from typing_extensions import NotRequired
 
 
 # ── Config ──────────────────────────────────────────────────────────────────
@@ -108,8 +110,9 @@ class AgentRecord(TypedDict):
     id: str
     name: str
     api_key: str
-    public_key: str
+    public_key: Optional[str]
     created_at: str
+    private_key: NotRequired[str]
 
 
 class AgentMetrics(TypedDict):
@@ -591,22 +594,22 @@ class DriftComparisonQuery(TypedDict, total=False):
 
 class DeveloperIdentity(TypedDict):
     handle: str
-    public_key: str
-    private_key: str
+    public_key: Optional[str]
     api_key: str
+    private_key: NotRequired[str]
 
 
 class OrgIdentity(TypedDict):
     name: str
-    public_key: str
-    private_key: str
+    public_key: Optional[str]
     api_key: str
+    private_key: NotRequired[str]
 
 
 class AgentIdentity(TypedDict):
     owner: str
     name: str
-    public_key: str
+    public_key: Optional[str]
     agent_id: str
     created_at: str
 
@@ -629,7 +632,7 @@ class SignupOpts(TypedDict):
 
 class RegisterAgentOpts(TypedDict):
     name: str
-    public_key: str
+    public_key: NotRequired[str]
 
 
 # ── Training ────────────────────────────────────────────────────────────────

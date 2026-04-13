@@ -2,7 +2,8 @@ export interface AgentRecord {
   id: string;
   name: string;
   api_key: string;
-  public_key: string;
+  public_key: string | null;
+  private_key?: string;
   created_at: string;
 }
 
