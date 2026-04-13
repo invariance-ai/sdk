@@ -31,3 +31,15 @@ class SessionsResource:
 
     async def proof_summary(self, id: str) -> dict[str, Any]:
         return await self._http.get(f"/v1/sessions/{id}/proof-summary")
+
+    async def summary(self, id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/trace/sessions/{id}/summary")
+
+    async def proof(self, id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/trace/sessions/{id}/proof")
+
+    async def replay(self, id: str) -> dict[str, Any]:
+        return await self._http.get(f"/v1/trace/sessions/{id}/replay")
+
+    async def signals(self, id: str, opts: dict[str, Any] | None = None) -> dict[str, Any]:
+        return await self._http.get(f"/v1/query/session/{id}/signals", params=opts)
