@@ -177,6 +177,8 @@ Commands:
     claim <id>                        Claim a review
     resolve <id> --decision <pass|fail|needs_fix> [--notes <text>]
 
+  mcp             Start MCP server (stdio transport)
+
   ontology        Ontology candidate management
     list [--kind <concept|relation>] [--min-score <n>] [--entity-type <type>] [--limit <n>] [--offset <n>]
     get <id>                          Get a single candidate
@@ -641,6 +643,11 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
             stderr('Available: list, claim, resolve');
             return 1;
         }
+      }
+      case 'mcp': {
+        const { startMcpServer } = await import('../mcp/server.js');
+        await startMcpServer({ apiKey: apiKey, apiUrl: apiUrl });
+        return 0; // unreachable — server runs until killed
       }
       case 'help':
       case undefined:

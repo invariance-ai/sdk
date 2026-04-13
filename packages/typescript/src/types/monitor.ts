@@ -514,12 +514,9 @@ export interface MonitorReviewListParams {
 
 // ── Simple Monitor (customer-facing) ──
 
-export interface SimpleMonitorEvaluator {
-  type: 'keyword' | 'threshold';
-  field: string;
-  value?: string;
-  operator?: 'gt' | 'gte' | 'lt' | 'lte';
-}
+export type SimpleMonitorEvaluator =
+  | { type: 'keyword'; field: string; value: string }
+  | { type: 'threshold'; field: string; value: number; operator: 'gt' | 'gte' | 'lt' | 'lte' };
 
 export interface SimpleMonitorBody {
   name: string;
