@@ -2,6 +2,7 @@ import type { HttpClient } from '../http.js';
 import type {
   NLQueryResult, TraceQueryOpts, StructuredTraceQuery, TraceQueryResult,
   StatsResult, StatsQuery, AgentNote, WriteNoteOpts, ToolSchema, QueryScope,
+  SessionSignalsQuery, SessionSignalsResult,
 } from '../types/query.js';
 
 export class QueryResource {
@@ -35,5 +36,11 @@ export class QueryResource {
 
   async tools(): Promise<{ tools: ToolSchema[] }> {
     return this.http.get<{ tools: ToolSchema[] }>('/v1/query/tools');
+  }
+
+  async sessionSignals(sessionId: string, opts?: SessionSignalsQuery): Promise<SessionSignalsResult> {
+    return this.http.get<SessionSignalsResult>(`/v1/query/session/${sessionId}/signals`, {
+      params: opts as Record<string, string | number | undefined>,
+    });
   }
 }

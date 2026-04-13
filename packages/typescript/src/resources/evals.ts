@@ -109,4 +109,12 @@ export class EvalsResource {
   async updateImprovementCandidate(id: string, body: { status: string }): Promise<ImprovementCandidate> {
     return this.http.patch<ImprovementCandidate>(`/v1/evals/improvement-candidates/${id}`, body);
   }
+
+  async acceptImprovementCandidate(id: string): Promise<ImprovementCandidate> {
+    return this.updateImprovementCandidate(id, { status: 'accepted' });
+  }
+
+  async rejectImprovementCandidate(id: string): Promise<ImprovementCandidate> {
+    return this.updateImprovementCandidate(id, { status: 'rejected' });
+  }
 }

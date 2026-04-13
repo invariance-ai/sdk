@@ -74,3 +74,14 @@ export interface QueryScope {
   session_id?: string;
   agent_id?: string;
 }
+
+// ── Session Signals Query ──
+
+export interface SessionSignalsQuery {
+  limit?: number;
+}
+
+export interface SessionSignalsResult {
+  session_id: string;
+  signals: import('./signal.js').Signal[];
+}

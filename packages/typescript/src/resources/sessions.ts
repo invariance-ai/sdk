@@ -1,11 +1,12 @@
 import type { HttpClient } from '../http.js';
-import type { RemoteSession, SessionListOpts } from '../types/session.js';
+import type { RemoteSession, SessionCreateBody, SessionCreateResult, SessionListOpts } from '../types/session.js';
+import type { Signal } from '../types/signal.js';
 import type { VerifyResult } from '../types/misc.js';
 
 export class SessionsResource {
   constructor(private http: HttpClient) {}
 
-  async create(opts: { id: string; name: string; agent_id?: string }): Promise<{ id: string; name: string; created_by: string; status: string }> {
+  async create(opts: SessionCreateBody): Promise<SessionCreateResult> {
     return this.http.post('/v1/sessions', opts);
   }
 
@@ -27,5 +28,23 @@ export class SessionsResource {
 
   async proofSummary(id: string): Promise<Record<string, unknown>> {
     return this.http.get<Record<string, unknown>>(`/v1/sessions/${id}/proof-summary`);
+  }
+
+  async summary(id: string): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/v1/trace/sessions/${id}/summary`);
+  }
+
+  async proof(id: string): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/v1/trace/sessions/${id}/proof`);
+  }
+
+  async replay(id: string): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/v1/trace/sessions/${id}/replay`);
+  }
+
+  async signals(id: string, opts?: { limit?: number }): Promise<{ session_id: string; signals: Signal[] }> {
+    return this.http.get<{ session_id: string; signals: Signal[] }>(`/v1/query/session/${id}/signals`, {
+      params: opts as Record<string, string | number | undefined>,
+    });
   }
 }
