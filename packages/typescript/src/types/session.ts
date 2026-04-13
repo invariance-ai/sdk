@@ -49,6 +49,14 @@ export interface SessionCreateBody {
   tags?: string[];
 }
 
+export interface SessionCreateResult extends Partial<RemoteSession> {
+  id: string;
+  name: string;
+  created_by: string;
+  runtime?: SessionRuntimeMetadata;
+  tags?: string[];
+}
+
 export interface SessionListOpts {
   status?: string;
   limit?: number;

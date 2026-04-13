@@ -1,7 +1,15 @@
 export type { InvarianceConfig, InstrumentationConfig, Action } from './config.js';
 export type { RunStartOpts, RunSummary, StepOpts } from './run.js';
 export type { Receipt, ReceiptQuery } from './receipt.js';
-export type { SessionInfo, RemoteSession, SessionCreateOpts, SessionCreateBody, SessionRuntimeMetadata, SessionListOpts } from './session.js';
+export type {
+  SessionInfo,
+  RemoteSession,
+  SessionCreateOpts,
+  SessionCreateBody,
+  SessionCreateResult,
+  SessionRuntimeMetadata,
+  SessionListOpts,
+} from './session.js';
 export type { AgentRecord, AgentMetrics, AgentActionTemplate, AgentActionPolicy } from './agent.js';
 export type {
   Contract, ContractProposeOpts, ContractDeliverOpts, DeliveryProof, SettlementProof,

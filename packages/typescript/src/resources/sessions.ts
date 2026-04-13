@@ -1,12 +1,12 @@
 import type { HttpClient } from '../http.js';
-import type { RemoteSession, SessionCreateBody, SessionListOpts } from '../types/session.js';
+import type { RemoteSession, SessionCreateBody, SessionCreateResult, SessionListOpts } from '../types/session.js';
 import type { Signal } from '../types/signal.js';
 import type { VerifyResult } from '../types/misc.js';
 
 export class SessionsResource {
   constructor(private http: HttpClient) {}
 
-  async create(opts: SessionCreateBody): Promise<RemoteSession> {
+  async create(opts: SessionCreateBody): Promise<SessionCreateResult> {
     return this.http.post('/v1/sessions', opts);
   }
 
