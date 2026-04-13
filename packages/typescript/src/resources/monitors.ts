@@ -3,6 +3,12 @@ import type {
   Monitor, CreateMonitorBody, UpdateMonitorBody, MonitorValidateResult,
   MonitorEvaluateResult, MonitorSignal, MonitorEventsQuery, MonitorCompilePreview,
   MonitorDefinition, MonitorListOpts,
+  MonitorExecutionListResponse,
+  MonitorFindingListResponse,
+  MonitorHistoryListParams,
+  MonitorReview, MonitorReviewCreateBody, MonitorReviewUpdateBody,
+  MonitorReviewListResponse, MonitorReviewListParams,
+  SimpleMonitorBody,
 } from '../types/monitor.js';
 
 export class MonitorsResource {
@@ -52,5 +58,55 @@ export class MonitorsResource {
 
   async acknowledgeEvent(eventId: string): Promise<Record<string, unknown>> {
     return this.http.patch<Record<string, unknown>>(`/v1/monitors/events/${eventId}/acknowledge`, {});
+  }
+
+  // ── Simple Monitor ──
+
+  async createSimple(body: SimpleMonitorBody): Promise<Monitor> {
+    return this.http.post<Monitor>('/v1/monitors/simple', body);
+  }
+
+  // ── Executions ──
+
+  async listExecutions(monitorId: string, params?: MonitorHistoryListParams): Promise<MonitorExecutionListResponse> {
+    return this.http.get<MonitorExecutionListResponse>(`/v1/monitors/${monitorId}/executions`, {
+      params: params as Record<string, string | number | undefined>,
+    });
+  }
+
+  // ── Findings ──
+
+  async listFindings(monitorId: string, params?: MonitorHistoryListParams): Promise<MonitorFindingListResponse> {
+    return this.http.get<MonitorFindingListResponse>(`/v1/monitors/${monitorId}/findings`, {
+      params: params as Record<string, string | number | undefined>,
+    });
+  }
+
+  // ── Reviews ──
+
+  async listReviews(params?: MonitorReviewListParams): Promise<MonitorReviewListResponse> {
+    return this.http.get<MonitorReviewListResponse>('/v1/monitors/reviews', {
+      params: params as Record<string, string | number | undefined>,
+    });
+  }
+
+  async getReview(id: string): Promise<MonitorReview> {
+    return this.http.get<MonitorReview>(`/v1/monitors/reviews/${id}`);
+  }
+
+  async createReview(body: MonitorReviewCreateBody): Promise<MonitorReview> {
+    return this.http.post<MonitorReview>('/v1/monitors/reviews', body);
+  }
+
+  async updateReview(id: string, body: MonitorReviewUpdateBody): Promise<MonitorReview> {
+    return this.http.patch<MonitorReview>(`/v1/monitors/reviews/${id}`, body);
+  }
+
+  async claimReview(id: string): Promise<MonitorReview> {
+    return this.http.patch<MonitorReview>(`/v1/monitors/reviews/${id}`, { status: 'claimed' });
+  }
+
+  async resolveReview(id: string, decision: 'pass' | 'fail' | 'needs_fix', notes?: string): Promise<MonitorReview> {
+    return this.http.patch<MonitorReview>(`/v1/monitors/reviews/${id}`, { decision, ...(notes ? { notes } : {}) });
   }
 }

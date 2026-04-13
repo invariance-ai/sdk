@@ -1,5 +1,6 @@
 import { Invariance } from '../client.js';
 import type { EvalLaunchBody, ProviderTarget } from '../types/eval.js';
+import type { SimpleMonitorBody } from '../types/monitor.js';
 
 type ExitCode = 0 | 1;
 
@@ -31,6 +32,21 @@ export interface CliClient {
   };
   scorers: {
     list(): Promise<unknown[]>;
+  };
+  monitors: {
+    list(opts?: Record<string, string | undefined>): Promise<unknown[]>;
+    createSimple(body: SimpleMonitorBody): Promise<unknown>;
+    evaluate(id: string): Promise<unknown>;
+    listExecutions(id: string, params?: Record<string, string | number | undefined>): Promise<{ executions: unknown[]; next_cursor: string | null }>;
+    listFindings(id: string, params?: Record<string, string | number | undefined>): Promise<{ findings: unknown[]; next_cursor: string | null }>;
+    listReviews(params?: Record<string, string | number | undefined>): Promise<{ reviews: unknown[]; next_cursor: string | null }>;
+    claimReview(id: string): Promise<unknown>;
+    resolveReview(id: string, decision: string, notes?: string): Promise<unknown>;
+  };
+  signals: {
+    list(opts?: Record<string, string | boolean | number | undefined>): Promise<{ signals: unknown[]; next_cursor: string | null }>;
+    acknowledge(id: string): Promise<unknown>;
+    stats(): Promise<unknown>;
   };
   shutdown(): Promise<void>;
 }
@@ -143,6 +159,25 @@ Commands:
     node <node-id>                    Get facts for a node
     rebuild <session-id>              Force re-extraction
     aggregates [--kind <kind>] [--agent <id>] [--min-count <n>] [--limit <n>] [--offset <n>]
+
+  monitors      Monitor management
+    list [--status <active|paused>] [--agent <id>]
+    create-simple --name <name> --type <keyword|threshold> --field <field> [--value <value>] [--operator <gt|gte|lt|lte>] [--severity <low|medium|high|critical>] [--review] [--agent <id>]
+    evaluate <id>                     Evaluate a monitor
+    executions <id> [--limit <n>]     List executions for a monitor
+    findings <id> [--limit <n>]       List findings for a monitor
+
+  signals       Signal management
+    list [--severity <s>] [--agent <id>] [--session <id>] [--acknowledged <true|false>] [--limit <n>]
+    ack <id>                          Acknowledge a signal
+    stats                             Get signal statistics
+
+  reviews       Review queue management
+    list [--status <pending|claimed>] [--monitor <id>] [--limit <n>]
+    claim <id>                        Claim a review
+    resolve <id> --decision <pass|fail|needs_fix> [--notes <text>]
+
+  mcp             Start MCP server (stdio transport)
 
   ontology        Ontology candidate management
     list [--kind <concept|relation>] [--min-score <n>] [--entity-type <type>] [--limit <n>] [--offset <n>]
@@ -456,6 +491,163 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
             stderr('Available: list, get, mine');
             return 1;
         }
+      }
+      case 'monitors': {
+        if (!client) return 1;
+        switch (subcommand) {
+          case 'list': {
+            const status = getFlag(argv, '--status');
+            const agentId = getFlag(argv, '--agent');
+            const data = await client.monitors.list({ status, agent_id: agentId });
+            printTable(stdout, data as Array<Record<string, unknown>>, ['id', 'name', 'status', 'severity', 'check_type', 'triggers_count']);
+            return 0;
+          }
+          case 'create-simple': {
+            const name = requireFlag(argv, stderr, '--name', 'Usage: monitors create-simple --name <name> --type <keyword|threshold> --field <field> ...');
+            const type = requireFlag(argv, stderr, '--type', 'Usage: monitors create-simple --name <name> --type <keyword|threshold> --field <field> ...') as 'keyword' | 'threshold';
+            const field = requireFlag(argv, stderr, '--field', 'Usage: monitors create-simple --name <name> --type <keyword|threshold> --field <field> ...');
+            const value = getFlag(argv, '--value');
+            const operator = getFlag(argv, '--operator') as 'gt' | 'gte' | 'lt' | 'lte' | undefined;
+            const severity = getFlag(argv, '--severity') as SimpleMonitorBody['severity'];
+            const review = argv.includes('--review');
+            const agentId = getFlag(argv, '--agent');
+
+            const body: SimpleMonitorBody = {
+              name,
+              evaluator: {
+                type,
+                field,
+                ...(type === 'keyword' ? { value: value ?? '' } : {}),
+                ...(type === 'threshold' ? { value: value ? Number(value) : undefined, operator } : {}),
+              } as SimpleMonitorBody['evaluator'],
+              ...(severity ? { severity } : {}),
+              ...(review ? { review: true } : {}),
+              ...(agentId ? { agent_id: agentId } : {}),
+            };
+
+            const data = await client.monitors.createSimple(body);
+            printJson(stdout, data);
+            return 0;
+          }
+          case 'evaluate': {
+            if (!positional) {
+              stderr('Usage: monitors evaluate <id>');
+              return 1;
+            }
+            const data = await client.monitors.evaluate(positional);
+            printJson(stdout, data);
+            return 0;
+          }
+          case 'executions': {
+            if (!positional) {
+              stderr('Usage: monitors executions <id> [--limit <n>]');
+              return 1;
+            }
+            const limit = getFlag(argv, '--limit');
+            const data = await client.monitors.listExecutions(positional, limit ? { limit: parseInt(limit, 10) } : undefined);
+            printTable(stdout, data.executions as Array<Record<string, unknown>>, ['id', 'status', 'trigger_type', 'started_at', 'finished_at']);
+            return 0;
+          }
+          case 'findings': {
+            if (!positional) {
+              stderr('Usage: monitors findings <id> [--limit <n>]');
+              return 1;
+            }
+            const limit = getFlag(argv, '--limit');
+            const data = await client.monitors.listFindings(positional, limit ? { limit: parseInt(limit, 10) } : undefined);
+            printTable(stdout, data.findings as Array<Record<string, unknown>>, ['id', 'severity', 'title', 'status', 'created_at']);
+            return 0;
+          }
+          default:
+            stderr(`Unknown monitors subcommand: ${subcommand}`);
+            stderr('Available: list, create-simple, evaluate, executions, findings');
+            return 1;
+        }
+      }
+      case 'signals': {
+        if (!client) return 1;
+        switch (subcommand) {
+          case 'list': {
+            const severity = getFlag(argv, '--severity');
+            const agentId = getFlag(argv, '--agent');
+            const sessionId = getFlag(argv, '--session');
+            const acknowledged = getFlag(argv, '--acknowledged');
+            const limit = getFlag(argv, '--limit');
+            const data = await client.signals.list({
+              ...(severity ? { severity } : {}),
+              ...(agentId ? { agent_id: agentId } : {}),
+              ...(sessionId ? { session_id: sessionId } : {}),
+              ...(acknowledged != null ? { acknowledged: acknowledged === 'true' } : {}),
+              ...(limit ? { limit: parseInt(limit, 10) } : {}),
+            });
+            printTable(stdout, data.signals as Array<Record<string, unknown>>, ['id', 'source', 'severity', 'title', 'acknowledged', 'created_at']);
+            return 0;
+          }
+          case 'ack': {
+            if (!positional) {
+              stderr('Usage: signals ack <id>');
+              return 1;
+            }
+            await client.signals.acknowledge(positional);
+            stdout(`Signal ${positional} acknowledged`);
+            return 0;
+          }
+          case 'stats': {
+            const data = await client.signals.stats();
+            printJson(stdout, data);
+            return 0;
+          }
+          default:
+            stderr(`Unknown signals subcommand: ${subcommand}`);
+            stderr('Available: list, ack, stats');
+            return 1;
+        }
+      }
+      case 'reviews': {
+        if (!client) return 1;
+        switch (subcommand) {
+          case 'list': {
+            const status = getFlag(argv, '--status');
+            const monitorId = getFlag(argv, '--monitor');
+            const limit = getFlag(argv, '--limit');
+            const data = await client.monitors.listReviews({
+              ...(status ? { status } : {}),
+              ...(monitorId ? { monitor_id: monitorId } : {}),
+              ...(limit ? { limit: parseInt(limit, 10) } : {}),
+            });
+            printTable(stdout, data.reviews as Array<Record<string, unknown>>, ['id', 'finding_id', 'status', 'priority', 'assigned_to', 'created_at']);
+            return 0;
+          }
+          case 'claim': {
+            if (!positional) {
+              stderr('Usage: reviews claim <id>');
+              return 1;
+            }
+            await client.monitors.claimReview(positional);
+            stdout(`Review ${positional} claimed`);
+            return 0;
+          }
+          case 'resolve': {
+            if (!positional) {
+              stderr('Usage: reviews resolve <id> --decision <pass|fail|needs_fix> [--notes <text>]');
+              return 1;
+            }
+            const decision = requireFlag(argv, stderr, '--decision', 'Usage: reviews resolve <id> --decision <pass|fail|needs_fix> [--notes <text>]');
+            const notes = getFlag(argv, '--notes');
+            await client.monitors.resolveReview(positional, decision, notes);
+            stdout(`Review ${positional} resolved (${decision})`);
+            return 0;
+          }
+          default:
+            stderr(`Unknown reviews subcommand: ${subcommand}`);
+            stderr('Available: list, claim, resolve');
+            return 1;
+        }
+      }
+      case 'mcp': {
+        const { startMcpServer } = await import('../mcp/server.js');
+        await startMcpServer({ apiKey: apiKey, apiUrl: apiUrl });
+        return 0; // unreachable — server runs until killed
       }
       case 'help':
       case undefined:

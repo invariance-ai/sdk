@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "invariance": {
+      "command": "npx",
+      "args": ["invariance", "mcp"],
+      "env": {
+        "INVARIANCE_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
