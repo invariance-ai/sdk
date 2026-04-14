@@ -107,6 +107,8 @@ export class MonitorsResource {
   }
 
   async resolveReview(id: string, decision: 'pass' | 'fail' | 'needs_fix', notes?: string): Promise<MonitorReview> {
-    return this.http.patch<MonitorReview>(`/v1/monitors/reviews/${id}`, { decision, ...(notes ? { notes } : {}) });
+    const statusMap = { pass: 'passed', fail: 'failed', needs_fix: 'needs_fix' } as const;
+    const status = statusMap[decision];
+    return this.http.patch<MonitorReview>(`/v1/monitors/reviews/${id}`, { decision, status, ...(notes ? { notes } : {}) });
   }
 }

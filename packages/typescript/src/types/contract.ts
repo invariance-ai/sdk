@@ -43,13 +43,15 @@ export interface DeliveryProof {
 
 export interface SettlementProof {
   contractId: string;
-  sessionId: string;
-  chainValid: boolean;
   termsHash: string;
-  deliveryHash: string;
+  settlementHash: string;
+  sessionId: string;
+  sessionValid: boolean;
+  deliveryCount: number;
   signatures: {
     requestor: string;
     provider: string;
   };
-  timestamp: number;
+  deliveries: Array<{ id: string; outputHash: string }>;
+  settledAt: string;
 }

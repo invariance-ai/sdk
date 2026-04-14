@@ -2,8 +2,9 @@
 // Exposes the customer loop (monitors, signals, reviews) as MCP tools
 // over stdio transport. Connect with: invariance mcp
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { Invariance } from '../client.js';
 import type { MonitorsResource } from '../resources/monitors.js';
 import type { SignalsResource } from '../resources/signals.js';
@@ -24,25 +25,22 @@ export function createInvarianceMcpServer(config: McpServerConfig) {
   const monitorsRes = client.monitors.monitors;
   const signalsRes = client.monitors.signals;
 
-  const server = new McpServer({
-    name: 'invariance',
-    version: '1.0.0',
-  });
+  const server = new Server(
+    { name: 'invariance', version: '1.0.0' },
+    { capabilities: { tools: {} } },
+  );
 
-  // Register all tools
-  for (const tool of TOOLS) {
-    server.tool(
-      tool.name,
-      tool.description ?? '',
-      tool.inputSchema.properties ? (tool.inputSchema as { properties: Record<string, unknown> }).properties as Record<string, { type: string }> : {},
-      async (args) => {
-        const result = await handleToolCall(monitorsRes, signalsRes, tool.name, args);
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-        };
-      },
-    );
-  }
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: TOOLS,
+  }));
+
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    const result = await handleToolCall(monitorsRes, signalsRes, name, args ?? {});
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    };
+  });
 
   return server;
 }
