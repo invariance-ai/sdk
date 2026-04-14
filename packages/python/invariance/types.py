@@ -1061,13 +1061,13 @@ class TraceChainVerifyResult(TypedDict, total=False):
 
 # -- Signal ----------------------------------------------------------------
 
-SignalSource = Literal["monitor", "anomaly", "emit"]
+SignalSource = Literal["monitor", "emit", "detector"]
 SignalSeverity = Literal["low", "medium", "high", "critical"]
 
 
 class Signal(TypedDict, total=False):
     id: str
-    source: str  # SignalSource
+    source: SignalSource
     severity: str  # SignalSeverity
     owner_id: str
     monitor_id: str | None
@@ -1085,7 +1085,7 @@ class Signal(TypedDict, total=False):
 
 
 class SignalQuery(TypedDict, total=False):
-    source: str
+    source: SignalSource
     severity: str
     agent_id: str
     session_id: str
