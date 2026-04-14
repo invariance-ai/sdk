@@ -1,14 +1,12 @@
 export interface DeveloperIdentity {
   handle: string;
   public_key: string | null;
-  private_key?: string;
   api_key: string;
 }
 
 export interface OrgIdentity {
   name: string;
   public_key: string | null;
-  private_key?: string;
   api_key: string;
 }
 

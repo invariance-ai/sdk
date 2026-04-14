@@ -46,6 +46,14 @@ export class RunModule {
         agent,
         name: opts.name,
         id: sessionId,
+        runtime: {
+          sdk: 'typescript',
+          source: 'native',
+          external_agent_id: agent,
+          agent_name: agent.split('/').pop() ?? agent,
+          ...opts.runtime,
+        },
+        tags: opts.tags,
       });
       await provenanceSession.ready;
     } else {
@@ -53,6 +61,14 @@ export class RunModule {
         id: sessionId,
         name: opts.name,
         agent_id: agent,
+        runtime: {
+          sdk: 'typescript',
+          source: 'native',
+          external_agent_id: agent,
+          agent_name: agent.split('/').pop() ?? agent,
+          ...opts.runtime,
+        },
+        tags: opts.tags,
       });
     }
 

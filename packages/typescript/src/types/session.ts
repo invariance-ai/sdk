@@ -38,6 +38,8 @@ export interface SessionCreateOpts {
   id?: string;
   agent: string;
   name: string;
+  runtime?: SessionRuntimeMetadata;
+  tags?: string[];
 }
 
 export interface SessionCreateBody {

@@ -140,12 +140,16 @@ class Invariance:
         agent: str,
         name: str,
         id: str | None = None,
+        runtime: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
     ) -> Session:
         """Create a new session. Lazily initialized -- backend POST happens in background."""
         return Session(
             agent=agent,
             name=name,
             id=id,
+            runtime=runtime,
+            tags=tags,
             private_key=self._private_key,
             enqueue=self._batcher.enqueue,
             on_create=self._create_session_backend,
@@ -162,10 +166,16 @@ class Invariance:
         await self.resources.sessions.close(id, status, close_hash)
 
     async def create_session(
-        self, *, agent: str, name: str, id: str | None = None
+        self,
+        *,
+        agent: str,
+        name: str,
+        id: str | None = None,
+        runtime: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
     ) -> Session:
         """Create a session and await its backend creation before returning."""
-        s = self.session(agent=agent, name=name, id=id)
+        s = self.session(agent=agent, name=name, id=id, runtime=runtime, tags=tags)
         await s.ready
         return s
 

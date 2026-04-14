@@ -1,9 +1,11 @@
 import type { TraceNodeCustomHeaders, TraceNodeCustomAttributes } from './trace.js';
+import type { SessionRuntimeMetadata } from './session.js';
 
 export interface RunStartOpts {
   name: string;
   agent?: string;
   tags?: string[];
+  runtime?: SessionRuntimeMetadata;
   custom_attributes?: TraceNodeCustomAttributes;
 }
 
