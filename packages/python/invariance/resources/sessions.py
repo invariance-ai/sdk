@@ -11,7 +11,9 @@ class SessionsResource:
         self._http = http
 
     async def create(self, opts: dict[str, Any]) -> dict[str, Any]:
-        return await self._http.post("/v1/sessions", opts)
+        return await self._http.post(
+            "/v1/sessions", {key: value for key, value in opts.items() if value is not None}
+        )
 
     async def list(self, opts: SessionListOpts | None = None) -> list[RemoteSession]:
         return await self._http.get("/v1/sessions", params=opts)

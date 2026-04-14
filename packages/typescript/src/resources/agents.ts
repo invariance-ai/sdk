@@ -6,7 +6,7 @@ export class AgentsResource {
 
   async create(opts: {
     name: string;
-    crypto?: 'none' | 'generate' | { public_key: string };
+    public_key?: string;
   }): Promise<AgentRecord> {
     return this.http.post<AgentRecord>('/v1/agents', opts);
   }

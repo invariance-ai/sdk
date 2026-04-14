@@ -23,6 +23,8 @@ class Session:
         agent: str,
         name: str,
         id: str | None = None,
+        runtime: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
         private_key: str | None = None,
         enqueue: EnqueueFn,
         on_create: SessionCreateFn,
@@ -31,6 +33,8 @@ class Session:
         self.id = id or str(ULID())
         self.agent = agent
         self.name = name
+        self.runtime = runtime
+        self.tags = tags
         self._private_key = private_key
         self._enqueue = enqueue
         self._on_create = on_create
@@ -48,7 +52,13 @@ class Session:
         if self._ready_task is None:
             self._ready_task = asyncio.create_task(
                 self._on_create(
-                    {"id": self.id, "name": self.name, "agent_id": self.agent}
+                    {
+                        "id": self.id,
+                        "name": self.name,
+                        "agent_id": self.agent,
+                        "runtime": self.runtime,
+                        "tags": self.tags,
+                    }
                 )
             )
         await asyncio.shield(self._ready_task)

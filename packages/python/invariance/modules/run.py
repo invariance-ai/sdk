@@ -80,6 +80,7 @@ class RunModule:
         name: str,
         agent: str | None = None,
         tags: list[str] | None = None,
+        runtime: dict[str, Any] | None = None,
     ) -> Run:
         agent = agent or self._agent
         if not agent:
@@ -97,12 +98,34 @@ class RunModule:
         )
         if provenance_enabled and self._session_factory:
             provenance_session = self._session_factory(
-                agent=agent, name=name, id=session_id
+                agent=agent,
+                name=name,
+                id=session_id,
+                runtime={
+                    "sdk": "python",
+                    "source": "native",
+                    "external_agent_id": agent,
+                    "agent_name": agent.split("/")[-1],
+                    **(runtime or {}),
+                },
+                tags=tags,
             )
             await provenance_session.ready
         else:
             await self._resources.sessions.create(
-                {"id": session_id, "name": name, "agent_id": agent}
+                {
+                    "id": session_id,
+                    "name": name,
+                    "agent_id": agent,
+                    "runtime": {
+                        "sdk": "python",
+                        "source": "native",
+                        "external_agent_id": agent,
+                        "agent_name": agent.split("/")[-1],
+                        **(runtime or {}),
+                    },
+                    "tags": tags,
+                }
             )
 
         return Run(

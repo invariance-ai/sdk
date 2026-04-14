@@ -94,6 +94,8 @@ class SessionCreateOpts(TypedDict, total=False):
     id: str
     agent: str
     name: str
+    runtime: SessionRuntimeMetadata
+    tags: list[str]
 
 
 class SessionListOpts(TypedDict, total=False):
@@ -112,7 +114,6 @@ class AgentRecord(TypedDict):
     api_key: str
     public_key: Optional[str]
     created_at: str
-    private_key: NotRequired[str]
 
 
 class AgentMetrics(TypedDict):
@@ -596,14 +597,12 @@ class DeveloperIdentity(TypedDict):
     handle: str
     public_key: Optional[str]
     api_key: str
-    private_key: NotRequired[str]
 
 
 class OrgIdentity(TypedDict):
     name: str
     public_key: Optional[str]
     api_key: str
-    private_key: NotRequired[str]
 
 
 class AgentIdentity(TypedDict):

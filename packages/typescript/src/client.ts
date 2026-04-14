@@ -151,6 +151,8 @@ export class Invariance {
       agent: opts.agent,
       name: opts.name,
       id: opts.id,
+      runtime: opts.runtime,
+      tags: opts.tags,
       privateKey: this.privateKey,
       enqueue: (receipt) => this.batcher.enqueue(receipt),
       onCreate: (createOpts) => this.resources.sessions.create(createOpts).then(() => {}),

@@ -3,16 +3,19 @@ import { createReceipt } from './receipt.js';
 import { InvarianceError } from './errors.js';
 import type { Receipt } from './types/receipt.js';
 import type { SessionInfo } from './types/session.js';
+import type { SessionRuntimeMetadata } from './types/session.js';
 import type { Action } from './types/config.js';
 
 export type EnqueueFn = (receipt: Receipt) => void;
-export type SessionCreateFn = (opts: { id: string; name: string; agent_id?: string }) => Promise<void>;
+export type SessionCreateFn = (opts: { id: string; name: string; agent_id?: string; runtime?: SessionRuntimeMetadata; tags?: string[] }) => Promise<void>;
 export type SessionCloseFn = (id: string, status: string, closeHash: string) => Promise<void>;
 
 export interface SessionOpts {
   agent: string;
   name: string;
   id?: string;
+  runtime?: SessionRuntimeMetadata;
+  tags?: string[];
   privateKey?: string;
   enqueue: EnqueueFn;
   onCreate: SessionCreateFn;
@@ -48,7 +51,7 @@ export class Session {
     });
 
     // Fire session creation in background
-    opts.onCreate({ id: this.id, name: this.name, agent_id: opts.agent })
+    opts.onCreate({ id: this.id, name: this.name, agent_id: opts.agent, runtime: opts.runtime, tags: opts.tags })
       .then(() => this.readyResolve())
       .catch((err) => this.readyReject(err));
   }

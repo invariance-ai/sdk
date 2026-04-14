@@ -10,7 +10,7 @@ class AgentsResource:
     def __init__(self, http: HttpClient) -> None:
         self._http = http
 
-    async def create(self, opts: dict[str, str]) -> AgentRecord:
+    async def create(self, opts: dict[str, str | None]) -> AgentRecord:
         return await self._http.post("/v1/agents", opts)
 
     async def list(self) -> list[AgentRecord]:
