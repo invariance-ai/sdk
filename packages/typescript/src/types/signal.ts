@@ -1,4 +1,4 @@
-export type SignalSource = 'monitor' | 'anomaly' | 'emit' | 'detector';
+export type SignalSource = 'monitor' | 'emit' | 'detector';
 export type SignalSeverity = 'low' | 'medium' | 'high' | 'critical';
 
 export interface Signal {
